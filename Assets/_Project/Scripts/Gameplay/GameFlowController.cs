@@ -30,6 +30,12 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textDebt;
 
+    [Header("HUD Health")]
+    [SerializeField] private HealthUI healthUI;
+
+    [Header("HUD XP")]
+    [SerializeField] private XPUI xpUI;
+
     [Header("Settlement Text")]
     [SerializeField] private TMP_Text textDue;
     [SerializeField] private TMP_Text textPaid;
@@ -101,15 +107,46 @@ public class GameFlowController : MonoBehaviour
         RefreshHUD();
     }
 
-    // 捡到XP会调用这个（现在先只累计，下一步再做升级弹窗）
+    // 捡到XP会调用这个
     public void AddXP(int amount)
     {
         int v = Mathf.Max(0, amount);
         if (v == 0) return;
 
         xp += v;
-        // TODO: 下一步做 XP 环 / 升级面板触发
+        
+        // 检查是否升级
+        while (xp >= xpToNext)
+        {
+            xp -= xpToNext;
+            LevelUp();
+            
+            // 升级后立即更新UI显示
+            if (xpUI != null)
+                xpUI.UpdateXPDisplay();
+        }
+
+        // 更新XP UI
+        if (xpUI != null)
+            xpUI.UpdateXPDisplay();
     }
+
+    private void LevelUp()
+    {
+        level += 1;
+        xpToNext = Mathf.RoundToInt(xpToNext * 1.1f); // 每次升级下一级所需经验增加10%
+        
+        Debug.Log($"升级到 {level} 级！下一级需要 {xpToNext} 点经验");
+    }
+
+    /// <summary>获取当前等级</summary>
+    public int GetLevel() => level;
+
+    /// <summary>获取当前XP</summary>
+    public int GetCurrentXP() => xp;
+
+    /// <summary>获取升级所需XP</summary>
+    public int GetXPToNext() => xpToNext;
 
     // UI Button: Start
     public void StartRun()
@@ -118,7 +155,21 @@ public class GameFlowController : MonoBehaviour
         roundIndex = 1;
         cash = 0;
         xp = 0;
+        level = 1;
+        xpToNext = 10;
         debtRemaining = startingDebt;
+
+        // 重置玩家血量和血量UI
+        var playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth != null)
+            playerHealth.RestoreHealth();
+        
+        if (healthUI != null)
+            healthUI.ResetHealthUI();
+
+        // 重置XP UI
+        if (xpUI != null)
+            xpUI.UpdateXPDisplay();
 
         SwitchState(GameState.Gameplay);
         StartRoundTimer();
@@ -182,6 +233,14 @@ public class GameFlowController : MonoBehaviour
     public void Restart()
     {
         StartRun();
+    }
+
+    // 玩家受到致命伤害 - 触发游戏结束
+    public void TriggerGameOver()
+    {
+        if (state != GameState.Gameplay) return;
+        StopRoundTimer();
+        SwitchState(GameState.GameOver);
     }
 
     // UI Button: Main Menu

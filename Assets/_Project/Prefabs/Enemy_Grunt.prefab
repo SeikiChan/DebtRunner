@@ -187,6 +187,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
   projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
-  fireInterval: 1.2
+  fireInterval: 2.5
   projectileSpeed: 6
   damage: 1
