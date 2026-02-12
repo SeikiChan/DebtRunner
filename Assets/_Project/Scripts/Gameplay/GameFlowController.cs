@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using UnityEngine;
 
@@ -36,6 +36,9 @@ public class GameFlowController : MonoBehaviour
     [Header("HUD XP")]
     [SerializeField] private XPUI xpUI;
 
+    [Header("Level Up Rewards")]
+    [SerializeField] private LevelUpPanel levelUpPanel;
+
     [Header("Settlement Text")]
     [SerializeField] private TMP_Text textDue;
     [SerializeField] private TMP_Text textPaid;
@@ -52,6 +55,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
     [SerializeField] private int xpToNext = 10;
+
+    // 升级选项数据库
+    private WeaponUpgrade[] allUpgrades;
 
 
     [Header("Gameplay Systems")]
@@ -74,6 +80,9 @@ public class GameFlowController : MonoBehaviour
         }
         Instance = this;
 
+        // 初始化升级选项库
+        InitializeUpgrades();
+
         // 初始数据
         roundIndex = 1;
         cash = 0;
@@ -83,6 +92,21 @@ public class GameFlowController : MonoBehaviour
         // 初始界面：只显示Title
         SwitchState(GameState.Title);
         RefreshHUD();
+    }
+
+    /// <summary>
+    /// 初始化所有可用的升级选项
+    /// </summary>
+    private void InitializeUpgrades()
+    {
+        allUpgrades = new WeaponUpgrade[]
+        {
+            new WeaponUpgrade("伤害强化 I", "提升伤害 +1", null, power: 1, speed: 0),
+            new WeaponUpgrade("速度强化 I", "提升弹速 +2", null, power: 0, speed: 2),
+            new WeaponUpgrade("攻速强化 I", "提升攻速 +0.05/秒", null, power: 0, fireRate: 0.05f),
+            new WeaponUpgrade("伤害强化 II", "提升伤害 +2", null, power: 2, speed: 0),
+            new WeaponUpgrade("多功能强化", "伤害+1 弹速+1", null, power: 1, speed: 1),
+        };
     }
 
     private void Update()
@@ -132,11 +156,63 @@ public class GameFlowController : MonoBehaviour
     }
 
     private void LevelUp()
+{
+    level += 1;
+    xpToNext = Mathf.RoundToInt(xpToNext * 1.1f);
+
+    Debug.Log($"升级到 {level} 级！下一级需要 {xpToNext} 点经验");
+
+    if (levelUpPanel != null)
     {
-        level += 1;
-        xpToNext = Mathf.RoundToInt(xpToNext * 1.1f); // 每次升级下一级所需经验增加10%
-        
-        Debug.Log($"升级到 {level} 级！下一级需要 {xpToNext} 点经验");
+        WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
+        levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
+
+        // 只有面板存在且成功走到这里才暂停游戏
+        Time.timeScale = 0f;
+    }
+}
+
+
+    /// <summary>
+    /// 随机选择升级选项
+    /// </summary>
+    private WeaponUpgrade[] SelectRandomUpgrades(int count)
+    {
+        if (allUpgrades == null || allUpgrades.Length < count)
+        {
+            Debug.LogError("升级选项不足");
+            return new WeaponUpgrade[0];
+        }
+
+        WeaponUpgrade[] selected = new WeaponUpgrade[count];
+        System.Collections.Generic.List<int> indices = new System.Collections.Generic.List<int>();
+
+        // 随机选择不重复的索引
+        for (int i = 0; i < allUpgrades.Length; i++)
+            indices.Add(i);
+
+        for (int i = 0; i < count; i++)
+        {
+            int randomIdx = Random.Range(0, indices.Count);
+            selected[i] = allUpgrades[indices[randomIdx]];
+            indices.RemoveAt(randomIdx);
+        }
+
+        return selected;
+    }
+
+    /// <summary>
+    /// 玩家选择了升级
+    /// </summary>
+    private void OnUpgradeSelected(WeaponUpgrade upgrade)
+    {
+        if (playerShooter != null)
+            playerShooter.ApplyUpgrade(upgrade);
+
+        // 恢复游戏时间
+        Time.timeScale = 1f;
+
+        Debug.Log($"应用升级: {upgrade.title}");
     }
 
     /// <summary>获取当前等级</summary>
@@ -151,6 +227,9 @@ public class GameFlowController : MonoBehaviour
     // UI Button: Start
     public void StartRun()
     {
+        // 恢复游戏时间（以防还在暂停状态）
+        Time.timeScale = 1f;
+
         // 新开局：重置
         roundIndex = 1;
         cash = 0;
@@ -171,6 +250,10 @@ public class GameFlowController : MonoBehaviour
         if (xpUI != null)
             xpUI.UpdateXPDisplay();
 
+        // 隐藏升级面板并重置武器
+        if (levelUpPanel != null)
+            levelUpPanel.ForceHideImmediate();
+
         SwitchState(GameState.Gameplay);
         StartRoundTimer();
         RefreshHUD();
@@ -180,8 +263,7 @@ public class GameFlowController : MonoBehaviour
     public void EndRound()
     {
         if (state != GameState.Gameplay) return;
-
-        StopRoundTimer();
+        Time.timeScale = 1f;        StopRoundTimer();
 
         // 注意：已移除“随机加钱”。现金应来自击杀敌人时 AddCash(固定值)。
 
@@ -195,6 +277,8 @@ public class GameFlowController : MonoBehaviour
     {
         if (state != GameState.Settlement) return;
 
+        Time.timeScale = 1f;
+
         int due = CalcDue(roundIndex, debtRemaining);
         if (cash < due)
         {
@@ -207,6 +291,7 @@ public class GameFlowController : MonoBehaviour
 
     public void EnterShop()
     {
+        Time.timeScale = 1f;
         SwitchState(GameState.Shop);
         RefreshHUD();
     }
@@ -215,6 +300,8 @@ public class GameFlowController : MonoBehaviour
     public void NextRound()
     {
         if (state != GameState.Shop) return;
+
+        Time.timeScale = 1f;
 
         roundIndex += 1;
         if (roundIndex > totalRounds)
@@ -239,6 +326,7 @@ public class GameFlowController : MonoBehaviour
     public void TriggerGameOver()
     {
         if (state != GameState.Gameplay) return;
+        Time.timeScale = 1f; // 确保游戏时间恢复
         StopRoundTimer();
         SwitchState(GameState.GameOver);
     }
@@ -246,6 +334,8 @@ public class GameFlowController : MonoBehaviour
     // UI Button: Main Menu
     public void BackToMenu()
     {
+        // 确保游戏时间恢复
+        Time.timeScale = 1f;
         StopRoundTimer();
         SwitchState(GameState.Title);
     }

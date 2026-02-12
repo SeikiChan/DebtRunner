@@ -15,10 +15,23 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private Transform muzzle;
 
     private float timer;
+    
+    // 初始武器参数（用于计算升级倍数）
+    private float baseFireInterval;
+    private float baseProjectileSpeed;
+    private int baseDamage;
 
     private void Reset()
     {
         motor = GetComponent<PlayerMotor2D>();
+    }
+
+    private void Awake()
+    {
+        // 保存初始参数
+        baseFireInterval = fireInterval;
+        baseProjectileSpeed = projectileSpeed;
+        baseDamage = damage;
     }
 
     private void OnEnable()
@@ -42,4 +55,32 @@ public class PlayerShooter : MonoBehaviour
         var proj = Instantiate(projectilePrefab, spawnPos, Quaternion.identity, projectilesRoot);
         proj.Fire(dir, projectileSpeed, damage);
     }
+
+    /// <summary>
+    /// 应用武器升级
+    /// </summary>
+    public void ApplyUpgrade(WeaponUpgrade upgrade)
+    {
+        if (upgrade == null) return;
+
+        damage += upgrade.upgradePower;
+
+        if (upgrade.upgradeFireRate > 0)
+            fireInterval -= upgrade.upgradeFireRate; // 升级攻速后间隔减少（更快）
+
+        if (upgrade.upgradeSpeed > 0)
+            projectileSpeed += upgrade.upgradeSpeed;
+
+        Debug.Log($"升级应用: 伤害={damage}, 攻速={1f / fireInterval:F2}/秒, 弹速={projectileSpeed}");
+    }
+
+    /// <summary>
+    /// 获取当前伤害
+    /// </summary>
+    public int GetDamage() => damage;
+
+    /// <summary>
+    /// 获取当前攻速
+    /// </summary>
+    public float GetFireRate() => 1f / fireInterval;
 }
