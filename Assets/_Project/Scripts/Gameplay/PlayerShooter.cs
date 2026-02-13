@@ -46,14 +46,42 @@ public class PlayerShooter : MonoBehaviour
         timer -= Time.deltaTime;
         if (timer > 0f) return;
 
-        Vector2 dir = motor.LastMoveDir;
-        if (dir.sqrMagnitude < 0.001f) return;
+        // 获取最近的敌人
+        EnemyController nearestEnemy = GetNearestEnemy();
+        if (nearestEnemy == null) return; // 没有敌人就不射击
+
+        // 计算指向最近敌人的方向
+        Vector2 dir = ((Vector2)nearestEnemy.transform.position - (Vector2)transform.position).normalized;
 
         timer = fireInterval;
 
         Vector3 spawnPos = muzzle ? muzzle.position : transform.position;
         var proj = Instantiate(projectilePrefab, spawnPos, Quaternion.identity, projectilesRoot);
         proj.Fire(dir, projectileSpeed, damage);
+    }
+
+    /// <summary>
+    /// 获取最近的敌人
+    /// </summary>
+    private EnemyController GetNearestEnemy()
+    {
+        EnemyController[] enemies = FindObjectsOfType<EnemyController>();
+        if (enemies.Length == 0) return null;
+
+        EnemyController nearest = enemies[0];
+        float nearestDistance = Vector2.Distance(transform.position, nearest.transform.position);
+
+        for (int i = 1; i < enemies.Length; i++)
+        {
+            float distance = Vector2.Distance(transform.position, enemies[i].transform.position);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearest = enemies[i];
+            }
+        }
+
+        return nearest;
     }
 
     /// <summary>
