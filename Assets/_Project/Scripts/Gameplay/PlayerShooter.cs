@@ -15,8 +15,7 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private Transform muzzle;
 
     private float timer;
-    
-    // 初始武器参数（用于计算升级倍数）
+
     private float baseFireInterval;
     private float baseProjectileSpeed;
     private int baseDamage;
@@ -28,7 +27,6 @@ public class PlayerShooter : MonoBehaviour
 
     private void Awake()
     {
-        // 保存初始参数
         baseFireInterval = fireInterval;
         baseProjectileSpeed = projectileSpeed;
         baseDamage = damage;
@@ -46,11 +44,9 @@ public class PlayerShooter : MonoBehaviour
         timer -= Time.deltaTime;
         if (timer > 0f) return;
 
-        // 获取最近的敌人
         EnemyController nearestEnemy = GetNearestEnemy();
-        if (nearestEnemy == null) return; // 没有敌人就不射击
+        if (nearestEnemy == null) return;
 
-        // 计算指向最近敌人的方向
         Vector2 dir = ((Vector2)nearestEnemy.transform.position - (Vector2)transform.position).normalized;
 
         timer = fireInterval;
@@ -60,9 +56,6 @@ public class PlayerShooter : MonoBehaviour
         proj.Fire(dir, projectileSpeed, damage);
     }
 
-    /// <summary>
-    /// 获取最近的敌人
-    /// </summary>
     private EnemyController GetNearestEnemy()
     {
         EnemyController[] enemies = FindObjectsOfType<EnemyController>();
@@ -84,9 +77,6 @@ public class PlayerShooter : MonoBehaviour
         return nearest;
     }
 
-    /// <summary>
-    /// 应用武器升级
-    /// </summary>
     public void ApplyUpgrade(WeaponUpgrade upgrade)
     {
         if (upgrade == null) return;
@@ -94,21 +84,17 @@ public class PlayerShooter : MonoBehaviour
         damage += upgrade.upgradePower;
 
         if (upgrade.upgradeFireRate > 0)
-            fireInterval -= upgrade.upgradeFireRate; // 升级攻速后间隔减少（更快）
+            fireInterval -= upgrade.upgradeFireRate;
 
         if (upgrade.upgradeSpeed > 0)
             projectileSpeed += upgrade.upgradeSpeed;
 
-        Debug.Log($"升级应用: 伤害={damage}, 攻速={1f / fireInterval:F2}/秒, 弹速={projectileSpeed}");
+        fireInterval = Mathf.Max(0.05f, fireInterval);
+
+        RunLogger.Event($"Weapon upgraded: damage={damage}, fireRate={1f / fireInterval:F2}/s, projectileSpeed={projectileSpeed:F2}");
     }
 
-    /// <summary>
-    /// 获取当前伤害
-    /// </summary>
     public int GetDamage() => damage;
 
-    /// <summary>
-    /// 获取当前攻速
-    /// </summary>
     public float GetFireRate() => 1f / fireInterval;
 }

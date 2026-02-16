@@ -9,29 +9,33 @@ public class PlayerHealth : MonoBehaviour
     private int hp;
     private bool invuln;
 
-    /// <summary>当前生命值</summary>
+    /// <summary>Current HP.</summary>
     public int CurrentHP => hp;
-    
-    /// <summary>最大生命值</summary>
+
+    /// <summary>Max HP.</summary>
     public int MaxHP => maxHP;
 
     private void Awake() => hp = maxHP;
 
-    /// <summary>重置血量为满血</summary>
+    /// <summary>Reset player HP to full.</summary>
     public void RestoreHealth()
     {
         hp = maxHP;
         invuln = false;
+        RunLogger.Event($"Player health restored: {hp}/{maxHP}");
     }
 
     public void TakeDamage(int dmg)
     {
         if (invuln) return;
 
-        hp -= Mathf.Max(1, dmg);
+        int actualDamage = Mathf.Max(1, dmg);
+        hp -= actualDamage;
+        RunLogger.Warning($"Player took damage: -{actualDamage}, hp={Mathf.Max(hp, 0)}/{maxHP}");
+
         if (hp <= 0)
         {
-            // 玩家死亡 - 触发游戏结束
+            RunLogger.Warning("Player died.");
             GameFlowController.Instance.TriggerGameOver();
             return;
         }

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameFlowController : MonoBehaviour
 {
@@ -29,6 +30,14 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textRound;
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textDebt;
+    [SerializeField] private float roundIntroSeconds = 2.5f;
+
+    [Header("Round Intro Overlay (Optional)")]
+    [SerializeField] private CanvasGroup roundIntroOverlay;
+    [SerializeField] private TMP_Text roundIntroRoundText;
+    [SerializeField] private TMP_Text roundIntroDebtText;
+    [SerializeField] private float roundIntroFadeInSeconds = 0.15f;
+    [SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
 
     [Header("HUD Health")]
     [SerializeField] private HealthUI healthUI;
@@ -46,7 +55,6 @@ public class GameFlowController : MonoBehaviour
 
     [Header("Run Config (temporary numbers)")]
     [SerializeField] private int totalRounds = 10;
-    [SerializeField] private int startingDebt = 5000;
     [SerializeField] private int baseDue = 500;
     [SerializeField] private int stepDue = 200;
     [SerializeField] private float roundDurationSeconds = 30f;
@@ -63,12 +71,20 @@ public class GameFlowController : MonoBehaviour
     [Header("Gameplay Systems")]
     [SerializeField] private EnemySpawner enemySpawner;
     [SerializeField] private PlayerShooter playerShooter;
+    [SerializeField] private ShopSystem shopSystem;
+
+    [Header("Fail Animation (Optional)")]
+    [SerializeField] private Animator failAnimator;
+    [SerializeField] private string failTriggerName = "Fail";
 
     private GameState state;
     private int roundIndex;          // 1-based
     private int cash;
-    private int debtRemaining;
     private Coroutine roundTimerCo;
+    private Coroutine roundIntroCo;
+    private bool roundIntroOverlayAutoCreated;
+    private bool roundIntroActive;
+    private readonly RunProgressionState runProgression = new RunProgressionState();
 
     private void Awake()
     {
@@ -80,6 +96,12 @@ public class GameFlowController : MonoBehaviour
         }
         Instance = this;
 
+        if (enemySpawner == null)
+            enemySpawner = FindObjectOfType<EnemySpawner>();
+        if (playerShooter == null)
+            playerShooter = FindObjectOfType<PlayerShooter>();
+        EnsureShopSystemBound();
+
         // 初始化升级选项库
         InitializeUpgrades();
 
@@ -87,7 +109,10 @@ public class GameFlowController : MonoBehaviour
         roundIndex = 1;
         cash = 0;
         xp = 0;
-        debtRemaining = startingDebt;
+        runProgression.Reset();
+        runProgression.BeginRound();
+
+        RunLogger.Event($"GameFlow ready: rounds={totalRounds}, round1Due={CalcDue(1)}, dueStep={stepDue}, roundDuration={roundDurationSeconds:F1}s");
 
         // 初始界面：只显示Title
         SwitchState(GameState.Title);
@@ -128,7 +153,9 @@ public class GameFlowController : MonoBehaviour
         if (v == 0) return;
 
         cash += v;
+        RunLogger.Event($"Cash +{v}, total={cash}");
         RefreshHUD();
+        if (shopSystem != null) shopSystem.RefreshShopUI();
     }
 
     // 捡到XP会调用这个
@@ -138,6 +165,7 @@ public class GameFlowController : MonoBehaviour
         if (v == 0) return;
 
         xp += v;
+        RunLogger.Event($"XP +{v}, current={xp}/{xpToNext}, level={level}");
         
         // 检查是否升级
         while (xp >= xpToNext)
@@ -155,12 +183,12 @@ public class GameFlowController : MonoBehaviour
             xpUI.UpdateXPDisplay();
     }
 
-    private void LevelUp()
+private void LevelUp()
 {
     level += 1;
     xpToNext = Mathf.RoundToInt(xpToNext * 1.1f);
 
-    Debug.Log($"升级到 {level} 级！下一级需要 {xpToNext} 点经验");
+    RunLogger.Event($"Level up -> {level}, nextXP={xpToNext}");
 
     if (levelUpPanel != null)
     {
@@ -180,7 +208,7 @@ public class GameFlowController : MonoBehaviour
     {
         if (allUpgrades == null || allUpgrades.Length < count)
         {
-            Debug.LogError("升级选项不足");
+            RunLogger.Error("Upgrade options are not enough.");
             return new WeaponUpgrade[0];
         }
 
@@ -212,7 +240,7 @@ public class GameFlowController : MonoBehaviour
         // 恢复游戏时间
         Time.timeScale = 1f;
 
-        Debug.Log($"应用升级: {upgrade.title}");
+        RunLogger.Event($"Upgrade selected: {upgrade.title}");
     }
 
     /// <summary>获取当前等级</summary>
@@ -236,25 +264,29 @@ public class GameFlowController : MonoBehaviour
         xp = 0;
         level = 1;
         xpToNext = 10;
-        debtRemaining = startingDebt;
+        runProgression.Reset();
+        runProgression.BeginRound();
+
+        RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
 
         // 重置玩家血量和血量UI
         var playerHealth = FindObjectOfType<PlayerHealth>();
         if (playerHealth != null)
             playerHealth.RestoreHealth();
-        
-        if (healthUI != null)
-            healthUI.ResetHealthUI();
-
-        // 重置XP UI
-        if (xpUI != null)
-            xpUI.UpdateXPDisplay();
 
         // 隐藏升级面板并重置武器
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
 
         SwitchState(GameState.Gameplay);
+        ShowRoundIntro();
+
+        if (healthUI != null)
+            healthUI.ResetHealthUI();
+
+        if (xpUI != null)
+            xpUI.UpdateXPDisplay();
+
         StartRoundTimer();
         RefreshHUD();
     }
@@ -263,9 +295,11 @@ public class GameFlowController : MonoBehaviour
     public void EndRound()
     {
         if (state != GameState.Gameplay) return;
-        Time.timeScale = 1f;        StopRoundTimer();
+        Time.timeScale = 1f;
+        StopRoundTimer();
 
         // 注意：已移除“随机加钱”。现金应来自击杀敌人时 AddCash(固定值)。
+        RunLogger.Event($"Round {roundIndex} ended. cash={cash}, level={level}, xp={xp}/{xpToNext}");
 
         SwitchState(GameState.Settlement);
         ApplySettlement();
@@ -279,12 +313,18 @@ public class GameFlowController : MonoBehaviour
 
         Time.timeScale = 1f;
 
-        int due = CalcDue(roundIndex, debtRemaining);
+        int due = CalcDue(roundIndex);
         if (cash < due)
         {
+            RunLogger.Warning($"Settlement failed: cash={cash}, due={due}");
+            PlayFailAnimation();
             SwitchState(GameState.GameOver);
             return;
         }
+
+        // 支付本轮债务
+        cash -= due;
+        RunLogger.Event($"Settlement passed: due={due}, paid={due}, cashLeft={cash}");
 
         EnterShop();
     }
@@ -292,7 +332,11 @@ public class GameFlowController : MonoBehaviour
     public void EnterShop()
     {
         Time.timeScale = 1f;
+        RunLogger.Event($"Enter shop at round {roundIndex}. cash={cash}, currentDue={CalcDue(roundIndex)}, nextDue={CalcDue(roundIndex + 1)}");
         SwitchState(GameState.Shop);
+        EnsureShopSystemBound();
+        if (shopSystem != null)
+            shopSystem.OpenShop();
         RefreshHUD();
     }
 
@@ -304,14 +348,22 @@ public class GameFlowController : MonoBehaviour
         Time.timeScale = 1f;
 
         roundIndex += 1;
-        if (roundIndex > totalRounds)
+        int bossRound = GetBossRoundIndex();
+        if (roundIndex > bossRound)
         {
-            // 临时：先回Title当作占位胜利（后面换Boss链路）
+            RunLogger.Event("Reached end of boss round. Return to title.");
             SwitchState(GameState.Title);
             return;
         }
 
+        if (roundIndex == bossRound)
+            RunLogger.Event($"Enter boss round: {roundIndex}/{totalRounds}");
+        else
+            RunLogger.Event($"Next round -> {roundIndex}");
+
+        runProgression.BeginRound();
         SwitchState(GameState.Gameplay);
+        ShowRoundIntro();
         StartRoundTimer();
         RefreshHUD();
     }
@@ -326,6 +378,8 @@ public class GameFlowController : MonoBehaviour
     public void TriggerGameOver()
     {
         if (state != GameState.Gameplay) return;
+        RunLogger.Warning($"Game over triggered. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}");
+        PlayFailAnimation();
         Time.timeScale = 1f; // 确保游戏时间恢复
         StopRoundTimer();
         SwitchState(GameState.GameOver);
@@ -337,12 +391,14 @@ public class GameFlowController : MonoBehaviour
         // 确保游戏时间恢复
         Time.timeScale = 1f;
         StopRoundTimer();
+        RunLogger.Event("Back to title menu.");
         SwitchState(GameState.Title);
     }
 
     // UI Button: Quit
     public void QuitGame()
     {
+        RunLogger.Event("Quit game requested.");
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.ExitPlaymode();
 #else
@@ -350,11 +406,82 @@ public class GameFlowController : MonoBehaviour
 #endif
     }
 
+    public int GetCashAmount() => cash;
+
+    public bool TrySpendCash(int amount)
+    {
+        int v = Mathf.Max(0, amount);
+        if (v == 0) return true;
+        if (cash < v) return false;
+
+        cash -= v;
+        RunLogger.Event($"Cash spent: -{v}, total={cash}");
+        RefreshHUD();
+        if (shopSystem != null) shopSystem.RefreshShopUI();
+        return true;
+    }
+
+    public void ApplyShopUpgrade(WeaponUpgrade upgrade)
+    {
+        if (upgrade == null) return;
+
+        if (playerShooter == null)
+            playerShooter = FindObjectOfType<PlayerShooter>();
+
+        if (playerShooter == null)
+        {
+            RunLogger.Warning($"Shop upgrade failed: shooter missing. {upgrade.title}");
+            return;
+        }
+
+        playerShooter.ApplyUpgrade(upgrade);
+        RunLogger.Event($"Shop upgrade applied: {upgrade.title}");
+    }
+
+    public void AddDebtPenaltyToNextRound(int amount)
+    {
+        int v = Mathf.Max(0, amount);
+        if (v == 0) return;
+
+        runProgression.AddDebtIncreaseToNextRound(v);
+        RunLogger.Warning($"Next round debt increased by {v}. pending={runProgression.NextRoundDebtIncrease}");
+        if (shopSystem != null) shopSystem.RefreshShopUI();
+    }
+
+    public void AddEnemyBuffToNextRound(float hpMultiplier, float speedMultiplier)
+    {
+        runProgression.AddEnemyBuffToNextRound(hpMultiplier, speedMultiplier);
+        RunLogger.Warning($"Next round enemy buff queued. hpX={runProgression.NextRoundEnemyHpMultiplier:F2}, speedX={runProgression.NextRoundEnemySpeedMultiplier:F2}");
+        if (shopSystem != null) shopSystem.RefreshShopUI();
+    }
+
+    public void GetCurrentEnemyMultipliers(out float hpMultiplier, out float speedMultiplier)
+    {
+        hpMultiplier = runProgression.CurrentRoundEnemyHpMultiplier;
+        speedMultiplier = runProgression.CurrentRoundEnemySpeedMultiplier;
+    }
+
+    private void EnsureShopSystemBound()
+    {
+        if (panelShop == null) return;
+
+        if (shopSystem == null)
+            shopSystem = panelShop.GetComponent<ShopSystem>();
+
+        if (shopSystem == null)
+            shopSystem = panelShop.AddComponent<ShopSystem>();
+
+        shopSystem.Bind(this, runProgression);
+    }
+
     // ====== Internal ======
 
-    private void SwitchState(GameState next)
+private void SwitchState(GameState next)
 {
+    GameState previous = state;
     state = next;
+    if (previous != next)
+        RunLogger.Event($"State {previous} -> {next}");
 
     if (panelTitle) panelTitle.SetActive(state == GameState.Title);
     if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement || state == GameState.Shop);
@@ -365,20 +492,11 @@ public class GameFlowController : MonoBehaviour
 
     bool inGameplay = (state == GameState.Gameplay);
 
-    // 只在Gameplay运行：刷怪 + 玩家射击
-    if (enemySpawner != null) enemySpawner.enabled = inGameplay;
-    if (playerShooter != null) playerShooter.enabled = inGameplay;
+    if (!inGameplay)
+        StopRoundIntro();
 
-    // 移动/镜头：只在Gameplay运行
-    if (playerMotor != null)
-    {
-        playerMotor.enabled = inGameplay;
-        var rb = playerMotor.GetComponent<Rigidbody2D>();
-        if (rb != null) rb.linearVelocity = Vector2.zero;
-    }
-
-    if (cameraFollow != null)
-        cameraFollow.enabled = inGameplay;
+    bool gameplaySystemsActive = inGameplay && !roundIntroActive;
+    SetGameplaySystemsActive(gameplaySystemsActive);
     
     // 离开Gameplay就清场（结算/商店/失败/回菜单都干净）
     if (!inGameplay)
@@ -387,9 +505,16 @@ public class GameFlowController : MonoBehaviour
 
 private void ClearWorld()
 {
+    int enemyCount = CountChildren(enemiesRoot);
+    int projectileCount = CountChildren(projectilesRoot);
+    int pickupCount = CountChildren(pickupsRoot);
+
     ClearChildren(enemiesRoot);
     ClearChildren(projectilesRoot);
     ClearChildren(pickupsRoot);
+
+    if (enemyCount > 0 || projectileCount > 0 || pickupCount > 0)
+        RunLogger.Event($"World cleared: enemies={enemyCount}, projectiles={projectileCount}, pickups={pickupCount}");
 }
 
 private void ClearChildren(Transform root)
@@ -399,11 +524,36 @@ private void ClearChildren(Transform root)
         Destroy(root.GetChild(i).gameObject);
 }
 
+private int CountChildren(Transform root)
+{
+    return root == null ? 0 : root.childCount;
+}
+
+private void SetGameplaySystemsActive(bool active)
+{
+    if (enemySpawner != null) enemySpawner.enabled = active;
+    if (playerShooter != null) playerShooter.enabled = active;
+
+    if (playerMotor != null)
+    {
+        playerMotor.enabled = active;
+        if (!active)
+        {
+            var rb = playerMotor.GetComponent<Rigidbody2D>();
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+        }
+    }
+
+    if (cameraFollow != null)
+        cameraFollow.enabled = active;
+}
+
 
     private void StartRoundTimer()
     {
         StopRoundTimer();
         roundTimerCo = StartCoroutine(RoundTimer());
+        RunLogger.Event($"Round {roundIndex} timer started: {roundDurationSeconds:F1}s");
     }
 
     private void StopRoundTimer()
@@ -425,38 +575,284 @@ private void ClearChildren(Transform root)
         }
 
         if (state == GameState.Gameplay)
+        {
+            RunLogger.Event($"Round {roundIndex} timer reached 0.");
             EndRound();
+        }
     }
 
-    private int CalcDue(int round, int debtLeft)
+    private int CalcDue(int round)
     {
+        if (round <= 0) return 0;
         int due = baseDue + (round - 1) * stepDue;
-        if (due > debtLeft) due = debtLeft;
+
+        if (round == roundIndex)
+            due += runProgression.CurrentRoundDebtIncrease;
+        else if (round == roundIndex + 1)
+            due += runProgression.NextRoundDebtIncrease;
+
         return Mathf.Max(due, 0);
     }
 
     private void ApplySettlement()
     {
-        int due = CalcDue(roundIndex, debtRemaining);
-        int paid = Mathf.Min(cash, due);
+        int due = CalcDue(roundIndex);
+        int nextRound = roundIndex + 1;
+        int nextDue = CalcDue(nextRound);
+        RunLogger.Event($"Settlement preview: round={roundIndex}, due={due}, cash={cash}, nextDue={nextDue}");
 
-        cash -= paid;
-        debtRemaining -= paid;
-
+        // 显示结算信息（这里不进行实际扣款操作）
         if (textDue) textDue.text = $"Due: {due}";
-        if (textPaid) textPaid.text = $"Paid: {paid}";
-        if (textRemainingDebt) textRemainingDebt.text = $"Remaining Debt: {debtRemaining}";
-
-        if (debtRemaining <= 0)
-        {
-            SwitchState(GameState.Title);
-        }
+        if (textPaid) textPaid.text = $"Cash: {cash}";
+        if (textRemainingDebt)
+            textRemainingDebt.text = nextRound <= GetBossRoundIndex()
+                ? $"Next Round Debt: {GetDebtDisplay(nextRound)}"
+                : "Next Round Debt: -";
     }
 
     private void RefreshHUD()
     {
         if (textRound) textRound.text = $"Round: {roundIndex}/{totalRounds}";
         if (textCash) textCash.text = $"$ {cash}";
-        if (textDebt) textDebt.text = $"Debt: {debtRemaining}";
+        if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
+        UpdateRoundIntroText();
+    }
+
+    private void PlayFailAnimation()
+    {
+        if (failAnimator == null || string.IsNullOrWhiteSpace(failTriggerName)) return;
+        failAnimator.SetTrigger(failTriggerName);
+        RunLogger.Event($"Fail animation triggered: {failTriggerName}");
+    }
+
+    private void ShowRoundIntro()
+    {
+        RefreshHUD();
+        bool canUseOverlay = EnsureRoundIntroOverlay();
+        if (canUseOverlay)
+            SetRoundDebtVisible(false);
+        else
+            SetRoundDebtVisible(true);
+
+        if (roundIntroCo != null || roundIntroActive)
+            StopRoundIntro();
+
+        roundIntroActive = true;
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+
+        roundIntroCo = StartCoroutine(RoundIntroRoutine(canUseOverlay));
+        RunLogger.Event($"Round intro shown for {roundIntroSeconds:F1}s, overlay={canUseOverlay}");
+    }
+
+    private void StopRoundIntro()
+    {
+        if (roundIntroCo != null)
+        {
+            StopCoroutine(roundIntroCo);
+            roundIntroCo = null;
+        }
+
+        if (roundIntroOverlay != null)
+        {
+            roundIntroOverlay.alpha = 0f;
+            roundIntroOverlay.gameObject.SetActive(false);
+        }
+
+        if (roundIntroActive)
+        {
+            roundIntroActive = false;
+            Time.timeScale = 1f;
+        }
+
+        if (state == GameState.Gameplay)
+            SetGameplaySystemsActive(true);
+
+        SetRoundDebtVisible(false);
+    }
+
+    private IEnumerator RoundIntroRoutine(bool useOverlay)
+    {
+        if (useOverlay && roundIntroOverlay != null)
+        {
+            roundIntroOverlay.gameObject.SetActive(true);
+            roundIntroOverlay.transform.SetAsLastSibling();
+            roundIntroOverlay.alpha = 0f;
+
+            yield return FadeCanvasGroup(roundIntroOverlay, 0f, 1f, roundIntroFadeInSeconds);
+
+            float hold = Mathf.Max(0f, roundIntroSeconds - roundIntroFadeInSeconds - roundIntroFadeOutSeconds);
+            if (hold > 0f)
+                yield return new WaitForSecondsRealtime(hold);
+
+            yield return FadeCanvasGroup(roundIntroOverlay, 1f, 0f, roundIntroFadeOutSeconds);
+            roundIntroOverlay.gameObject.SetActive(false);
+        }
+        else
+        {
+            if (roundIntroSeconds > 0f)
+                yield return new WaitForSecondsRealtime(roundIntroSeconds);
+        }
+
+        roundIntroCo = null;
+
+        if (roundIntroActive)
+        {
+            roundIntroActive = false;
+            Time.timeScale = 1f;
+            if (state == GameState.Gameplay)
+                SetGameplaySystemsActive(true);
+        }
+
+        if (state == GameState.Gameplay)
+            SetRoundDebtVisible(false);
+
+        RunLogger.Event("Round intro finished. Gameplay resumed.");
+    }
+
+    private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
+    {
+        if (group == null) yield break;
+        if (duration <= 0f)
+        {
+            group.alpha = to;
+            yield break;
+        }
+
+        float elapsed = 0f;
+        group.alpha = from;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            group.alpha = Mathf.Lerp(from, to, t);
+            yield return null;
+        }
+
+        group.alpha = to;
+    }
+
+    private void UpdateRoundIntroText()
+    {
+        if (roundIntroRoundText != null)
+            roundIntroRoundText.text = $"ROUND {roundIndex}/{totalRounds}";
+
+        if (roundIntroDebtText != null)
+            roundIntroDebtText.text = $"DEBT   OWED\n{GetDebtDisplay(roundIndex)}";
+    }
+
+    private int GetBossRoundIndex()
+    {
+        return totalRounds + 1;
+    }
+
+    private string GetDebtDisplay(int round)
+    {
+        if (round == GetBossRoundIndex())
+            return "∞";
+        return $"${CalcDue(round)}";
+    }
+
+    private bool EnsureRoundIntroOverlay()
+    {
+        if (roundIntroOverlay != null && roundIntroRoundText != null && roundIntroDebtText != null)
+            return true;
+
+        if (roundIntroOverlayAutoCreated)
+            return false;
+
+        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
+        if (canvas == null)
+            return false;
+
+        Transform parent = panelHUD != null && panelHUD.transform.parent != null
+            ? panelHUD.transform.parent
+            : canvas.transform;
+
+        GameObject overlayRoot = new GameObject("RoundIntroOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(parent, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image bg = overlayRoot.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.82f);
+        bg.raycastTarget = false;
+
+        roundIntroOverlay = overlayRoot.GetComponent<CanvasGroup>();
+        roundIntroOverlay.alpha = 0f;
+        roundIntroOverlay.interactable = false;
+        roundIntroOverlay.blocksRaycasts = false;
+
+        Color gold = new Color(0.95f, 0.80f, 0.12f, 1f);
+
+        CreateIntroLine(overlayRoot.transform, 70f, gold);
+        CreateIntroLine(overlayRoot.transform, -190f, gold);
+
+        roundIntroRoundText = CreateIntroText(
+            overlayRoot.transform,
+            "RoundText",
+            new Vector2(0f, 165f),
+            new Vector2(980f, 120f),
+            88f,
+            gold);
+
+        roundIntroDebtText = CreateIntroText(
+            overlayRoot.transform,
+            "DebtText",
+            new Vector2(0f, -55f),
+            new Vector2(980f, 300f),
+            90f,
+            gold);
+
+        roundIntroOverlay.gameObject.SetActive(false);
+        roundIntroOverlayAutoCreated = true;
+        UpdateRoundIntroText();
+        return true;
+    }
+
+    private void CreateIntroLine(Transform parent, float y, Color color)
+    {
+        GameObject line = new GameObject("Line", typeof(RectTransform), typeof(Image));
+        RectTransform rect = line.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(820f, 4f);
+        rect.anchoredPosition = new Vector2(0f, y);
+
+        Image image = line.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+    }
+
+    private TMP_Text CreateIntroText(Transform parent, string name, Vector2 pos, Vector2 size, float fontSize, Color color)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform rect = go.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = pos;
+
+        TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+        text.fontSize = fontSize;
+        text.alignment = TextAlignmentOptions.Center;
+        text.enableWordWrapping = false;
+        text.fontStyle = FontStyles.Bold;
+        text.color = color;
+        text.outlineColor = new Color(0f, 0f, 0f, 0.95f);
+        text.outlineWidth = 0.25f;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    private void SetRoundDebtVisible(bool visible)
+    {
+        if (textRound != null) textRound.gameObject.SetActive(visible);
+        if (textDebt != null) textDebt.gameObject.SetActive(visible);
     }
 }

@@ -7,7 +7,6 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private Transform player;
     [SerializeField] private Transform projectilesRoot;
 
-
     [Header("Spawn")]
     [SerializeField] private float spawnInterval = 1.0f;
     [SerializeField] private float spawnRadius = 10f;
@@ -19,7 +18,16 @@ public class EnemySpawner : MonoBehaviour
 
     private float timer;
 
-    private void OnEnable() => timer = 0f;
+    private void OnEnable()
+    {
+        timer = 0f;
+        RunLogger.Event($"EnemySpawner enabled: interval={spawnInterval:F2}s, radius={spawnRadius:F1}, maxAlive={maxAlive}");
+    }
+
+    private void OnDisable()
+    {
+        RunLogger.Event("EnemySpawner disabled.");
+    }
 
     private void Update()
     {
@@ -36,26 +44,27 @@ public class EnemySpawner : MonoBehaviour
     }
 
     private void SpawnOne()
-{
-    // 1) 随机选一个敌人Prefab（支持多种敌人）
-    var prefab = enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
-
-    // 2) 计算刷新位置：在玩家周围一个圆环上
-    float ang = Random.Range(0f, Mathf.PI * 2f);
-    Vector2 offset = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * spawnRadius;
-    Vector3 pos = player.position + (Vector3)offset;
-
-    // 3) 生成敌人
-    var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
-
-    // 4) 注入：玩家引用 + XP掉落引用
-    e.Init(player, xpPickupPrefab, pickupsRoot);
-
-    // 5) 如果敌人有射击组件：注入玩家引用 + 子弹容器引用
-    var shooter = e.GetComponent<EnemyShooter>();
-    if (shooter != null)
     {
-        shooter.Init(player, projectilesRoot);
+        var prefab = enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
+
+        float ang = Random.Range(0f, Mathf.PI * 2f);
+        Vector2 offset = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * spawnRadius;
+        Vector3 pos = player.position + (Vector3)offset;
+
+        var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
+
+        e.Init(player, xpPickupPrefab, pickupsRoot);
+
+        if (GameFlowController.Instance != null)
+        {
+            GameFlowController.Instance.GetCurrentEnemyMultipliers(out float hpMul, out float speedMul);
+            e.ApplyRuntimeModifiers(hpMul, speedMul);
+        }
+
+        var shooter = e.GetComponent<EnemyShooter>();
+        if (shooter != null)
+        {
+            shooter.Init(player, projectilesRoot);
+        }
     }
-}
 }

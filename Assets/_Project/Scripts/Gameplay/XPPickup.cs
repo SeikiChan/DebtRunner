@@ -9,6 +9,8 @@ public class XPPickup : MonoBehaviour
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag("Player")) return;
+
+        RunLogger.Event($"XP pickup collected: +{amount}");
         GameFlowController.Instance.AddXP(amount);
         Destroy(gameObject);
     }

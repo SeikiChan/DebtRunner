@@ -10,8 +10,8 @@ public class EnemyController : MonoBehaviour
     private int hp;
 
     [Header("Rewards (fixed per enemy type)")]
-    [SerializeField] private int cashValue = 20;   // 该敌人固定价格：击杀自动加钱
-    [SerializeField] private int xpDrop = 1;       // 掉落XP数量（生成拾取物）
+    [SerializeField] private int cashValue = 20;
+    [SerializeField] private int xpDrop = 1;
 
     private Rigidbody2D rb;
     private Transform player;
@@ -32,7 +32,19 @@ public class EnemyController : MonoBehaviour
         pickupsRoot = pickupsParent;
 
         var shooter = GetComponent<EnemyShooter>();
-        if (shooter != null) shooter.Init(playerTf, GameObject.Find("World/Projectiles").transform);
+        var worldProjectiles = GameObject.Find("World/Projectiles");
+        if (shooter != null && worldProjectiles != null)
+            shooter.Init(playerTf, worldProjectiles.transform);
+    }
+
+    public void ApplyRuntimeModifiers(float hpMultiplier, float speedMultiplier)
+    {
+        hpMultiplier = Mathf.Max(0.2f, hpMultiplier);
+        speedMultiplier = Mathf.Max(0.2f, speedMultiplier);
+
+        maxHP = Mathf.Max(1, Mathf.RoundToInt(maxHP * hpMultiplier));
+        hp = maxHP;
+        moveSpeed *= speedMultiplier;
     }
 
     private void FixedUpdate()
@@ -51,10 +63,10 @@ public class EnemyController : MonoBehaviour
 
     private void Die()
     {
-        // 1) 自动加钱（不掉钱、不拾取）
+        RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
+
         GameFlowController.Instance.AddCash(cashValue);
 
-        // 2) 掉XP拾取物
         if (xpPrefab != null)
         {
             var p = Instantiate(xpPrefab, transform.position, Quaternion.identity, pickupsRoot);
