@@ -9,25 +9,104 @@ public class PlayerHealth : MonoBehaviour
     private int hp;
     private bool invuln;
 
-    /// <summary>Current HP.</summary>
+    private int shieldCharges;
+    private bool periodicShieldEnabled;
+    private float periodicShieldInterval = 12f;
+    private int periodicShieldMaxCharges = 1;
+    private float periodicShieldTimer;
+
     public int CurrentHP => hp;
-
-    /// <summary>Max HP.</summary>
     public int MaxHP => maxHP;
+    public int ShieldCharges => shieldCharges;
 
-    private void Awake() => hp = maxHP;
+    private void Awake() => hp = Mathf.Max(1, maxHP);
 
-    /// <summary>Reset player HP to full.</summary>
+    private void Update()
+    {
+        if (!periodicShieldEnabled || periodicShieldInterval <= 0f)
+            return;
+
+        periodicShieldTimer -= Time.deltaTime;
+        if (periodicShieldTimer > 0f)
+            return;
+
+        periodicShieldTimer = periodicShieldInterval;
+        if (shieldCharges < periodicShieldMaxCharges)
+        {
+            shieldCharges += 1;
+            RunLogger.Event($"Periodic shield granted. charges={shieldCharges}/{periodicShieldMaxCharges}");
+        }
+    }
+
     public void RestoreHealth()
     {
-        hp = maxHP;
+        hp = Mathf.Max(1, maxHP);
         invuln = false;
         RunLogger.Event($"Player health restored: {hp}/{maxHP}");
+    }
+
+    public void ResetRuntimeStats()
+    {
+        shieldCharges = 0;
+        periodicShieldEnabled = false;
+        periodicShieldInterval = 12f;
+        periodicShieldMaxCharges = 1;
+        periodicShieldTimer = 0f;
+    }
+
+    public void AddMaxHealth(int amount, bool healAddedAmount)
+    {
+        int add = Mathf.Max(0, amount);
+        if (add == 0) return;
+
+        maxHP = Mathf.Max(1, maxHP + add);
+        if (healAddedAmount)
+            hp = Mathf.Min(maxHP, hp + add);
+        else
+            hp = Mathf.Min(maxHP, hp);
+
+        RunLogger.Event($"Player max health +{add}. hp={hp}/{maxHP}");
+    }
+
+    public void Heal(int amount)
+    {
+        int heal = Mathf.Max(0, amount);
+        if (heal == 0) return;
+
+        int before = hp;
+        hp = Mathf.Min(maxHP, hp + heal);
+        RunLogger.Event($"Player healed +{hp - before}. hp={hp}/{maxHP}");
+    }
+
+    public void AddShieldCharges(int amount)
+    {
+        int add = Mathf.Max(0, amount);
+        if (add == 0) return;
+
+        shieldCharges += add;
+        RunLogger.Event($"Shield charges +{add}. current={shieldCharges}");
+    }
+
+    public void EnablePeriodicShield(float intervalSeconds, int maxCharges)
+    {
+        periodicShieldEnabled = true;
+        periodicShieldInterval = Mathf.Max(0.1f, intervalSeconds);
+        periodicShieldMaxCharges = Mathf.Max(1, maxCharges);
+        periodicShieldTimer = periodicShieldInterval;
+        RunLogger.Event($"Periodic shield enabled. interval={periodicShieldInterval:F1}s, maxCharges={periodicShieldMaxCharges}");
     }
 
     public void TakeDamage(int dmg)
     {
         if (invuln) return;
+
+        if (shieldCharges > 0)
+        {
+            shieldCharges -= 1;
+            RunLogger.Event($"Shield blocked damage. remaining={shieldCharges}");
+            StartCoroutine(IFrame());
+            return;
+        }
 
         int actualDamage = Mathf.Max(1, dmg);
         hp -= actualDamage;

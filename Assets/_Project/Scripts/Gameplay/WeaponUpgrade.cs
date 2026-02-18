@@ -1,19 +1,21 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 武器升级数据结构
-/// </summary>
 [System.Serializable]
 public class WeaponUpgrade
 {
-    public string title;              // 升级名称
-    public string description;        // 描述
-    public Sprite icon;               // 图标
-    public int upgradePower = 1;      // 伤害增加
-    public float upgradeFireRate = 0; // 攻速增加（0表示无变化）
-    public float upgradeSpeed = 0;    // 弹速增加（0表示无变化）
+    public string title;
+    public string description;
+    public Sprite icon;
+    public UpgradeRarity rarity = UpgradeRarity.Common;
+    public List<WeaponUpgradeEffect> effects = new List<WeaponUpgradeEffect>();
 
-    public WeaponUpgrade(string title, string desc, Sprite icon, int power = 1, float fireRate = 0, float speed = 0)
+    // Legacy fields kept for inspector backward-compatibility.
+    public int upgradePower = 0;
+    public float upgradeFireRate = 0f;
+    public float upgradeSpeed = 0f;
+
+    public WeaponUpgrade(string title, string desc, Sprite icon, int power = 0, float fireRate = 0f, float speed = 0f)
     {
         this.title = title;
         this.description = desc;
@@ -21,5 +23,22 @@ public class WeaponUpgrade
         this.upgradePower = power;
         this.upgradeFireRate = fireRate;
         this.upgradeSpeed = speed;
+        ConvertLegacyStatsToEffects();
+    }
+
+    public void ConvertLegacyStatsToEffects()
+    {
+        if (effects == null)
+            effects = new List<WeaponUpgradeEffect>();
+
+        if (effects.Count > 0)
+            return;
+
+        if (upgradePower != 0)
+            effects.Add(new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.DamageAdd, intValue = upgradePower });
+        if (upgradeFireRate != 0f)
+            effects.Add(new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.FireRateAdd, floatValue = upgradeFireRate });
+        if (upgradeSpeed != 0f)
+            effects.Add(new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue = upgradeSpeed });
     }
 }

@@ -14,10 +14,12 @@ public class HealthUI : MonoBehaviour
 
     private Image[] healthIcons;
     private int lastHP = -1;
+    private int lastMaxHP = -1;
 
     public void ResetHealthUI()
     {
         lastHP = -1;
+        lastMaxHP = -1;
         if (playerHealth != null && healthIcons != null)
             UpdateHealthUI();
     }
@@ -44,11 +46,21 @@ public class HealthUI : MonoBehaviour
         CreateHealthIcons();
 
         lastHP = playerHealth.CurrentHP;
+        lastMaxHP = playerHealth.MaxHP;
         UpdateHealthUI();
     }
 
     private void CreateHealthIcons()
     {
+        if (healthIcons != null)
+        {
+            for (int i = 0; i < healthIcons.Length; i++)
+            {
+                if (healthIcons[i] != null)
+                    Destroy(healthIcons[i].gameObject);
+            }
+        }
+
         int maxHP = playerHealth.MaxHP;
         healthIcons = new Image[maxHP];
 
@@ -72,6 +84,15 @@ public class HealthUI : MonoBehaviour
         if (playerHealth == null) return;
 
         int currentHP = playerHealth.CurrentHP;
+        int currentMaxHP = playerHealth.MaxHP;
+
+        if (currentMaxHP != lastMaxHP)
+        {
+            lastMaxHP = currentMaxHP;
+            CreateHealthIcons();
+            lastHP = -1;
+        }
+
         if (currentHP != lastHP)
         {
             lastHP = currentHP;

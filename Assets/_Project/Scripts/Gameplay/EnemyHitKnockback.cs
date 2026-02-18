@@ -9,12 +9,13 @@ public class EnemyHitKnockback : MonoBehaviour
 
     private Vector2 knockbackVelocity;
 
-    public void ApplyHit(Vector2 hitDirection)
+    public void ApplyHit(Vector2 hitDirection, float forceMultiplier = 1f)
     {
         if (hitDirection.sqrMagnitude <= 0.0001f)
             return;
 
-        knockbackVelocity += hitDirection.normalized * hitSpeed;
+        float scale = Mathf.Max(0f, forceMultiplier);
+        knockbackVelocity += hitDirection.normalized * hitSpeed * scale;
         float maxSq = maxKnockbackSpeed * maxKnockbackSpeed;
         if (knockbackVelocity.sqrMagnitude > maxSq)
             knockbackVelocity = knockbackVelocity.normalized * maxKnockbackSpeed;

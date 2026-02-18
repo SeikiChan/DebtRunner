@@ -67,14 +67,19 @@ public class EnemyController : MonoBehaviour
 
     public void TakeDamage(int dmg)
     {
-        TakeDamage(dmg, Vector2.zero);
+        TakeDamage(dmg, Vector2.zero, 1f);
     }
 
     public void TakeDamage(int dmg, Vector2 hitDirection)
     {
+        TakeDamage(dmg, hitDirection, 1f);
+    }
+
+    public void TakeDamage(int dmg, Vector2 hitDirection, float knockbackForceMultiplier)
+    {
         hp -= Mathf.Max(0, dmg);
         if (hitKnockback != null)
-            hitKnockback.ApplyHit(hitDirection);
+            hitKnockback.ApplyHit(hitDirection, knockbackForceMultiplier);
 
         if (hp <= 0f) Die();
     }

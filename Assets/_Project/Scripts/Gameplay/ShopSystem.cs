@@ -7,18 +7,6 @@ using UnityEngine.UI;
 public class ShopSystem : MonoBehaviour
 {
     [Serializable]
-    private class ShopOfferTemplate
-    {
-        public string title;
-        [TextArea] public string description;
-        public Sprite icon;
-        public int price = 120;
-        public int power;
-        public float fireRate;
-        public float speed;
-    }
-
-    [Serializable]
     private class ShopItemUIRefs
     {
         public TMP_Text titleText;
@@ -31,14 +19,14 @@ public class ShopSystem : MonoBehaviour
 
     private class ShopOffer
     {
-        public ShopOfferTemplate template;
+        public ShopItemDefinition definition;
         public bool purchased;
         public bool isFree;
 
         public int GetPrice()
         {
-            if (template == null) return 0;
-            return isFree ? 0 : Mathf.Max(0, template.price);
+            if (definition == null) return 0;
+            return isFree ? 0 : definition.Price;
         }
     }
 
@@ -54,15 +42,8 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private float enemyHpBuffMultiplier = 1.35f;
     [SerializeField] private float enemySpeedBuffMultiplier = 1.15f;
 
-    [Header("Item Pool")]
-    [SerializeField] private List<ShopOfferTemplate> offerPool = new List<ShopOfferTemplate>
-    {
-        new ShopOfferTemplate { title = "Damage Core", description = "Damage +1", price = 120, power = 1, fireRate = 0f, speed = 0f },
-        new ShopOfferTemplate { title = "Rapid Trigger", description = "Fire rate +0.05/s", price = 140, power = 0, fireRate = 0.05f, speed = 0f },
-        new ShopOfferTemplate { title = "Velocity Lens", description = "Projectile speed +2", price = 110, power = 0, fireRate = 0f, speed = 2f },
-        new ShopOfferTemplate { title = "Brutal Frame", description = "Damage +2", price = 200, power = 2, fireRate = 0f, speed = 0f },
-        new ShopOfferTemplate { title = "Hybrid Scope", description = "Damage +1, speed +1", price = 170, power = 1, fireRate = 0f, speed = 1f },
-    };
+    [Header("Shop Item Pool Asset")]
+    [SerializeField] private ShopItemPoolAsset shopItemPoolAsset;
 
     [Header("UI Binding (Manual Preferred)")]
     [SerializeField] private bool allowAutoBuildUI = true;
@@ -126,7 +107,7 @@ public class ShopSystem : MonoBehaviour
 
             ShopOffer offer = currentOffers[i];
             ShopItemUIRefs ui = itemUIs[i];
-            if (offer == null || offer.template == null)
+            if (offer == null || offer.definition == null)
             {
                 if (ui.titleText != null) ui.titleText.text = "-";
                 if (ui.descText != null) ui.descText.text = "No item";
@@ -141,12 +122,12 @@ public class ShopSystem : MonoBehaviour
                 continue;
             }
 
-            if (ui.titleText != null) ui.titleText.text = offer.template.title;
-            if (ui.descText != null) ui.descText.text = offer.template.description;
+            if (ui.titleText != null) ui.titleText.text = offer.definition.ItemTitle;
+            if (ui.descText != null) ui.descText.text = offer.definition.Description;
             if (ui.iconImage != null)
             {
-                ui.iconImage.sprite = offer.template.icon;
-                ui.iconImage.enabled = offer.template.icon != null;
+                ui.iconImage.sprite = offer.definition.Icon;
+                ui.iconImage.enabled = offer.definition.Icon != null;
             }
 
             if (offer.purchased)
@@ -246,7 +227,7 @@ public class ShopSystem : MonoBehaviour
         if (index < 0 || index >= currentOffers.Length) return;
 
         ShopOffer offer = currentOffers[index];
-        if (offer == null || offer.template == null || offer.purchased) return;
+        if (offer == null || offer.definition == null || offer.purchased) return;
 
         int cost = offer.GetPrice();
         if (!gameFlow.TrySpendCash(cost))
@@ -255,17 +236,9 @@ public class ShopSystem : MonoBehaviour
             return;
         }
 
-        WeaponUpgrade upgrade = new WeaponUpgrade(
-            offer.template.title,
-            offer.template.description,
-            offer.template.icon,
-            offer.template.power,
-            offer.template.fireRate,
-            offer.template.speed);
-
-        gameFlow.ApplyShopUpgrade(upgrade);
+        gameFlow.ApplyShopItem(offer.definition);
         offer.purchased = true;
-        SetInfo($"{offer.template.title} acquired.");
+        SetInfo($"{offer.definition.ItemTitle} acquired.");
         RefreshShopUI();
     }
 
@@ -275,7 +248,7 @@ public class ShopSystem : MonoBehaviour
         for (int i = 0; i < currentOffers.Length; i++)
         {
             ShopOffer offer = currentOffers[i];
-            if (offer != null && offer.template != null && !offer.purchased && !offer.isFree)
+            if (offer != null && offer.definition != null && !offer.purchased && !offer.isFree)
                 candidates.Add(i);
         }
 
@@ -295,39 +268,43 @@ public class ShopSystem : MonoBehaviour
 
     private void GenerateOffers()
     {
-        if (offerPool == null || offerPool.Count == 0)
+        if (shopItemPoolAsset == null || shopItemPoolAsset.Entries == null || shopItemPoolAsset.Entries.Count == 0)
         {
-            SetInfo("Offer pool is empty.");
+            SetInfo("Shop item pool asset is empty.");
+            for (int i = 0; i < currentOffers.Length; i++)
+                currentOffers[i] = null;
+            RefreshShopUI();
             return;
         }
 
-        List<int> indices = new List<int>();
-        for (int i = 0; i < offerPool.Count; i++)
-            indices.Add(i);
+        List<ShopItemDefinition> picks = WeightedPickerUtility.PickUnique(
+            shopItemPoolAsset.Entries,
+            currentOffers.Length,
+            shopItemPoolAsset.GetEffectiveWeight);
 
         for (int i = 0; i < currentOffers.Length; i++)
         {
-            ShopOfferTemplate template;
-            if (indices.Count > 0)
-            {
-                int pick = UnityEngine.Random.Range(0, indices.Count);
-                template = offerPool[indices[pick]];
-                indices.RemoveAt(pick);
-            }
-            else
-            {
-                template = offerPool[UnityEngine.Random.Range(0, offerPool.Count)];
-            }
-
-            currentOffers[i] = new ShopOffer
-            {
-                template = template,
-                purchased = false,
-                isFree = false,
-            };
+            ShopItemDefinition definition = i < picks.Count ? picks[i] : PickSingleItemByWeight();
+            currentOffers[i] = definition == null
+                ? null
+                : new ShopOffer
+                {
+                    definition = definition,
+                    purchased = false,
+                    isFree = false,
+                };
         }
 
         RefreshShopUI();
+    }
+
+    private ShopItemDefinition PickSingleItemByWeight()
+    {
+        if (shopItemPoolAsset == null || shopItemPoolAsset.Entries == null || shopItemPoolAsset.Entries.Count == 0)
+            return null;
+
+        List<ShopItemDefinition> one = WeightedPickerUtility.PickUnique(shopItemPoolAsset.Entries, 1, shopItemPoolAsset.GetEffectiveWeight);
+        return one.Count > 0 ? one[0] : null;
     }
 
     private void EnsureUI()

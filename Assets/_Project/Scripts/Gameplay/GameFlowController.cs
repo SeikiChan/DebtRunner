@@ -8,6 +8,7 @@ public class GameFlowController : MonoBehaviour
     public static GameFlowController Instance { get; private set; }
 
     public enum GameState { Title, Gameplay, Settlement, Shop, GameOver }
+    public bool IsInGameplayState => state == GameState.Gameplay;
 
     [Header("Panels")]
     [SerializeField] private GameObject panelTitle;
@@ -16,6 +17,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelSettlement;
     [SerializeField] private GameObject panelShop;
     [SerializeField] private GameObject panelGameOver;
+    [SerializeField] private GameObject panelPauseMenu;
+    [SerializeField] private GameObject panelSettingsPlaceholder;
 
     [Header("World Roots (for cleanup)")]
     [SerializeField] private Transform enemiesRoot;
@@ -71,8 +74,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private int xp = 0;
     [SerializeField] private int xpToNext = 10;
 
-    // 升级选项数据库
-    private WeaponUpgrade[] allUpgrades;
+    [Header("Weapon Upgrade Pool Asset")]
+    [SerializeField] private WeaponUpgradePoolAsset weaponUpgradePoolAsset;
 
 
     [Header("Gameplay Systems")]
@@ -91,6 +94,7 @@ public class GameFlowController : MonoBehaviour
     private Coroutine roundIntroCo;
     private bool roundIntroOverlayAutoCreated;
     private bool roundIntroActive;
+    private bool pauseMenuOpen;
     private float roundTimeRemaining;  // 当前回合剩余时间
     private readonly RunProgressionState runProgression = new RunProgressionState();
 
@@ -110,8 +114,8 @@ public class GameFlowController : MonoBehaviour
             playerShooter = FindObjectOfType<PlayerShooter>();
         EnsureShopSystemBound();
 
-        // 初始化升级选项库
-        InitializeUpgrades();
+        // 初始化升级池
+        EnsureWeaponUpgradePool();
 
         // 初始数据
         roundIndex = 1;
@@ -124,22 +128,16 @@ public class GameFlowController : MonoBehaviour
 
         // 初始界面：只显示Title
         SwitchState(GameState.Title);
+        ForceClosePauseMenu(false);
         RefreshHUD();
     }
 
-    /// <summary>
-    /// 初始化所有可用的升级选项
-    /// </summary>
-    private void InitializeUpgrades()
+    private void EnsureWeaponUpgradePool()
     {
-        allUpgrades = new WeaponUpgrade[]
-        {
-            new WeaponUpgrade("伤害强化 I", "提升伤害 +1", null, power: 1, speed: 0),
-            new WeaponUpgrade("速度强化 I", "提升弹速 +2", null, power: 0, speed: 2),
-            new WeaponUpgrade("攻速强化 I", "提升攻速 +0.05/秒", null, power: 0, fireRate: 0.05f),
-            new WeaponUpgrade("伤害强化 II", "提升伤害 +2", null, power: 2, speed: 0),
-            new WeaponUpgrade("多功能强化", "伤害+1 弹速+1", null, power: 1, speed: 1),
-        };
+        if (weaponUpgradePoolAsset != null && weaponUpgradePoolAsset.Entries != null && weaponUpgradePoolAsset.Entries.Count > 0)
+            return;
+
+        RunLogger.Warning("Weapon upgrade pool asset is missing or empty.");
     }
 
     private void Update()
@@ -150,6 +148,18 @@ public class GameFlowController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F3)) EndRound();
         if (Input.GetKeyDown(KeyCode.F4)) EnterShop();
         if (Input.GetKeyDown(KeyCode.F5)) SwitchState(GameState.GameOver);
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (pauseMenuOpen)
+            {
+                ResumeFromPauseMenu();
+            }
+            else if (CanOpenPauseMenu())
+            {
+                OpenPauseMenu();
+            }
+        }
         
         // 更新倒计时显示
         if (state == GameState.Gameplay && textCountdown != null)
@@ -208,6 +218,12 @@ private void LevelUp()
     if (levelUpPanel != null)
     {
         WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
+        if (selectedUpgrades.Length < 3)
+        {
+            RunLogger.Error("Level up skipped: weapon upgrade pool has no valid entries.");
+            return;
+        }
+
         levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
 
         // 只有面板存在且成功走到这里才暂停游戏
@@ -221,24 +237,60 @@ private void LevelUp()
     /// </summary>
     private WeaponUpgrade[] SelectRandomUpgrades(int count)
     {
-        if (allUpgrades == null || allUpgrades.Length < count)
+        if (count <= 0) return new WeaponUpgrade[0];
+
+        EnsureWeaponUpgradePool();
+        if (weaponUpgradePoolAsset == null || weaponUpgradePoolAsset.Entries == null || weaponUpgradePoolAsset.Entries.Count == 0)
+            return SelectFallbackRandomUpgrades(count);
+
+        System.Collections.Generic.List<WeaponUpgradeDefinition> pickedDefinitions =
+            WeightedPickerUtility.PickUnique(weaponUpgradePoolAsset.Entries, count, weaponUpgradePoolAsset.GetEffectiveWeight);
+
+        while (pickedDefinitions.Count < count)
         {
-            RunLogger.Error("Upgrade options are not enough.");
-            return new WeaponUpgrade[0];
+            System.Collections.Generic.List<WeaponUpgradeDefinition> oneMore =
+                WeightedPickerUtility.PickUnique(weaponUpgradePoolAsset.Entries, 1, weaponUpgradePoolAsset.GetEffectiveWeight);
+            if (oneMore.Count == 0 || oneMore[0] == null)
+                break;
+            pickedDefinitions.Add(oneMore[0]);
         }
+
+        if (pickedDefinitions.Count < count)
+            return new WeaponUpgrade[0];
+
+        WeaponUpgrade[] selected = new WeaponUpgrade[count];
+        for (int i = 0; i < count; i++)
+            selected[i] = pickedDefinitions[i] != null ? pickedDefinitions[i].CreateRuntimeUpgrade() : null;
+
+        return selected;
+    }
+
+    private WeaponUpgrade[] SelectFallbackRandomUpgrades(int count)
+    {
+        System.Collections.Generic.List<WeaponUpgrade> fallbackPool = CreateDefaultFallbackWeaponUpgrades();
+        if (fallbackPool.Count == 0)
+            return new WeaponUpgrade[0];
 
         WeaponUpgrade[] selected = new WeaponUpgrade[count];
         System.Collections.Generic.List<int> indices = new System.Collections.Generic.List<int>();
-
-        // 随机选择不重复的索引
-        for (int i = 0; i < allUpgrades.Length; i++)
+        for (int i = 0; i < fallbackPool.Count; i++)
             indices.Add(i);
 
         for (int i = 0; i < count; i++)
         {
-            int randomIdx = Random.Range(0, indices.Count);
-            selected[i] = allUpgrades[indices[randomIdx]];
-            indices.RemoveAt(randomIdx);
+            WeaponUpgrade picked;
+            if (indices.Count > 0)
+            {
+                int randomIdx = Random.Range(0, indices.Count);
+                picked = fallbackPool[indices[randomIdx]];
+                indices.RemoveAt(randomIdx);
+            }
+            else
+            {
+                picked = fallbackPool[Random.Range(0, fallbackPool.Count)];
+            }
+
+            selected[i] = picked;
         }
 
         return selected;
@@ -288,7 +340,16 @@ private void LevelUp()
         // 重置玩家血量和血量UI
         var playerHealth = FindObjectOfType<PlayerHealth>();
         if (playerHealth != null)
+        {
+            playerHealth.ResetRuntimeStats();
             playerHealth.RestoreHealth();
+        }
+
+        if (playerMotor != null)
+            playerMotor.ResetRuntimeStats();
+
+        if (playerShooter != null)
+            playerShooter.ResetRuntimeStats();
 
         // 隐藏升级面板并重置武器
         if (levelUpPanel != null)
@@ -423,6 +484,46 @@ private void LevelUp()
 #endif
     }
 
+    public void OpenPauseMenu()
+    {
+        if (pauseMenuOpen || !CanOpenPauseMenu()) return;
+
+        pauseMenuOpen = true;
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+        SetPauseMenuVisible(true);
+        RunLogger.Event("Pause menu opened.");
+    }
+
+    public void ResumeFromPauseMenu()
+    {
+        if (!pauseMenuOpen) return;
+
+        ForceClosePauseMenu(true);
+        RunLogger.Event("Pause menu closed.");
+    }
+
+    public void OpenPauseSettings()
+    {
+        if (!pauseMenuOpen)
+            OpenPauseMenu();
+
+        if (panelSettingsPlaceholder != null)
+            panelSettingsPlaceholder.SetActive(true);
+    }
+
+    public void BackFromPauseSettings()
+    {
+        if (panelSettingsPlaceholder != null)
+            panelSettingsPlaceholder.SetActive(false);
+    }
+
+    public void QuitFromPauseMenu()
+    {
+        ForceClosePauseMenu(true);
+        QuitGame();
+    }
+
     public int GetCashAmount() => cash;
 
     public bool TrySpendCash(int amount)
@@ -453,6 +554,67 @@ private void LevelUp()
 
         playerShooter.ApplyUpgrade(upgrade);
         RunLogger.Event($"Shop upgrade applied: {upgrade.title}");
+    }
+
+    public void ApplyShopItem(ShopItemDefinition item)
+    {
+        if (item == null) return;
+
+        if (playerMotor == null)
+            playerMotor = FindObjectOfType<PlayerMotor2D>();
+
+        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth == null && item.Effects != null)
+        {
+            for (int i = 0; i < item.Effects.Count; i++)
+            {
+                if (item.Effects[i] == null) continue;
+                if (item.Effects[i].effectType == ShopItemEffectType.MaxHealthAdd ||
+                    item.Effects[i].effectType == ShopItemEffectType.Heal ||
+                    item.Effects[i].effectType == ShopItemEffectType.AddShieldCharges ||
+                    item.Effects[i].effectType == ShopItemEffectType.EnablePeriodicShield)
+                {
+                    playerHealth = FindObjectOfType<PlayerHealth>();
+                    break;
+                }
+            }
+        }
+
+        if (item.Effects != null)
+        {
+            for (int i = 0; i < item.Effects.Count; i++)
+            {
+                ShopItemEffect effect = item.Effects[i];
+                if (effect == null) continue;
+
+                switch (effect.effectType)
+                {
+                    case ShopItemEffectType.MoveSpeedFlatAdd:
+                        if (playerMotor != null) playerMotor.AddMoveSpeedFlat(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.MoveSpeedPercentAdd:
+                        if (playerMotor != null) playerMotor.AddMoveSpeedPercent(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.MaxHealthAdd:
+                        if (playerHealth != null) playerHealth.AddMaxHealth(effect.intValue, true);
+                        break;
+                    case ShopItemEffectType.Heal:
+                        if (playerHealth != null) playerHealth.Heal(effect.intValue);
+                        break;
+                    case ShopItemEffectType.AddShieldCharges:
+                        if (playerHealth != null) playerHealth.AddShieldCharges(effect.intValue);
+                        break;
+                    case ShopItemEffectType.EnablePeriodicShield:
+                        if (playerHealth != null) playerHealth.EnablePeriodicShield(Mathf.Max(0.1f, effect.floatValue), Mathf.Max(1, effect.intValue));
+                        break;
+                }
+            }
+        }
+
+        if (healthUI != null)
+            healthUI.ResetHealthUI();
+
+        RunLogger.Event($"Shop item applied: {item.ItemTitle}");
     }
 
     public void AddDebtPenaltyToNextRound(int amount)
@@ -496,6 +658,8 @@ private void LevelUp()
 
 private void SwitchState(GameState next)
 {
+    ForceClosePauseMenu(true);
+
     GameState previous = state;
     state = next;
     if (previous != next)
@@ -564,6 +728,32 @@ private void SetGameplaySystemsActive(bool active)
 
     if (cameraFollow != null)
         cameraFollow.enabled = active;
+}
+
+private bool CanOpenPauseMenu()
+{
+    return state == GameState.Gameplay && !roundIntroActive && Time.timeScale > 0.01f;
+}
+
+private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
+{
+    pauseMenuOpen = false;
+    SetPauseMenuVisible(false);
+
+    if (resumeGameplayIfNeeded && state == GameState.Gameplay && !roundIntroActive)
+    {
+        Time.timeScale = 1f;
+        SetGameplaySystemsActive(true);
+    }
+}
+
+private void SetPauseMenuVisible(bool visible)
+{
+    if (panelPauseMenu != null)
+        panelPauseMenu.SetActive(visible);
+
+    if (!visible && panelSettingsPlaceholder != null)
+        panelSettingsPlaceholder.SetActive(false);
 }
 
 
@@ -769,6 +959,32 @@ private void SetGameplaySystemsActive(bool active)
     private int GetBossRoundIndex()
     {
         return totalRounds + 1;
+    }
+
+    private System.Collections.Generic.List<WeaponUpgrade> CreateDefaultFallbackWeaponUpgrades()
+    {
+        return new System.Collections.Generic.List<WeaponUpgrade>
+        {
+            new WeaponUpgrade("伤害强化 I", "提升伤害 +1", null, power: 1),
+            new WeaponUpgrade("速度强化 I", "提升弹速 +2", null, speed: 2f),
+            new WeaponUpgrade("攻速强化 I", "提升攻速 +0.05/秒", null, fireRate: 0.05f),
+            new WeaponUpgrade("散射弹", "额外子弹 +1, 散射角 +4", null)
+            {
+                effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
+                {
+                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.ExtraProjectilesAdd, intValue = 1 },
+                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.SpreadAngleAdd, floatValue = 4f },
+                }
+            },
+            new WeaponUpgrade("贯穿弹", "子弹穿透 +1, 击退增强 +0.2", null)
+            {
+                effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
+                {
+                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.PierceAdd, intValue = 1 },
+                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.KnockbackMultiplierAdd, floatValue = 0.2f },
+                }
+            },
+        };
     }
 
     private void LogCurrentEnemyDifficulty()
