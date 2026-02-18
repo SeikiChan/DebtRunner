@@ -7,7 +7,7 @@ public class EnemyController : MonoBehaviour
 
     [Header("HP")]
     [SerializeField] private int maxHP = 3;
-    private int hp;
+    private float hp;
 
     [Header("Rewards (fixed per enemy type)")]
     [SerializeField] private int cashValue = 20;
@@ -15,6 +15,9 @@ public class EnemyController : MonoBehaviour
 
     private Rigidbody2D rb;
     private Transform player;
+    private int baseMaxHP;
+    private float baseMoveSpeed;
+    private EnemyHitKnockback hitKnockback;
 
     private XPPickup xpPrefab;
     private Transform pickupsRoot;
@@ -22,7 +25,10 @@ public class EnemyController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        hp = maxHP;
+        hitKnockback = GetComponent<EnemyHitKnockback>();
+        baseMaxHP = Mathf.Max(1, maxHP);
+        baseMoveSpeed = Mathf.Max(0.2f, moveSpeed);
+        hp = baseMaxHP;
     }
 
     public void Init(Transform playerTf, XPPickup xpPickupPrefab, Transform pickupsParent)
@@ -42,9 +48,8 @@ public class EnemyController : MonoBehaviour
         hpMultiplier = Mathf.Max(0.2f, hpMultiplier);
         speedMultiplier = Mathf.Max(0.2f, speedMultiplier);
 
-        maxHP = Mathf.Max(1, Mathf.RoundToInt(maxHP * hpMultiplier));
-        hp = maxHP;
-        moveSpeed *= speedMultiplier;
+        hp = Mathf.Max(1f, baseMaxHP * hpMultiplier);
+        moveSpeed = baseMoveSpeed * speedMultiplier;
     }
 
     private void FixedUpdate()
@@ -52,13 +57,26 @@ public class EnemyController : MonoBehaviour
         if (player == null) return;
         Vector2 pos = rb.position;
         Vector2 dir = ((Vector2)player.position - pos).normalized;
-        rb.MovePosition(pos + dir * moveSpeed * Time.fixedDeltaTime);
+        Vector2 knockbackVelocity = hitKnockback != null
+            ? hitKnockback.GetCurrentVelocity(Time.fixedDeltaTime)
+            : Vector2.zero;
+
+        Vector2 velocity = (dir * moveSpeed) + knockbackVelocity;
+        rb.MovePosition(pos + velocity * Time.fixedDeltaTime);
     }
 
     public void TakeDamage(int dmg)
     {
-        hp -= dmg;
-        if (hp <= 0) Die();
+        TakeDamage(dmg, Vector2.zero);
+    }
+
+    public void TakeDamage(int dmg, Vector2 hitDirection)
+    {
+        hp -= Mathf.Max(0, dmg);
+        if (hitKnockback != null)
+            hitKnockback.ApplyHit(hitDirection);
+
+        if (hp <= 0f) Die();
     }
 
     private void Die()

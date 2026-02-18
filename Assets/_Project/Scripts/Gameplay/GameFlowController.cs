@@ -30,6 +30,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textRound;
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textDebt;
+    [SerializeField] private TMP_Text textCountdown;  // 倒计时显示
     [SerializeField] private float roundIntroSeconds = 2.5f;
 
     [Header("Round Intro Overlay (Optional)")]
@@ -59,6 +60,12 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private int stepDue = 200;
     [SerializeField] private float roundDurationSeconds = 30f;
 
+    [Header("Enemy Difficulty Curve")]
+    [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2.2f);
+    [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.7f);
+    [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.12f;
+    [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.05f;
+
     [Header("XP (temp)")]
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
@@ -84,6 +91,7 @@ public class GameFlowController : MonoBehaviour
     private Coroutine roundIntroCo;
     private bool roundIntroOverlayAutoCreated;
     private bool roundIntroActive;
+    private float roundTimeRemaining;  // 当前回合剩余时间
     private readonly RunProgressionState runProgression = new RunProgressionState();
 
     private void Awake()
@@ -142,6 +150,13 @@ public class GameFlowController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F3)) EndRound();
         if (Input.GetKeyDown(KeyCode.F4)) EnterShop();
         if (Input.GetKeyDown(KeyCode.F5)) SwitchState(GameState.GameOver);
+        
+        // 更新倒计时显示
+        if (state == GameState.Gameplay && textCountdown != null)
+        {
+            int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
+            textCountdown.text = $"Time: {seconds}s";
+        }
     }
 
     // ====== Public APIs (给其他系统调用) ======
@@ -266,6 +281,7 @@ private void LevelUp()
         xpToNext = 10;
         runProgression.Reset();
         runProgression.BeginRound();
+        LogCurrentEnemyDifficulty();
 
         RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
 
@@ -362,6 +378,7 @@ private void LevelUp()
             RunLogger.Event($"Next round -> {roundIndex}");
 
         runProgression.BeginRound();
+        LogCurrentEnemyDifficulty();
         SwitchState(GameState.Gameplay);
         ShowRoundIntro();
         StartRoundTimer();
@@ -457,8 +474,9 @@ private void LevelUp()
 
     public void GetCurrentEnemyMultipliers(out float hpMultiplier, out float speedMultiplier)
     {
-        hpMultiplier = runProgression.CurrentRoundEnemyHpMultiplier;
-        speedMultiplier = runProgression.CurrentRoundEnemySpeedMultiplier;
+        GetBaseEnemyMultipliersForRound(roundIndex, out float baseHpMultiplier, out float baseSpeedMultiplier);
+        hpMultiplier = Mathf.Max(0.2f, baseHpMultiplier * runProgression.CurrentRoundEnemyHpMultiplier);
+        speedMultiplier = Mathf.Max(0.2f, baseSpeedMultiplier * runProgression.CurrentRoundEnemySpeedMultiplier);
     }
 
     private void EnsureShopSystemBound()
@@ -571,11 +589,13 @@ private void SetGameplaySystemsActive(bool active)
         while (t > 0f && state == GameState.Gameplay)
         {
             t -= Time.deltaTime;
+            roundTimeRemaining = t;  // 实时更新剩余时间
             yield return null;
         }
 
         if (state == GameState.Gameplay)
         {
+            roundTimeRemaining = 0f;
             RunLogger.Event($"Round {roundIndex} timer reached 0.");
             EndRound();
         }
@@ -615,6 +635,11 @@ private void SetGameplaySystemsActive(bool active)
         if (textRound) textRound.text = $"Round: {roundIndex}/{totalRounds}";
         if (textCash) textCash.text = $"$ {cash}";
         if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
+        // 倒计时在Update中更新，这里只初始化
+        if (state != GameState.Gameplay && textCountdown != null)
+        {
+            textCountdown.text = "";
+        }
         UpdateRoundIntroText();
     }
 
@@ -744,6 +769,57 @@ private void SetGameplaySystemsActive(bool active)
     private int GetBossRoundIndex()
     {
         return totalRounds + 1;
+    }
+
+    private void LogCurrentEnemyDifficulty()
+    {
+        GetBaseEnemyMultipliersForRound(roundIndex, out float baseHpMultiplier, out float baseSpeedMultiplier);
+        float finalHpMultiplier = baseHpMultiplier * runProgression.CurrentRoundEnemyHpMultiplier;
+        float finalSpeedMultiplier = baseSpeedMultiplier * runProgression.CurrentRoundEnemySpeedMultiplier;
+
+        RunLogger.Event(
+            $"Enemy scaling round {roundIndex}: baseHPx={baseHpMultiplier:F2}, baseSpeedx={baseSpeedMultiplier:F2}, " +
+            $"buffHPx={runProgression.CurrentRoundEnemyHpMultiplier:F2}, buffSpeedx={runProgression.CurrentRoundEnemySpeedMultiplier:F2}, " +
+            $"finalHPx={finalHpMultiplier:F2}, finalSpeedx={finalSpeedMultiplier:F2}");
+    }
+
+    private void GetBaseEnemyMultipliersForRound(int round, out float hpMultiplier, out float speedMultiplier)
+    {
+        int safeRound = Mathf.Max(1, round);
+        hpMultiplier = EvaluateMonotonicCurve(enemyHpCurve, safeRound, enemyHpMinGrowthPerRound);
+        speedMultiplier = EvaluateMonotonicCurve(enemySpeedCurve, safeRound, enemySpeedMinGrowthPerRound);
+    }
+
+    private float EvaluateMonotonicCurve(AnimationCurve curve, int targetRound, float minGrowthPerRound)
+    {
+        float value = Mathf.Max(1f, EvaluateCurveAtRound(curve, 1));
+        if (targetRound <= 1)
+            return value;
+
+        float minGrowth = Mathf.Max(0.001f, minGrowthPerRound);
+        for (int round = 2; round <= targetRound; round++)
+        {
+            float targetValue = Mathf.Max(1f, EvaluateCurveAtRound(curve, round));
+            float minValue = value + minGrowth;
+            value = Mathf.Max(targetValue, minValue);
+        }
+
+        return value;
+    }
+
+    private float EvaluateCurveAtRound(AnimationCurve curve, int round)
+    {
+        if (curve == null || curve.length == 0)
+            return 1f;
+
+        return curve.Evaluate(GetRoundCurveT(round));
+    }
+
+    private float GetRoundCurveT(int round)
+    {
+        int safeRound = Mathf.Max(1, round);
+        int maxRound = Mathf.Max(2, GetBossRoundIndex());
+        return Mathf.Clamp01((safeRound - 1f) / (maxRound - 1f));
     }
 
     private string GetDebtDisplay(int round)
