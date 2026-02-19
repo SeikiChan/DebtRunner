@@ -422,6 +422,15 @@ private void LevelUp()
     {
         if (state != GameState.Shop) return;
 
+        if (shopSystem != null && shopSystem.IsPrizeDrawInProgress())
+        {
+            shopSystem.ShowPrizeInfo("Draw is still spinning.");
+            return;
+        }
+
+        if (shopSystem != null)
+            shopSystem.OnShopClosed();
+
         Time.timeScale = 1f;
 
         roundIndex += 1;
@@ -664,6 +673,9 @@ private void SwitchState(GameState next)
     state = next;
     if (previous != next)
         RunLogger.Event($"State {previous} -> {next}");
+
+    if (previous == GameState.Shop && next != GameState.Shop && shopSystem != null)
+        shopSystem.OnShopClosed();
 
     if (panelTitle) panelTitle.SetActive(state == GameState.Title);
     if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement || state == GameState.Shop);

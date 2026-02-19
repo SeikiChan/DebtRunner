@@ -50,8 +50,7 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private RectTransform autoRoot;
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textInfo;
-    [SerializeField] private Button buttonGamble;
-    [SerializeField] private TMP_Text textGambleLabel;
+    [SerializeField] private PrizeGridController prizeGrid;
     [SerializeField] private Button buttonRefresh;
     [SerializeField] private TMP_Text textRefreshLabel;
     [SerializeField] private ShopItemUIRefs[] itemUIs = new ShopItemUIRefs[3];
@@ -62,6 +61,7 @@ public class ShopSystem : MonoBehaviour
     private RunProgressionState runProgression;
     private bool uiReady;
     private bool eventsBound;
+    private int pendingFreeItemCharges;
 
     public void Bind(GameFlowController flow, RunProgressionState progression)
     {
@@ -70,6 +70,7 @@ public class ShopSystem : MonoBehaviour
 
         EnsureUI();
         BindUiEvents();
+        BindPrizeGrid();
         RefreshShopUI();
     }
 
@@ -77,9 +78,44 @@ public class ShopSystem : MonoBehaviour
     {
         EnsureUI();
         BindUiEvents();
+        pendingFreeItemCharges = 0;
         GenerateOffers();
-        SetInfo("Spend cash to upgrade. Gamble can help or hurt the next round.");
+        BindPrizeGrid();
+        prizeGrid?.OnShopOpened();
+        SetInfo("Spend cash to upgrade. Draw can help or hurt the next round.");
         RefreshShopUI();
+    }
+
+    public void OnShopClosed()
+    {
+        MarkOtherShopInteraction();
+        if (prizeGrid != null)
+            prizeGrid.CancelAndReset(true);
+    }
+
+    public void MarkOtherShopInteraction()
+    {
+        prizeGrid?.MarkOtherShopInteraction();
+    }
+
+    public bool IsPrizeDrawInProgress()
+    {
+        return prizeGrid != null && prizeGrid.IsDrawInProgress;
+    }
+
+    public void ShowPrizeInfo(string message)
+    {
+        SetInfo(message);
+    }
+
+    public int AddFreeItemCharges(int amount)
+    {
+        int v = Mathf.Max(0, amount);
+        if (v == 0) return pendingFreeItemCharges;
+
+        pendingFreeItemCharges += v;
+        RefreshShopUI();
+        return pendingFreeItemCharges;
     }
 
     public void RefreshShopUI()
@@ -90,16 +126,27 @@ public class ShopSystem : MonoBehaviour
         {
             if (runProgression != null)
             {
-                textCash.text = $"Cash: ${gameFlow.GetCashAmount()}   Next Debt +${runProgression.NextRoundDebtIncrease}   Enemy x{runProgression.NextRoundEnemyHpMultiplier:F2}/{runProgression.NextRoundEnemySpeedMultiplier:F2}";
+                textCash.text =
+                    $"Cash: ${gameFlow.GetCashAmount()}   Next Debt +${runProgression.NextRoundDebtIncrease}   " +
+                    $"Enemy x{runProgression.NextRoundEnemyHpMultiplier:F2}/{runProgression.NextRoundEnemySpeedMultiplier:F2}   " +
+                    $"Free Item x{pendingFreeItemCharges}";
             }
             else
             {
-                textCash.text = $"Cash: ${gameFlow.GetCashAmount()}";
+                textCash.text = $"Cash: ${gameFlow.GetCashAmount()}   Free Item x{pendingFreeItemCharges}";
             }
         }
 
-        if (textGambleLabel != null) textGambleLabel.text = $"Gamble ${gambleCost}";
         if (textRefreshLabel != null) textRefreshLabel.text = $"Refresh ${refreshCost}";
+
+        if (prizeGrid != null)
+        {
+            prizeGrid.SetDrawCost(gambleCost);
+            prizeGrid.SetRewardConfig(
+                cashRewardMin, cashRewardMax,
+                debtPenaltyMin, debtPenaltyMax,
+                enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
+        }
 
         for (int i = 0; i < currentOffers.Length; i++)
         {
@@ -135,23 +182,25 @@ public class ShopSystem : MonoBehaviour
                 if (ui.priceText != null) ui.priceText.text = "Purchased";
                 if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = "OWNED";
                 if (ui.buyButton != null) ui.buyButton.interactable = false;
+                continue;
             }
-            else
-            {
-                int price = offer.GetPrice();
-                if (ui.priceText != null) ui.priceText.text = price == 0 ? "FREE" : $"${price}";
-                if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = price == 0 ? "CLAIM" : "BUY";
-                if (ui.buyButton != null) ui.buyButton.interactable = true;
-            }
+
+            int price = offer.GetPrice();
+            bool freeByCharge = pendingFreeItemCharges > 0 && price > 0;
+            if (freeByCharge) price = 0;
+
+            if (ui.priceText != null)
+                ui.priceText.text = price == 0 ? "FREE" : $"${price}";
+            if (ui.buyButtonLabel != null)
+                ui.buyButtonLabel.text = price == 0 ? "CLAIM" : "BUY";
+            if (ui.buyButton != null)
+                ui.buyButton.interactable = true;
         }
     }
 
     private void BindUiEvents()
     {
         if (!uiReady || eventsBound) return;
-
-        if (buttonGamble != null)
-            buttonGamble.onClick.AddListener(Gamble);
 
         if (buttonRefresh != null)
             buttonRefresh.onClick.AddListener(RefreshOffers);
@@ -166,50 +215,9 @@ public class ShopSystem : MonoBehaviour
         eventsBound = true;
     }
 
-    private void Gamble()
-    {
-        if (gameFlow == null) return;
-        if (!gameFlow.TrySpendCash(gambleCost))
-        {
-            SetInfo("Not enough cash for gambling.");
-            return;
-        }
-
-        int roll = UnityEngine.Random.Range(0, 100);
-        if (roll < 20)
-        {
-            GrantFreeOffer();
-            return;
-        }
-
-        if (roll < 45)
-        {
-            int reward = UnityEngine.Random.Range(cashRewardMin, cashRewardMax + 1);
-            gameFlow.AddCash(reward);
-            SetInfo($"Gamble win! You gained ${reward}.");
-            return;
-        }
-
-        if (roll < 65)
-        {
-            SetInfo("Thank you for participating.");
-            return;
-        }
-
-        if (roll < 85)
-        {
-            int debtUp = UnityEngine.Random.Range(debtPenaltyMin, debtPenaltyMax + 1);
-            gameFlow.AddDebtPenaltyToNextRound(debtUp);
-            SetInfo($"Bad luck. Next round debt +${debtUp}.");
-            return;
-        }
-
-        gameFlow.AddEnemyBuffToNextRound(enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
-        SetInfo($"Danger ahead. Next round enemies buffed (HP x{enemyHpBuffMultiplier:F2}, Speed x{enemySpeedBuffMultiplier:F2}).");
-    }
-
     private void RefreshOffers()
     {
+        MarkOtherShopInteraction();
         if (gameFlow == null) return;
         if (!gameFlow.TrySpendCash(refreshCost))
         {
@@ -223,6 +231,7 @@ public class ShopSystem : MonoBehaviour
 
     private void BuyOffer(int index)
     {
+        MarkOtherShopInteraction();
         if (gameFlow == null) return;
         if (index < 0 || index >= currentOffers.Length) return;
 
@@ -230,7 +239,9 @@ public class ShopSystem : MonoBehaviour
         if (offer == null || offer.definition == null || offer.purchased) return;
 
         int cost = offer.GetPrice();
-        if (!gameFlow.TrySpendCash(cost))
+        bool consumeFreeCharge = pendingFreeItemCharges > 0 && cost > 0;
+        int finalCost = consumeFreeCharge ? 0 : cost;
+        if (!gameFlow.TrySpendCash(finalCost))
         {
             SetInfo("Not enough cash.");
             return;
@@ -238,31 +249,17 @@ public class ShopSystem : MonoBehaviour
 
         gameFlow.ApplyShopItem(offer.definition);
         offer.purchased = true;
-        SetInfo($"{offer.definition.ItemTitle} acquired.");
-        RefreshShopUI();
-    }
 
-    private void GrantFreeOffer()
-    {
-        List<int> candidates = new List<int>();
-        for (int i = 0; i < currentOffers.Length; i++)
+        if (consumeFreeCharge)
         {
-            ShopOffer offer = currentOffers[i];
-            if (offer != null && offer.definition != null && !offer.purchased && !offer.isFree)
-                candidates.Add(i);
+            pendingFreeItemCharges = Mathf.Max(0, pendingFreeItemCharges - 1);
+            SetInfo($"{offer.definition.ItemTitle} claimed for FREE. Remaining free charges: {pendingFreeItemCharges}.");
+        }
+        else
+        {
+            SetInfo($"{offer.definition.ItemTitle} acquired.");
         }
 
-        if (candidates.Count == 0)
-        {
-            int fallbackReward = UnityEngine.Random.Range(cashRewardMin, cashRewardMax + 1);
-            gameFlow.AddCash(fallbackReward);
-            SetInfo($"No free slot available. Fallback cash +${fallbackReward}.");
-            return;
-        }
-
-        int selected = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        currentOffers[selected].isFree = true;
-        SetInfo($"Lucky! Offer #{selected + 1} is now FREE.");
         RefreshShopUI();
     }
 
@@ -307,6 +304,22 @@ public class ShopSystem : MonoBehaviour
         return one.Count > 0 ? one[0] : null;
     }
 
+    private void BindPrizeGrid()
+    {
+        if (prizeGrid == null)
+            prizeGrid = GetComponentInChildren<PrizeGridController>(true);
+
+        if (prizeGrid == null)
+            return;
+
+        prizeGrid.Bind(gameFlow, this);
+        prizeGrid.SetDrawCost(gambleCost);
+        prizeGrid.SetRewardConfig(
+            cashRewardMin, cashRewardMax,
+            debtPenaltyMin, debtPenaltyMax,
+            enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
+    }
+
     private void EnsureUI()
     {
         if (uiReady) return;
@@ -332,7 +345,10 @@ public class ShopSystem : MonoBehaviour
 
     private bool ValidateManualUI()
     {
-        if (textCash == null || textInfo == null || buttonGamble == null || textGambleLabel == null || buttonRefresh == null || textRefreshLabel == null)
+        if (textCash == null || textInfo == null || buttonRefresh == null || textRefreshLabel == null)
+            return false;
+
+        if (prizeGrid == null || !prizeGrid.HasValidBinding())
             return false;
 
         if (itemUIs == null || itemUIs.Length < 3)
@@ -354,29 +370,30 @@ public class ShopSystem : MonoBehaviour
         {
             RectTransform panelRect = GetComponent<RectTransform>();
             if (panelRect == null) return;
-            autoRoot = CreateRect("AutoShopRoot", panelRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(980f, 620f));
+            autoRoot = CreateRect("AutoShopRoot", panelRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(1160f, 760f));
         }
 
-        textCash = CreateText("Text_Cash", autoRoot, new Vector2(0f, 250f), new Vector2(920f, 50f), 30f, TextAlignmentOptions.Center, Color.white);
-        textInfo = CreateText("Text_Info", autoRoot, new Vector2(0f, -210f), new Vector2(920f, 120f), 28f, TextAlignmentOptions.Center, new Color(0.95f, 0.9f, 0.65f, 1f));
+        textCash = CreateText("Text_Cash", autoRoot, new Vector2(0f, 332f), new Vector2(1100f, 46f), 26f, TextAlignmentOptions.Center, Color.white);
+        textInfo = CreateText("Text_Info", autoRoot, new Vector2(0f, -332f), new Vector2(1100f, 96f), 24f, TextAlignmentOptions.Center, new Color(0.95f, 0.9f, 0.65f, 1f));
         textInfo.enableWordWrapping = true;
 
-        buttonGamble = CreateButton("Btn_Gamble", autoRoot, new Vector2(-210f, 195f), new Vector2(300f, 54f), out textGambleLabel);
-        buttonRefresh = CreateButton("Btn_Refresh", autoRoot, new Vector2(210f, 195f), new Vector2(300f, 54f), out textRefreshLabel);
+        buttonRefresh = CreateButton("Btn_Refresh", autoRoot, new Vector2(0f, 276f), new Vector2(280f, 50f), out textRefreshLabel);
+
+        BuildAutoPrizeGrid();
 
         itemUIs = new ShopItemUIRefs[3];
         Color cardColor = new Color(0.08f, 0.08f, 0.10f, 0.85f);
         for (int i = 0; i < 3; i++)
         {
-            float x = -320f + i * 320f;
-            RectTransform card = CreateCard(autoRoot, x, 95f, cardColor);
+            float x = -360f + i * 360f;
+            RectTransform card = CreateCard(autoRoot, x, -190f, cardColor);
 
             Image icon = CreateImage("Icon", card, new Vector2(0f, 98f), new Vector2(72f, 72f), Color.white);
-            TMP_Text title = CreateText($"Item{i + 1}_Title", card, new Vector2(0f, 48f), new Vector2(260f, 50f), 32f, TextAlignmentOptions.Center, new Color(0.98f, 0.83f, 0.22f, 1f));
-            TMP_Text desc = CreateText($"Item{i + 1}_Desc", card, new Vector2(0f, -2f), new Vector2(260f, 78f), 24f, TextAlignmentOptions.Center, Color.white);
+            TMP_Text title = CreateText($"Item{i + 1}_Title", card, new Vector2(0f, 48f), new Vector2(320f, 50f), 30f, TextAlignmentOptions.Center, new Color(0.98f, 0.83f, 0.22f, 1f));
+            TMP_Text desc = CreateText($"Item{i + 1}_Desc", card, new Vector2(0f, -4f), new Vector2(320f, 78f), 22f, TextAlignmentOptions.Center, Color.white);
             desc.enableWordWrapping = true;
-            TMP_Text price = CreateText($"Item{i + 1}_Price", card, new Vector2(0f, -58f), new Vector2(260f, 40f), 30f, TextAlignmentOptions.Center, new Color(0.62f, 1f, 0.62f, 1f));
-            Button buy = CreateButton($"Item{i + 1}_Buy", card, new Vector2(0f, -108f), new Vector2(180f, 42f), out TMP_Text buyLabel);
+            TMP_Text price = CreateText($"Item{i + 1}_Price", card, new Vector2(0f, -58f), new Vector2(320f, 40f), 28f, TextAlignmentOptions.Center, new Color(0.62f, 1f, 0.62f, 1f));
+            Button buy = CreateButton($"Item{i + 1}_Buy", card, new Vector2(0f, -108f), new Vector2(200f, 42f), out TMP_Text buyLabel);
 
             itemUIs[i] = new ShopItemUIRefs
             {
@@ -392,6 +409,89 @@ public class ShopSystem : MonoBehaviour
         SetInfo("Shop ready.");
     }
 
+    private void BuildAutoPrizeGrid()
+    {
+        RectTransform gridRoot = CreateRect(
+            "PrizeGridRoot",
+            autoRoot,
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0f, 58f),
+            new Vector2(520f, 520f));
+
+        Image board = gridRoot.gameObject.AddComponent<Image>();
+        board.color = new Color(0.1f, 0.12f, 0.16f, 0.9f);
+        board.raycastTarget = false;
+
+        PrizeGridAnimator gridAnimator = gridRoot.gameObject.AddComponent<PrizeGridAnimator>();
+
+        if (prizeGrid == null)
+            prizeGrid = gridRoot.gameObject.AddComponent<PrizeGridController>();
+
+        PrizeGridCellView[] autoCells = new PrizeGridCellView[12];
+        Vector2[] positions = GetOuterRingCellPositions(108f);
+        for (int i = 0; i < autoCells.Length; i++)
+        {
+            RectTransform cellRect = CreateRect($"Cell_{i:00}", gridRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), positions[i], new Vector2(90f, 90f));
+            Image cellBg = cellRect.gameObject.AddComponent<Image>();
+            cellBg.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+            cellBg.raycastTarget = false;
+
+            Image icon = CreateImage("Icon", cellRect, new Vector2(0f, 12f), new Vector2(52f, 52f), Color.white);
+            TMP_Text label = CreateText("Label", cellRect, new Vector2(0f, -30f), new Vector2(84f, 20f), 14f, TextAlignmentOptions.Center, Color.white);
+            label.fontStyle = FontStyles.Bold;
+
+            Image highlight = CreateImage("Highlight", cellRect, Vector2.zero, new Vector2(90f, 90f), new Color(1f, 0.93f, 0.40f, 0.36f));
+            highlight.enabled = false;
+            highlight.transform.SetAsLastSibling();
+
+            autoCells[i] = new PrizeGridCellView
+            {
+                root = cellRect,
+                icon = icon,
+                label = label,
+                highlightOverlay = highlight,
+            };
+        }
+
+        Button drawButton = CreateButton("Btn_Draw", gridRoot, Vector2.zero, new Vector2(192f, 192f), out TMP_Text drawLabel);
+        Image drawBg = drawButton.GetComponent<Image>();
+        if (drawBg != null)
+            drawBg.color = new Color(0.96f, 0.82f, 0.26f, 0.96f);
+        if (drawLabel != null)
+        {
+            drawLabel.fontSize = 30f;
+            drawLabel.color = new Color(0.16f, 0.16f, 0.16f, 1f);
+            drawLabel.enableWordWrapping = true;
+        }
+
+        prizeGrid.ConfigureRuntimeUI(autoCells, drawButton, drawLabel, gridAnimator);
+    }
+
+    private Vector2[] GetOuterRingCellPositions(float step)
+    {
+        // 4x4 outer-ring clockwise indices (same map as PrizeGridController):
+        // [00][01][02][03]
+        // [11][  ][  ][04]
+        // [10][  ][  ][05]
+        // [09][08][07][06]
+        return new[]
+        {
+            new Vector2(-1.5f * step,  1.5f * step), // 00
+            new Vector2(-0.5f * step,  1.5f * step), // 01
+            new Vector2( 0.5f * step,  1.5f * step), // 02
+            new Vector2( 1.5f * step,  1.5f * step), // 03
+            new Vector2( 1.5f * step,  0.5f * step), // 04
+            new Vector2( 1.5f * step, -0.5f * step), // 05
+            new Vector2( 1.5f * step, -1.5f * step), // 06
+            new Vector2( 0.5f * step, -1.5f * step), // 07
+            new Vector2(-0.5f * step, -1.5f * step), // 08
+            new Vector2(-1.5f * step, -1.5f * step), // 09
+            new Vector2(-1.5f * step, -0.5f * step), // 10
+            new Vector2(-1.5f * step,  0.5f * step), // 11
+        };
+    }
+
     private void SetInfo(string message)
     {
         if (textInfo != null)
@@ -403,7 +503,7 @@ public class ShopSystem : MonoBehaviour
 
     private RectTransform CreateCard(Transform parent, float x, float y, Color color)
     {
-        RectTransform rect = CreateRect("Card", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(280f, 260f));
+        RectTransform rect = CreateRect("Card", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(340f, 260f));
         Image image = rect.gameObject.AddComponent<Image>();
         image.color = color;
         image.raycastTarget = false;
