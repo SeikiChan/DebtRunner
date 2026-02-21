@@ -19,6 +19,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelGameOver;
     [SerializeField] private GameObject panelPauseMenu;
     [SerializeField] private GameObject panelSettingsPlaceholder;
+    [SerializeField] private SettingsMenuController pauseSettingsMenu;
 
     [Header("World Roots (for cleanup)")]
     [SerializeField] private Transform enemiesRoot;
@@ -87,6 +88,13 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private Animator failAnimator;
     [SerializeField] private string failTriggerName = "Fail";
 
+    private enum SettingsReturnTarget
+    {
+        None,
+        PauseMenu,
+        TitleMenu
+    }
+
     private GameState state;
     private int roundIndex;          // 1-based
     private int cash;
@@ -95,6 +103,7 @@ public class GameFlowController : MonoBehaviour
     private bool roundIntroOverlayAutoCreated;
     private bool roundIntroActive;
     private bool pauseMenuOpen;
+    private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // 当前回合剩余时间
     private readonly RunProgressionState runProgression = new RunProgressionState();
 
@@ -103,16 +112,35 @@ public class GameFlowController : MonoBehaviour
         // 单例
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
-            return;
+            bool oldInDontDestroy = Instance.gameObject.scene.name == "DontDestroyOnLoad";
+            bool newInDontDestroy = gameObject.scene.name == "DontDestroyOnLoad";
+
+            if (oldInDontDestroy && !newInDontDestroy)
+            {
+                RunLogger.Warning("Replacing stale GameFlowController from DontDestroyOnLoad with scene instance.");
+                Destroy(Instance.gameObject);
+                Instance = this;
+            }
+            else
+            {
+                Destroy(gameObject);
+                return;
+            }
         }
-        Instance = this;
+        else
+        {
+            Instance = this;
+        }
+
+        if (panelSettingsPlaceholder != null)
+            panelSettingsPlaceholder.SetActive(false);
 
         if (enemySpawner == null)
             enemySpawner = FindObjectOfType<EnemySpawner>();
         if (playerShooter == null)
             playerShooter = FindObjectOfType<PlayerShooter>();
         EnsureShopSystemBound();
+        EnsurePauseSettingsBound();
 
         // 初始化升级池
         EnsureWeaponUpgradePool();
@@ -151,7 +179,11 @@ public class GameFlowController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (pauseMenuOpen)
+            if (panelSettingsPlaceholder != null && panelSettingsPlaceholder.activeSelf)
+            {
+                BackFromPauseSettings();
+            }
+            else if (pauseMenuOpen)
             {
                 ResumeFromPauseMenu();
             }
@@ -514,17 +546,60 @@ private void LevelUp()
 
     public void OpenPauseSettings()
     {
-        if (!pauseMenuOpen)
-            OpenPauseMenu();
+        if (!EnsurePauseSettingsReady())
+            return;
 
-        if (panelSettingsPlaceholder != null)
-            panelSettingsPlaceholder.SetActive(true);
+        bool openFromPause = state == GameState.Gameplay;
+        RunLogger.Event($"OpenPauseSettings requested. state={state}, fromPause={openFromPause}, pauseOpen={pauseMenuOpen}");
+
+        if (openFromPause)
+        {
+            if (!pauseMenuOpen)
+                OpenPauseMenu();
+
+            if (!pauseMenuOpen)
+                return;
+
+            settingsReturnTarget = SettingsReturnTarget.PauseMenu;
+        }
+        else
+        {
+            settingsReturnTarget = SettingsReturnTarget.TitleMenu;
+            pauseMenuOpen = false;
+            if (panelPauseMenu != null)
+                panelPauseMenu.SetActive(false);
+        }
+
+        panelSettingsPlaceholder.SetActive(true);
+
+        if (pauseSettingsMenu != null)
+            pauseSettingsMenu.ShowMenu();
     }
 
     public void BackFromPauseSettings()
     {
+        if (pauseSettingsMenu != null)
+            pauseSettingsMenu.HideMenu();
+
         if (panelSettingsPlaceholder != null)
             panelSettingsPlaceholder.SetActive(false);
+
+        if (settingsReturnTarget == SettingsReturnTarget.PauseMenu)
+        {
+            pauseMenuOpen = true;
+            if (panelPauseMenu != null)
+                panelPauseMenu.SetActive(true);
+            Time.timeScale = 0f;
+            SetGameplaySystemsActive(false);
+        }
+        else if (settingsReturnTarget == SettingsReturnTarget.TitleMenu)
+        {
+            pauseMenuOpen = false;
+            if (panelPauseMenu != null)
+                panelPauseMenu.SetActive(false);
+        }
+
+        settingsReturnTarget = SettingsReturnTarget.None;
     }
 
     public void QuitFromPauseMenu()
@@ -663,6 +738,40 @@ private void LevelUp()
         shopSystem.Bind(this, runProgression);
     }
 
+    private void EnsurePauseSettingsBound()
+    {
+        if (panelSettingsPlaceholder == null)
+        {
+            GameObject foundSettingsPanel = GameObject.Find("Panel_SettingsPlaceholder");
+            if (foundSettingsPanel != null)
+                panelSettingsPlaceholder = foundSettingsPanel;
+        }
+
+        if (panelSettingsPlaceholder == null)
+            return;
+
+        if (pauseSettingsMenu == null)
+            pauseSettingsMenu = panelSettingsPlaceholder.GetComponent<SettingsMenuController>();
+
+        if (pauseSettingsMenu == null)
+            pauseSettingsMenu = panelSettingsPlaceholder.AddComponent<SettingsMenuController>();
+
+        pauseSettingsMenu.Bind(this);
+    }
+
+    private bool EnsurePauseSettingsReady()
+    {
+        EnsurePauseSettingsBound();
+
+        if (panelSettingsPlaceholder == null)
+        {
+            RunLogger.Error("OpenPauseSettings failed: panelSettingsPlaceholder is not assigned and could not be found.");
+            return false;
+        }
+
+        return true;
+    }
+
     // ====== Internal ======
 
 private void SwitchState(GameState next)
@@ -750,6 +859,7 @@ private bool CanOpenPauseMenu()
 private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
 {
     pauseMenuOpen = false;
+    settingsReturnTarget = SettingsReturnTarget.None;
     SetPauseMenuVisible(false);
 
     if (resumeGameplayIfNeeded && state == GameState.Gameplay && !roundIntroActive)
@@ -764,8 +874,14 @@ private void SetPauseMenuVisible(bool visible)
     if (panelPauseMenu != null)
         panelPauseMenu.SetActive(visible);
 
-    if (!visible && panelSettingsPlaceholder != null)
-        panelSettingsPlaceholder.SetActive(false);
+    if (!visible)
+    {
+        if (pauseSettingsMenu != null)
+            pauseSettingsMenu.HideMenu();
+
+        if (panelSettingsPlaceholder != null)
+            panelSettingsPlaceholder.SetActive(false);
+    }
 }
 
 

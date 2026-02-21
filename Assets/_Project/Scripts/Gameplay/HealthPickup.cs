@@ -1,23 +1,38 @@
 using UnityEngine;
 
-public class XPPickup : MonoBehaviour
+public class HealthPickup : MonoBehaviour
 {
-    [SerializeField] private int amount = 1;
+    [SerializeField] private int healAmount = 1;
+
     [Header("Magnet")]
-    [SerializeField, Min(0f)] private float magnetRadius = 2.6f;
-    [SerializeField, Min(0f)] private float magnetSpeed = 8f;
+    [SerializeField, Min(0f)] private float magnetRadius = 2.2f;
+    [SerializeField, Min(0f)] private float magnetSpeed = 7f;
     [SerializeField, Min(0f)] private float autoCollectDistance = 0.18f;
+
+    [Header("Visual (Optional)")]
+    [SerializeField] private SpriteRenderer visualRenderer;
+    [SerializeField] private bool tintVisualOnAwake = true;
+    [SerializeField] private Color tintColor = new Color(1f, 0.38f, 0.38f, 1f);
 
     private static Transform cachedPlayer;
     private bool collected;
     private float magnetRadiusSqr;
     private float autoCollectDistanceSqr;
 
-    public void SetAmount(int value) => amount = Mathf.Max(1, value);
+    public void SetHealAmount(int value) => healAmount = Mathf.Max(1, value);
 
     private void Awake()
     {
         RebuildCachedValues();
+
+        if (tintVisualOnAwake)
+        {
+            if (visualRenderer == null)
+                visualRenderer = GetComponent<SpriteRenderer>();
+
+            if (visualRenderer != null)
+                visualRenderer.color = tintColor;
+        }
     }
 
     private void OnValidate()
@@ -47,7 +62,8 @@ public class XPPickup : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!other.CompareTag("Player")) return;
+        if (!other.CompareTag("Player"))
+            return;
 
         Collect();
     }
@@ -57,10 +73,15 @@ public class XPPickup : MonoBehaviour
         if (collected)
             return;
 
+        PlayerHealth playerHealth = ResolvePlayerHealth();
+        if (playerHealth == null)
+            return;
+
         collected = true;
-        RunLogger.Event($"XP pickup collected: +{amount}");
-        if (GameFlowController.Instance != null)
-            GameFlowController.Instance.AddXP(amount);
+        int before = playerHealth.CurrentHP;
+        playerHealth.Heal(healAmount);
+        int healed = Mathf.Max(0, playerHealth.CurrentHP - before);
+        RunLogger.Event($"HP pickup collected: +{healed}");
         Destroy(gameObject);
     }
 
@@ -76,8 +97,22 @@ public class XPPickup : MonoBehaviour
         return cachedPlayer;
     }
 
+    private PlayerHealth ResolvePlayerHealth()
+    {
+        Transform player = ResolvePlayer();
+        if (player != null)
+        {
+            PlayerHealth hpOnPlayer = player.GetComponent<PlayerHealth>();
+            if (hpOnPlayer != null)
+                return hpOnPlayer;
+        }
+
+        return FindObjectOfType<PlayerHealth>();
+    }
+
     private void RebuildCachedValues()
     {
+        healAmount = Mathf.Max(1, healAmount);
         magnetRadius = Mathf.Max(0f, magnetRadius);
         magnetSpeed = Mathf.Max(0f, magnetSpeed);
         autoCollectDistance = Mathf.Max(0f, autoCollectDistance);

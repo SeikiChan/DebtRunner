@@ -175,6 +175,16 @@ MonoBehaviour:
   maxHP: 3
   cashValue: 20
   xpDrop: 1
+  cashPopupColor: {r: 0.9245283, g: 0.86318535, b: 0.02180491, a: 1}
+  cashPopupFont: {fileID: 0}
+  cashPopupTextSize: 10
+  cashPopupTextScale: 1
+  cashPopupRiseSpeed: 1.5
+  cashPopupLifetime: 0.9
+  cashPopupFadeOutDuration: 0.35
+  hpDropChance: 0.12
+  hpHealAmount: 1
+  hpPickupPrefab: {fileID: 0}
 --- !u!114 &5889809405980213394
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -188,8 +198,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
   projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
-  fireInterval: 2.5
-  projectileSpeed: 6
+  fireInterval: 1.5
+  projectileSpeed: 5
   damage: 1
 --- !u!114 &-7703636692332815141
 MonoBehaviour:

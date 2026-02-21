@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 public class EnemyController : MonoBehaviour
 {
@@ -12,6 +13,18 @@ public class EnemyController : MonoBehaviour
     [Header("Rewards (fixed per enemy type)")]
     [SerializeField] private int cashValue = 20;
     [SerializeField] private int xpDrop = 1;
+    [Header("Popup: Cash")]
+    [SerializeField] private Color cashPopupColor = new Color(0.64f, 1f, 0.64f, 1f);
+    [SerializeField] private TMP_FontAsset cashPopupFont;
+    [SerializeField, Min(0.1f)] private float cashPopupTextSize = 6f;
+    [SerializeField, Min(0.01f)] private float cashPopupTextScale = 0.12f;
+    [SerializeField, Min(0f)] private float cashPopupRiseSpeed = 1.5f;
+    [SerializeField, Min(0.05f)] private float cashPopupLifetime = 0.9f;
+    [SerializeField, Min(0.01f)] private float cashPopupFadeOutDuration = 0.35f;
+    [Header("Drop: HP")]
+    [SerializeField, Range(0f, 1f)] private float hpDropChance = 0.12f;
+    [SerializeField] private int hpHealAmount = 1;
+    [SerializeField] private HealthPickup hpPickupPrefab;
 
     private Rigidbody2D rb;
     private Transform player;
@@ -88,7 +101,10 @@ public class EnemyController : MonoBehaviour
     {
         RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
 
-        GameFlowController.Instance.AddCash(cashValue);
+        if (GameFlowController.Instance != null)
+            GameFlowController.Instance.AddCash(cashValue);
+
+        SpawnCashPopup();
 
         if (xpPrefab != null)
         {
@@ -96,6 +112,55 @@ public class EnemyController : MonoBehaviour
             p.SetAmount(xpDrop);
         }
 
+        TryDropHealthPickup();
+
         Destroy(gameObject);
+    }
+
+    private void SpawnCashPopup()
+    {
+        if (cashValue <= 0)
+            return;
+
+        Vector3 popupPos = transform.position + Vector3.up * 0.85f + Vector3.right * Random.Range(-0.16f, 0.16f);
+        WorldPopupText.Spawn(
+            $"+${cashValue}",
+            popupPos,
+            cashPopupColor,
+            cashPopupFont,
+            cashPopupTextSize,
+            cashPopupTextScale,
+            cashPopupRiseSpeed,
+            cashPopupLifetime,
+            cashPopupFadeOutDuration);
+    }
+
+    private void TryDropHealthPickup()
+    {
+        if (hpDropChance <= 0f || Random.value > hpDropChance)
+            return;
+
+        HealthPickup pickup = null;
+
+        if (hpPickupPrefab != null)
+        {
+            pickup = Instantiate(hpPickupPrefab, transform.position, Quaternion.identity, pickupsRoot);
+        }
+        else if (xpPrefab != null)
+        {
+            XPPickup fallback = Instantiate(xpPrefab, transform.position, Quaternion.identity, pickupsRoot);
+            fallback.enabled = false;
+            fallback.name = "HPPickup_Fallback";
+
+            pickup = fallback.GetComponent<HealthPickup>();
+            if (pickup == null)
+                pickup = fallback.gameObject.AddComponent<HealthPickup>();
+        }
+
+        if (pickup == null)
+            return;
+
+        pickup.SetHealAmount(hpHealAmount);
+        RunLogger.Event($"HP pickup dropped. heal={Mathf.Max(1, hpHealAmount)}, chance={hpDropChance:F2}");
     }
 }
