@@ -41,8 +41,22 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private CanvasGroup roundIntroOverlay;
     [SerializeField] private TMP_Text roundIntroRoundText;
     [SerializeField] private TMP_Text roundIntroDebtText;
+    [SerializeField] private TMP_Text roundIntroContinueHintText;
+    [SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
+    [SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
     [SerializeField] private float roundIntroFadeInSeconds = 0.15f;
     [SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
+
+    [Header("Round Clear Overlay (Optional)")]
+    [SerializeField] private CanvasGroup roundClearOverlay;
+    [SerializeField] private TMP_Text roundClearTitleText;
+    [SerializeField] private TMP_Text roundClearSubText;
+    [SerializeField] private bool showRoundClearTransition = true;
+    [SerializeField] private string roundClearTitleMessage = "YOU PASS!";
+    [SerializeField] private string roundClearSubMessage = "Round Cleared";
+    [SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
+    [SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
+    [SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
 
     [Header("HUD Health")]
     [SerializeField] private HealthUI healthUI;
@@ -52,6 +66,8 @@ public class GameFlowController : MonoBehaviour
 
     [Header("Level Up Rewards")]
     [SerializeField] private LevelUpPanel levelUpPanel;
+    [SerializeField, Min(0f)] private float postLevelUpSafetyInvulnSeconds = 0.75f;
+    [SerializeField] private bool clearEnemyProjectilesAfterLevelUp = true;
 
     [Header("Settlement Text")]
     [SerializeField] private TMP_Text textDue;
@@ -100,8 +116,11 @@ public class GameFlowController : MonoBehaviour
     private int cash;
     private Coroutine roundTimerCo;
     private Coroutine roundIntroCo;
+    private Coroutine roundClearCo;
     private bool roundIntroOverlayAutoCreated;
+    private bool roundClearOverlayAutoCreated;
     private bool roundIntroActive;
+    private bool roundClearActive;
     private bool pauseMenuOpen;
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // 当前回合剩余时间
@@ -333,13 +352,26 @@ private void LevelUp()
     /// </summary>
     private void OnUpgradeSelected(WeaponUpgrade upgrade)
     {
-        if (playerShooter != null)
+        if (upgrade != null && playerShooter != null)
             playerShooter.ApplyUpgrade(upgrade);
+        else if (upgrade == null)
+            RunLogger.Warning("Upgrade selected callback received null upgrade.");
+
+        if (clearEnemyProjectilesAfterLevelUp)
+            ClearEnemyProjectiles();
 
         // 恢复游戏时间
         Time.timeScale = 1f;
 
-        RunLogger.Event($"Upgrade selected: {upgrade.title}");
+        if (postLevelUpSafetyInvulnSeconds > 0f)
+        {
+            PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+            if (playerHealth != null)
+                playerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
+        }
+
+        string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
+        RunLogger.Event($"Upgrade selected: {upgradeTitle}");
     }
 
     /// <summary>获取当前等级</summary>
@@ -355,6 +387,7 @@ private void LevelUp()
     public void StartRun()
     {
         // 恢复游戏时间（以防还在暂停状态）
+        StopRoundClearTransition(false);
         Time.timeScale = 1f;
 
         // 新开局：重置
@@ -403,16 +436,20 @@ private void LevelUp()
     // 回合结束入口（未来由倒计时/事件触发）
     public void EndRound()
     {
-        if (state != GameState.Gameplay) return;
+        if (state != GameState.Gameplay || roundClearActive) return;
         Time.timeScale = 1f;
         StopRoundTimer();
 
         // 注意：已移除“随机加钱”。现金应来自击杀敌人时 AddCash(固定值)。
         RunLogger.Event($"Round {roundIndex} ended. cash={cash}, level={level}, xp={xp}/{xpToNext}");
 
-        SwitchState(GameState.Settlement);
-        ApplySettlement();
-        RefreshHUD();
+        if (showRoundClearTransition)
+        {
+            ShowRoundClearTransition();
+            return;
+        }
+
+        EnterSettlementAfterRoundEnd();
     }
 
     // UI Button: Settlement Continue
@@ -499,6 +536,7 @@ private void LevelUp()
         if (state != GameState.Gameplay) return;
         RunLogger.Warning($"Game over triggered. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}");
         PlayFailAnimation();
+        StopRoundClearTransition(false);
         Time.timeScale = 1f; // 确保游戏时间恢复
         StopRoundTimer();
         SwitchState(GameState.GameOver);
@@ -508,6 +546,7 @@ private void LevelUp()
     public void BackToMenu()
     {
         // 确保游戏时间恢复
+        StopRoundClearTransition(false);
         Time.timeScale = 1f;
         StopRoundTimer();
         RunLogger.Event("Back to title menu.");
@@ -549,7 +588,7 @@ private void LevelUp()
         if (!EnsurePauseSettingsReady())
             return;
 
-        bool openFromPause = state == GameState.Gameplay;
+        bool openFromPause = pauseMenuOpen || state == GameState.Gameplay || state == GameState.Shop;
         RunLogger.Event($"OpenPauseSettings requested. state={state}, fromPause={openFromPause}, pauseOpen={pauseMenuOpen}");
 
         if (openFromPause)
@@ -796,9 +835,12 @@ private void SwitchState(GameState next)
     bool inGameplay = (state == GameState.Gameplay);
 
     if (!inGameplay)
+    {
         StopRoundIntro();
+        StopRoundClearTransition(false);
+    }
 
-    bool gameplaySystemsActive = inGameplay && !roundIntroActive;
+    bool gameplaySystemsActive = inGameplay && !roundIntroActive && !roundClearActive;
     SetGameplaySystemsActive(gameplaySystemsActive);
     
     // 离开Gameplay就清场（结算/商店/失败/回菜单都干净）
@@ -818,6 +860,28 @@ private void ClearWorld()
 
     if (enemyCount > 0 || projectileCount > 0 || pickupCount > 0)
         RunLogger.Event($"World cleared: enemies={enemyCount}, projectiles={projectileCount}, pickups={pickupCount}");
+}
+
+private void ClearEnemyProjectiles()
+{
+    if (projectilesRoot == null)
+        return;
+
+    EnemyProjectile[] enemyProjectiles = projectilesRoot.GetComponentsInChildren<EnemyProjectile>(true);
+    if (enemyProjectiles == null || enemyProjectiles.Length == 0)
+        return;
+
+    int cleared = 0;
+    for (int i = 0; i < enemyProjectiles.Length; i++)
+    {
+        if (enemyProjectiles[i] == null) continue;
+        enemyProjectiles[i].gameObject.SetActive(false);
+        Destroy(enemyProjectiles[i].gameObject);
+        cleared++;
+    }
+
+    if (cleared > 0)
+        RunLogger.Event($"Post-level-up safety: cleared {cleared} enemy projectile(s).");
 }
 
 private void ClearChildren(Transform root)
@@ -853,7 +917,14 @@ private void SetGameplaySystemsActive(bool active)
 
 private bool CanOpenPauseMenu()
 {
-    return state == GameState.Gameplay && !roundIntroActive && Time.timeScale > 0.01f;
+    bool canPauseState = state == GameState.Gameplay || state == GameState.Shop;
+    if (!canPauseState)
+        return false;
+
+    if (state == GameState.Gameplay && (roundIntroActive || roundClearActive))
+        return false;
+
+    return Time.timeScale > 0.01f;
 }
 
 private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
@@ -862,11 +933,18 @@ private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
     settingsReturnTarget = SettingsReturnTarget.None;
     SetPauseMenuVisible(false);
 
-    if (resumeGameplayIfNeeded && state == GameState.Gameplay && !roundIntroActive)
+    if (!resumeGameplayIfNeeded)
+        return;
+
+    if (state == GameState.Gameplay && !roundIntroActive && !roundClearActive)
     {
         Time.timeScale = 1f;
         SetGameplaySystemsActive(true);
+        return;
     }
+
+    if (state == GameState.Shop)
+        Time.timeScale = 1f;
 }
 
 private void SetPauseMenuVisible(bool visible)
@@ -968,6 +1046,89 @@ private void SetPauseMenuVisible(bool visible)
         RunLogger.Event($"Fail animation triggered: {failTriggerName}");
     }
 
+    private void EnterSettlementAfterRoundEnd()
+    {
+        if (state != GameState.Gameplay)
+            return;
+
+        SwitchState(GameState.Settlement);
+        ApplySettlement();
+        RefreshHUD();
+    }
+
+    private void ShowRoundClearTransition()
+    {
+        if (roundClearCo != null || roundClearActive)
+            StopRoundClearTransition(false);
+
+        UpdateRoundClearText();
+        bool useOverlay = EnsureRoundClearOverlay();
+
+        roundClearActive = true;
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+
+        if (useOverlay && roundClearOverlay != null)
+        {
+            roundClearOverlay.gameObject.SetActive(true);
+            roundClearOverlay.transform.SetAsLastSibling();
+            roundClearOverlay.alpha = 0f;
+        }
+
+        roundClearCo = StartCoroutine(RoundClearRoutine(useOverlay));
+        RunLogger.Event($"Round clear transition shown. overlay={useOverlay}, duration={roundClearSeconds:F2}s");
+    }
+
+    private void StopRoundClearTransition(bool resumeGameplayIfNeeded)
+    {
+        if (roundClearCo != null)
+        {
+            StopCoroutine(roundClearCo);
+            roundClearCo = null;
+        }
+
+        if (roundClearOverlay != null)
+        {
+            roundClearOverlay.alpha = 0f;
+            roundClearOverlay.gameObject.SetActive(false);
+        }
+
+        if (!roundClearActive)
+            return;
+
+        roundClearActive = false;
+        if (resumeGameplayIfNeeded && state == GameState.Gameplay && !roundIntroActive)
+        {
+            Time.timeScale = 1f;
+            SetGameplaySystemsActive(true);
+        }
+    }
+
+    private IEnumerator RoundClearRoutine(bool useOverlay)
+    {
+        if (useOverlay && roundClearOverlay != null)
+        {
+            yield return FadeCanvasGroup(roundClearOverlay, 0f, 1f, roundClearFadeInSeconds);
+
+            float hold = Mathf.Max(0f, roundClearSeconds - roundClearFadeInSeconds - roundClearFadeOutSeconds);
+            if (hold > 0f)
+                yield return new WaitForSecondsRealtime(hold);
+
+            yield return FadeCanvasGroup(roundClearOverlay, 1f, 0f, roundClearFadeOutSeconds);
+            roundClearOverlay.gameObject.SetActive(false);
+        }
+        else if (roundClearSeconds > 0f)
+        {
+            yield return new WaitForSecondsRealtime(roundClearSeconds);
+        }
+
+        roundClearCo = null;
+        roundClearActive = false;
+        Time.timeScale = 1f;
+
+        EnterSettlementAfterRoundEnd();
+    }
+
     private void ShowRoundIntro()
     {
         RefreshHUD();
@@ -985,7 +1146,7 @@ private void SetPauseMenuVisible(bool visible)
         SetGameplaySystemsActive(false);
 
         roundIntroCo = StartCoroutine(RoundIntroRoutine(canUseOverlay));
-        RunLogger.Event($"Round intro shown for {roundIntroSeconds:F1}s, overlay={canUseOverlay}");
+        RunLogger.Event($"Round intro shown. overlay={canUseOverlay}, requireAnyKey={roundIntroRequireAnyKeyToContinue}, duration={roundIntroSeconds:F1}s");
     }
 
     private void StopRoundIntro()
@@ -1001,6 +1162,8 @@ private void SetPauseMenuVisible(bool visible)
             roundIntroOverlay.alpha = 0f;
             roundIntroOverlay.gameObject.SetActive(false);
         }
+
+        SetRoundIntroHintVisible(false);
 
         if (roundIntroActive)
         {
@@ -1024,17 +1187,32 @@ private void SetPauseMenuVisible(bool visible)
 
             yield return FadeCanvasGroup(roundIntroOverlay, 0f, 1f, roundIntroFadeInSeconds);
 
-            float hold = Mathf.Max(0f, roundIntroSeconds - roundIntroFadeInSeconds - roundIntroFadeOutSeconds);
-            if (hold > 0f)
-                yield return new WaitForSecondsRealtime(hold);
+            if (roundIntroRequireAnyKeyToContinue)
+            {
+                SetRoundIntroHintVisible(true);
+                yield return WaitForRoundIntroContinueInput();
+                SetRoundIntroHintVisible(false);
+            }
+            else
+            {
+                float hold = Mathf.Max(0f, roundIntroSeconds - roundIntroFadeInSeconds - roundIntroFadeOutSeconds);
+                if (hold > 0f)
+                    yield return new WaitForSecondsRealtime(hold);
+            }
 
             yield return FadeCanvasGroup(roundIntroOverlay, 1f, 0f, roundIntroFadeOutSeconds);
             roundIntroOverlay.gameObject.SetActive(false);
         }
         else
         {
-            if (roundIntroSeconds > 0f)
+            if (roundIntroRequireAnyKeyToContinue)
+            {
+                yield return WaitForRoundIntroContinueInput();
+            }
+            else if (roundIntroSeconds > 0f)
+            {
                 yield return new WaitForSecondsRealtime(roundIntroSeconds);
+            }
         }
 
         roundIntroCo = null;
@@ -1051,6 +1229,28 @@ private void SetPauseMenuVisible(bool visible)
             SetRoundDebtVisible(false);
 
         RunLogger.Event("Round intro finished. Gameplay resumed.");
+    }
+
+    private IEnumerator WaitForRoundIntroContinueInput()
+    {
+        // Skip one frame to avoid consuming the click/key that started the round.
+        yield return null;
+
+        while (roundIntroActive && state == GameState.Gameplay)
+        {
+            if (Input.anyKeyDown)
+                yield break;
+
+            yield return null;
+        }
+    }
+
+    private void SetRoundIntroHintVisible(bool visible)
+    {
+        if (roundIntroContinueHintText == null)
+            return;
+
+        roundIntroContinueHintText.gameObject.SetActive(visible);
     }
 
     private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
@@ -1082,6 +1282,21 @@ private void SetPauseMenuVisible(bool visible)
 
         if (roundIntroDebtText != null)
             roundIntroDebtText.text = $"DEBT   OWED\n{GetDebtDisplay(roundIndex)}";
+
+        if (roundIntroContinueHintText != null)
+            roundIntroContinueHintText.text = roundIntroContinueHintMessage;
+    }
+
+    private void UpdateRoundClearText()
+    {
+        if (roundClearTitleText != null)
+            roundClearTitleText.text = roundClearTitleMessage;
+
+        if (roundClearSubText == null)
+            return;
+
+        string baseText = string.IsNullOrWhiteSpace(roundClearSubMessage) ? "Round Cleared" : roundClearSubMessage;
+        roundClearSubText.text = $"{baseText}\nRound {roundIndex}/{totalRounds}";
     }
 
     private int GetBossRoundIndex()
@@ -1227,9 +1442,78 @@ private void SetPauseMenuVisible(bool visible)
             90f,
             gold);
 
+        roundIntroContinueHintText = CreateIntroText(
+            overlayRoot.transform,
+            "ContinueHintText",
+            new Vector2(0f, -250f),
+            new Vector2(980f, 80f),
+            36f,
+            Color.white);
+        roundIntroContinueHintText.fontStyle = FontStyles.Normal;
+        roundIntroContinueHintText.text = roundIntroContinueHintMessage;
+        roundIntroContinueHintText.gameObject.SetActive(false);
+
         roundIntroOverlay.gameObject.SetActive(false);
         roundIntroOverlayAutoCreated = true;
         UpdateRoundIntroText();
+        return true;
+    }
+
+    private bool EnsureRoundClearOverlay()
+    {
+        if (roundClearOverlay != null && roundClearTitleText != null && roundClearSubText != null)
+            return true;
+
+        if (roundClearOverlayAutoCreated)
+            return false;
+
+        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
+        if (canvas == null)
+            return false;
+
+        Transform parent = panelHUD != null && panelHUD.transform.parent != null
+            ? panelHUD.transform.parent
+            : canvas.transform;
+
+        GameObject overlayRoot = new GameObject("RoundClearOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(parent, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image bg = overlayRoot.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.72f);
+        bg.raycastTarget = false;
+
+        roundClearOverlay = overlayRoot.GetComponent<CanvasGroup>();
+        roundClearOverlay.alpha = 0f;
+        roundClearOverlay.interactable = false;
+        roundClearOverlay.blocksRaycasts = false;
+
+        Color accent = new Color(0.20f, 1f, 0.72f, 1f);
+
+        roundClearTitleText = CreateIntroText(
+            overlayRoot.transform,
+            "RoundClearTitleText",
+            new Vector2(0f, 46f),
+            new Vector2(1000f, 180f),
+            96f,
+            accent);
+
+        roundClearSubText = CreateIntroText(
+            overlayRoot.transform,
+            "RoundClearSubText",
+            new Vector2(0f, -110f),
+            new Vector2(1000f, 180f),
+            46f,
+            Color.white);
+        roundClearSubText.fontStyle = FontStyles.Normal;
+
+        roundClearOverlay.gameObject.SetActive(false);
+        roundClearOverlayAutoCreated = true;
+        UpdateRoundClearText();
         return true;
     }
 

@@ -14,6 +14,8 @@ public class PlayerHealth : MonoBehaviour
     private float periodicShieldInterval = 12f;
     private int periodicShieldMaxCharges = 1;
     private float periodicShieldTimer;
+    private float invulnUntilUnscaledTime;
+    private Coroutine invulnRoutine;
 
     public int CurrentHP => hp;
     public int MaxHP => maxHP;
@@ -42,6 +44,12 @@ public class PlayerHealth : MonoBehaviour
     {
         hp = Mathf.Max(1, maxHP);
         invuln = false;
+        invulnUntilUnscaledTime = 0f;
+        if (invulnRoutine != null)
+        {
+            StopCoroutine(invulnRoutine);
+            invulnRoutine = null;
+        }
         RunLogger.Event($"Player health restored: {hp}/{maxHP}");
     }
 
@@ -104,7 +112,7 @@ public class PlayerHealth : MonoBehaviour
         {
             shieldCharges -= 1;
             RunLogger.Event($"Shield blocked damage. remaining={shieldCharges}");
-            StartCoroutine(IFrame());
+            ApplyInvulnerabilityFor(iFrameSeconds);
             return;
         }
 
@@ -119,13 +127,40 @@ public class PlayerHealth : MonoBehaviour
             return;
         }
 
-        StartCoroutine(IFrame());
+        ApplyInvulnerabilityFor(iFrameSeconds);
     }
 
-    private IEnumerator IFrame()
+    public void GrantTemporaryInvulnerability(float seconds)
     {
+        float duration = Mathf.Max(0f, seconds);
+        if (duration <= 0f)
+            return;
+
+        ApplyInvulnerabilityFor(duration);
+        RunLogger.Event($"Player temporary invulnerability granted: {duration:F2}s");
+    }
+
+    private void ApplyInvulnerabilityFor(float seconds)
+    {
+        float duration = Mathf.Max(0f, seconds);
+        if (duration <= 0f)
+            return;
+
+        float targetEndTime = Time.unscaledTime + duration;
+        if (targetEndTime > invulnUntilUnscaledTime)
+            invulnUntilUnscaledTime = targetEndTime;
+
         invuln = true;
-        yield return new WaitForSeconds(iFrameSeconds);
+        if (invulnRoutine == null)
+            invulnRoutine = StartCoroutine(InvulnerabilityTimerRoutine());
+    }
+
+    private IEnumerator InvulnerabilityTimerRoutine()
+    {
+        while (Time.unscaledTime < invulnUntilUnscaledTime)
+            yield return null;
+
         invuln = false;
+        invulnRoutine = null;
     }
 }

@@ -71,6 +71,9 @@ public class PlayerShooter : MonoBehaviour
         if (nearestEnemy == null) return;
 
         Vector2 dir = ((Vector2)nearestEnemy.transform.position - (Vector2)transform.position).normalized;
+        if (dir.sqrMagnitude <= 0.0001f)
+            return;
+
         timer = fireInterval;
         FireSpread(dir);
     }
@@ -78,22 +81,45 @@ public class PlayerShooter : MonoBehaviour
     private EnemyController GetNearestEnemy()
     {
         EnemyController[] enemies = FindObjectsOfType<EnemyController>();
-        if (enemies.Length == 0) return null;
+        if (enemies == null || enemies.Length == 0) return null;
 
-        EnemyController nearest = enemies[0];
-        float nearestDistance = Vector2.Distance(transform.position, nearest.transform.position);
+        EnemyController nearest = null;
+        float nearestSqrDistance = float.MaxValue;
+        Vector2 selfPos = transform.position;
 
-        for (int i = 1; i < enemies.Length; i++)
+        for (int i = 0; i < enemies.Length; i++)
         {
-            float distance = Vector2.Distance(transform.position, enemies[i].transform.position);
-            if (distance < nearestDistance)
+            EnemyController candidate = enemies[i];
+            if (!IsValidTarget(candidate))
+                continue;
+
+            Vector2 delta = (Vector2)candidate.transform.position - selfPos;
+            float sqrDistance = delta.sqrMagnitude;
+            if (sqrDistance <= 0.0001f)
+                continue;
+
+            if (sqrDistance < nearestSqrDistance)
             {
-                nearestDistance = distance;
-                nearest = enemies[i];
+                nearestSqrDistance = sqrDistance;
+                nearest = candidate;
             }
         }
 
         return nearest;
+    }
+
+    private bool IsValidTarget(EnemyController enemy)
+    {
+        if (enemy == null || !enemy.isActiveAndEnabled)
+            return false;
+
+        // Filter out container objects or misconfigured scene nodes accidentally carrying EnemyController.
+        if (enemy.GetComponent<Rigidbody2D>() == null)
+            return false;
+        if (enemy.GetComponent<Collider2D>() == null)
+            return false;
+
+        return true;
     }
 
     private void FireSpread(Vector2 baseDirection)
