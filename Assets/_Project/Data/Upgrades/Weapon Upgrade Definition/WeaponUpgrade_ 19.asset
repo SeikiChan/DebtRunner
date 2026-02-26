@@ -12,12 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 19
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: New Weapon Upgrade
+  upgradeTitle: Orbit Storm
   description: 
   icon: {fileID: 0}
-  rarity: 0
-  weightPercent: 10
+  rarity: 3
+  weightPercent: 4
   effects:
-  - effectType: 0
+  - effectType: 9
+    intValue: 1
+    floatValue: 0
+  - effectType: 10
     intValue: 0
+    floatValue: 0.15
+  - effectType: 11
+    intValue: 30
     floatValue: 0

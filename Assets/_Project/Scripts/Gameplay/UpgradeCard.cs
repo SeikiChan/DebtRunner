@@ -14,6 +14,7 @@ public class UpgradeCard : MonoBehaviour
 
     private WeaponUpgrade upgradeData;
     private System.Action<WeaponUpgrade> onSelected;
+    private bool interactable = true;
 
     private void Start()
     {
@@ -25,6 +26,7 @@ public class UpgradeCard : MonoBehaviour
     {
         upgradeData = upgrade;
         onSelected = onSelect;
+        SetInteractable(true);
 
         if (titleText != null)
             titleText.text = upgrade.title;
@@ -38,6 +40,16 @@ public class UpgradeCard : MonoBehaviour
 
     private void OnCardSelected()
     {
+        if (!interactable)
+            return;
+
         onSelected?.Invoke(upgradeData);
+    }
+
+    public void SetInteractable(bool value)
+    {
+        interactable = value;
+        if (selectButton != null)
+            selectButton.interactable = value;
     }
 }

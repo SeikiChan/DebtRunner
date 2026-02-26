@@ -12,11 +12,11 @@ GameObject:
   - component: {fileID: 6321085318251047110}
   - component: {fileID: 7266091002229561027}
   - component: {fileID: 8801271930620882410}
-  - component: {fileID: 2284842997876372299}
-  - component: {fileID: 5889809405980213394}
   - component: {fileID: -7703636692332815141}
+  - component: {fileID: 7962229620617208493}
+  - component: {fileID: 4722894591820441064}
   m_Layer: 7
-  m_Name: Enemy_Grunt
+  m_Name: Enemy_Boss
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -82,16 +82,16 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingLayerID: 421451715
+  m_SortingLayer: 3
+  m_SortingOrder: 20
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 0.5660378, g: 0, b: 0.0212906, a: 1}
+  m_Sprite: {fileID: -6248741079362886434, guid: 0c94bfa7e83cf4b4e8e8be7c3f3d1875, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 7.77, y: 7.36}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -159,48 +159,6 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 0.5
---- !u!114 &2284842997876372299
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5816684970303777472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 2.5
-  maxHP: 3
-  cashValue: 20
-  xpDrop: 1
-  cashPopupColor: {r: 0.9245283, g: 0.86318535, b: 0.02180491, a: 1}
-  cashPopupFont: {fileID: 0}
-  cashPopupTextSize: 10
-  cashPopupTextScale: 1
-  cashPopupRiseSpeed: 1.5
-  cashPopupLifetime: 0.9
-  cashPopupFadeOutDuration: 0.35
-  hpDropChance: 0.12
-  hpHealAmount: 1
-  hpPickupPrefab: {fileID: 0}
---- !u!114 &5889809405980213394
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5816684970303777472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ea5b047a8b1950f4688862527a25f981, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
-  projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
-  fireInterval: 1.5
-  projectileSpeed: 5
-  damage: 1
 --- !u!114 &-7703636692332815141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -216,3 +174,124 @@ MonoBehaviour:
   hitSpeed: 2.5
   maxKnockbackSpeed: 5
   recoveryPerSecond: 10
+--- !u!114 &7962229620617208493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816684970303777472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f88b1fe8032de984fabddf0722eed89c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BossAttackController
+  bossEnemy: {fileID: 0}
+  bossRb: {fileID: 0}
+  player: {fileID: 0}
+  playerMotor: {fileID: 0}
+  playerHealth: {fileID: 0}
+  playerRb: {fileID: 0}
+  projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
+  debtCollectorPrefab: {fileID: 0}
+  addsXpPickupPrefab: {fileID: 0}
+  projectilesRoot: {fileID: 0}
+  enemiesRoot: {fileID: 0}
+  pickupsRoot: {fileID: 0}
+  telegraphMaterial: {fileID: 0}
+  openingDelay: 0.85
+  phase1RecoveryRange: {x: 0.8, y: 1.05}
+  phase2RecoveryRange: {x: 0.6, y: 0.85}
+  enrageRecoveryRange: {x: 0.4, y: 0.6}
+  suppressEnemyMovementDuringDash: 1
+  telegraphColor: {r: 1, g: 0.25, b: 0.2, a: 0.92}
+  telegraphLineWidth: 0.1
+  telegraphCircleWidth: 0.08
+  telegraphCircleSegments: 72
+  telegraphLength: 12
+  telegraphSortingOrder: 250
+  chipFanTelegraphSeconds: 0.6
+  chipFanMinShots: 7
+  chipFanMaxShots: 11
+  chipFanSpreadPhase1: 100
+  chipFanSpreadPhase2: 80
+  chipFanSpreadEnrage: 66
+  chipFanProjectileSpeedPhase1: 7.5
+  chipFanProjectileSpeedPhase2: 8.6
+  chipFanProjectileSpeedEnrage: 9.6
+  chipFanDamage: 1
+  receiptSnipeTelegraphSeconds: 0.5
+  receiptSnipeBurstCount: 3
+  receiptSnipeBurstGapPhase1: 0.14
+  receiptSnipeBurstGapPhase2: 0.11
+  receiptSnipeBurstGapEnrage: 0.09
+  receiptSnipeProjectileSpeed: 11
+  receiptSnipeDamage: 1
+  dashTelegraphSeconds: 0.8
+  dashSpeed: 18
+  dashMinDistance: 3.5
+  dashMaxDistance: 8.5
+  dashDamage: 1
+  dashHitRadius: 0.85
+  dashKnockbackImpulse: 8
+  dashRecoverySeconds: 0.6
+  interestRingTelegraphSeconds: 0.6
+  interestRingMinCount: 2
+  interestRingMaxCount: 3
+  interestRingDelayPhase1: 0.42
+  interestRingDelayPhase2: 0.3
+  interestRingDelayEnrage: 0.23
+  interestRingStartRadius: 0.9
+  interestRingEndRadius: 7
+  interestRingExpandSecondsPhase1: 1
+  interestRingExpandSecondsPhase2: 0.9
+  interestRingExpandSecondsEnrage: 0.8
+  interestRingHitThickness: 0.35
+  interestRingDamage: 1
+  interestRingKnockbackImpulse: 6
+  collectionsCallTelegraphSeconds: 1
+  collectionsCallMinAdds: 2
+  collectionsCallMaxAdds: 4
+  collectionsSpawnMinRadius: 2.8
+  collectionsSpawnMaxRadius: 4.2
+  collectionsMinSpacing: 1.2
+  collectionsSpawnMarkRadius: 0.55
+  addHpMultiplier: 0.9
+  addSpeedMultiplier: 1.7
+--- !u!114 &4722894591820441064
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816684970303777472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyController
+  moveSpeed: 0.5
+  enableEnemySeparation: 1
+  separationRadius: 1.25
+  separationStrength: 7
+  separationMaxSpeed: 4.8
+  closeRepelDistance: 0.42
+  closeRepelBoost: 1.9
+  separationMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  separationUseOwnLayerOnly: 1
+  separationBufferSize: 64
+  maxHP: 1000
+  cashValue: 20
+  xpDrop: 1
+  cashPopupColor: {r: 0.64, g: 1, b: 0.64, a: 1}
+  cashPopupFont: {fileID: 0}
+  cashPopupTextSize: 6
+  cashPopupTextScale: 0.12
+  cashPopupRiseSpeed: 1.5
+  cashPopupLifetime: 0.9
+  cashPopupFadeOutDuration: 0.35
+  hpDropChance: 0.12
+  hpHealAmount: 1
+  hpPickupPrefab: {fileID: 0}

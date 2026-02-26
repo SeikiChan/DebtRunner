@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 2
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: New Weapon Upgrade
-  description: 
+  upgradeTitle: "\tMuzzle Speed "
+  description: '+5% project speed '
   icon: {fileID: 0}
   rarity: 0
-  weightPercent: 10
+  weightPercent: 11
   effects:
-  - effectType: 0
+  - effectType: 2
     intValue: 0
-    floatValue: 0
+    floatValue: 2

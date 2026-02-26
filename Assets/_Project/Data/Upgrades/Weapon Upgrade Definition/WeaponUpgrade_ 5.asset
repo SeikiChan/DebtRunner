@@ -12,12 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 5
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: New Weapon Upgrade
-  description: 
+  upgradeTitle: Heavy Card II
+  description: 'Damage Add 1 +
+
+    Knockback Multiplier Add'
   icon: {fileID: 0}
-  rarity: 0
+  rarity: 1
   weightPercent: 10
   effects:
   - effectType: 0
-    intValue: 0
+    intValue: 1
     floatValue: 0
+  - effectType: 6
+    intValue: 0
+    floatValue: 0.1

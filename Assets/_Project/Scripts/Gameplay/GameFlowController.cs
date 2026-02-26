@@ -1,5 +1,6 @@
-﻿using System.Collections;
+using System.Collections;
 using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,102 +8,206 @@ public class GameFlowController : MonoBehaviour
 {
     public static GameFlowController Instance { get; private set; }
 
-    public enum GameState { Title, Gameplay, Settlement, Shop, GameOver }
+    public enum GameState { Title, Gameplay, Settlement, Shop, GameOver, Victory }
     public bool IsInGameplayState => state == GameState.Gameplay;
 
-    [Header("Panels")]
+    [Header("Panels / 面板")]
+    [LocalizedLabel("Panel Title / 标题面板")]
     [SerializeField] private GameObject panelTitle;
+    [LocalizedLabel("Panel HUD / HUD面板")]
     [SerializeField] private GameObject panelHUD;
+    [LocalizedLabel("Panel Level Up / 升级面板")]
     [SerializeField] private GameObject panelLevelUp;
+    [LocalizedLabel("Panel Settlement / 结算面板")]
     [SerializeField] private GameObject panelSettlement;
+    [LocalizedLabel("Panel Shop / 商店面板")]
     [SerializeField] private GameObject panelShop;
+    [LocalizedLabel("Panel Game Over / 失败面板")]
     [SerializeField] private GameObject panelGameOver;
+    [LocalizedLabel("Panel Death / 死亡结算面板")]
+    [SerializeField] private DeathPanel deathPanel;
+    [LocalizedLabel("Panel Victory / 胜利面板")]
+    [SerializeField] private VictoryPanel victoryPanel;
+    [LocalizedLabel("Panel Pause Menu / 暂停面板")]
     [SerializeField] private GameObject panelPauseMenu;
+    [LocalizedLabel("Panel Settings Placeholder / 设置占位面板")]
     [SerializeField] private GameObject panelSettingsPlaceholder;
+    [LocalizedLabel("Pause Settings Menu / 暂停设置菜单")]
     [SerializeField] private SettingsMenuController pauseSettingsMenu;
 
-    [Header("World Roots (for cleanup)")]
+    [Header("World Roots / 场景根节点")]
+    [LocalizedLabel("Enemies Root / 敌人根节点")]
     [SerializeField] private Transform enemiesRoot;
+    [LocalizedLabel("Projectiles Root / 子弹根节点")]
     [SerializeField] private Transform projectilesRoot;
+    [LocalizedLabel("Pickups Root / 掉落根节点")]
     [SerializeField] private Transform pickupsRoot;
 
-    [Header("World References")]
+    [Header("World References / 世界引用")]
+    [LocalizedLabel("Player Motor / 玩家移动组件")]
     [SerializeField] private PlayerMotor2D playerMotor;
+    [LocalizedLabel("Camera Follow / 相机跟随组件")]
     [SerializeField] private CameraFollow2D cameraFollow;
 
-    [Header("HUD Text")]
+    [Header("HUD Text / HUD文案")]
+    [LocalizedLabel("Text Round / 回合文本")]
     [SerializeField] private TMP_Text textRound;
+    [LocalizedLabel("Text Cash / 金钱文本")]
     [SerializeField] private TMP_Text textCash;
+    [LocalizedLabel("Text Debt / 债务文本")]
     [SerializeField] private TMP_Text textDebt;
-    [SerializeField] private TMP_Text textCountdown;  // 倒计时显示
+    [LocalizedLabel("Text Countdown / 倒计时文本")]
+    [SerializeField] private TMP_Text textCountdown;
+    [LocalizedLabel("Round Intro Seconds / 开场停留时长")]
     [SerializeField] private float roundIntroSeconds = 2.5f;
 
-    [Header("Round Intro Overlay (Optional)")]
+    [Header("Round Intro Overlay / 回合开场遮罩")]
+    [LocalizedLabel("Round Intro Overlay / 开场遮罩")]
     [SerializeField] private CanvasGroup roundIntroOverlay;
+    [LocalizedLabel("Round Intro Round Text / 开场回合文本")]
     [SerializeField] private TMP_Text roundIntroRoundText;
+    [LocalizedLabel("Round Intro Debt Text / 开场债务文本")]
     [SerializeField] private TMP_Text roundIntroDebtText;
+    [LocalizedLabel("Round Intro Continue Hint Text / 开场继续提示文本")]
     [SerializeField] private TMP_Text roundIntroContinueHintText;
+    [LocalizedLabel("Round Intro Require Any Key / 开场需任意键继续")]
     [SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
+    [LocalizedLabel("Round Intro Hint Message / 开场提示文案")]
     [SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
+    [LocalizedLabel("Round Intro Fade In Seconds / 开场淡入时长")]
     [SerializeField] private float roundIntroFadeInSeconds = 0.15f;
+    [LocalizedLabel("Round Intro Fade Out Seconds / 开场淡出时长")]
     [SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
 
-    [Header("Round Clear Overlay (Optional)")]
+    [Header("Round Clear Overlay / 回合通过遮罩")]
+    [LocalizedLabel("Round Clear Overlay / 通关遮罩")]
     [SerializeField] private CanvasGroup roundClearOverlay;
+    [LocalizedLabel("Round Clear Title Text / 通关标题文本")]
     [SerializeField] private TMP_Text roundClearTitleText;
+    [LocalizedLabel("Round Clear Sub Text / 通关副标题文本")]
     [SerializeField] private TMP_Text roundClearSubText;
+    [LocalizedLabel("Show Round Clear Transition / 显示通关过渡")]
     [SerializeField] private bool showRoundClearTransition = true;
+    [LocalizedLabel("Round Clear Title Message / 通关标题文案")]
     [SerializeField] private string roundClearTitleMessage = "YOU PASS!";
+    [LocalizedLabel("Round Clear Sub Message / 通关副文案")]
     [SerializeField] private string roundClearSubMessage = "Round Cleared";
+    [LocalizedLabel("Round Clear Seconds / 通关停留时长")]
     [SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
+    [LocalizedLabel("Round Clear Fade In Seconds / 通关淡入时长")]
     [SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
+    [LocalizedLabel("Round Clear Fade Out Seconds / 通关淡出时长")]
     [SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
+    [LocalizedLabel("Auto Collect Drops On Round Clear / 通关自动吸取掉落")]
+    [SerializeField] private bool autoCollectDropsOnRoundClear = true;
+    [LocalizedLabel("Round Clear Auto Collect Radius / 自动吸取半径")]
+    [SerializeField, Min(0f)] private float roundClearAutoCollectRadius = 4.5f;
+    [LocalizedLabel("Round Clear Auto Collect Move Speed / 自动吸取移动速度")]
+    [SerializeField, Min(0f)] private float roundClearAutoCollectMoveSpeed = 15f;
+    [LocalizedLabel("Round Clear Auto Collect Distance / 自动吸取判定距离")]
+    [SerializeField, Min(0f)] private float roundClearAutoCollectCollectDistance = 0.2f;
+    [LocalizedLabel("Round Clear Overlay Alpha During Collect / 吸取时遮罩透明度")]
+    [SerializeField, Range(0f, 1f)] private float roundClearOverlayAlphaDuringCollect = 0.45f;
+    [LocalizedLabel("Round Clear Collect Delay Seconds / 吸取完成延迟")]
+    [SerializeField, Min(0f)] private float roundClearCollectDelaySeconds = 0.12f;
+    [LocalizedLabel("Round Clear Auto Collect Max Wait Seconds / 自动吸取最大等待")]
+    [SerializeField, Min(0f)] private float roundClearAutoCollectMaxWaitSeconds = 15f;
 
-    [Header("HUD Health")]
+    [Header("HUD Health / 血量UI")]
+    [LocalizedLabel("Health UI / 血量界面")]
     [SerializeField] private HealthUI healthUI;
 
-    [Header("HUD XP")]
+    [Header("HUD XP / 经验UI")]
+    [LocalizedLabel("XP UI / 经验界面")]
     [SerializeField] private XPUI xpUI;
 
-    [Header("Level Up Rewards")]
+    [Header("Level Up Rewards / 升级奖励")]
+    [LocalizedLabel("Level Up Panel / 升级面板脚本")]
     [SerializeField] private LevelUpPanel levelUpPanel;
+    [LocalizedLabel("Post Level Up Safety Invuln Seconds / 升级后无敌时长")]
     [SerializeField, Min(0f)] private float postLevelUpSafetyInvulnSeconds = 0.75f;
+    [LocalizedLabel("Clear Enemy Projectiles After Level Up / 升级后清敌方子弹")]
     [SerializeField] private bool clearEnemyProjectilesAfterLevelUp = true;
+    [LocalizedLabel("Defer Level Up Rewards During Round Clear / 通关阶段延后升级奖励")]
+    [SerializeField] private bool deferLevelUpRewardsDuringRoundClear = true;
 
-    [Header("Settlement Text")]
+    [Header("Settlement Text / 结算文案")]
+    [LocalizedLabel("Text Due / 应付文本")]
     [SerializeField] private TMP_Text textDue;
+    [LocalizedLabel("Text Paid / 已付文本")]
     [SerializeField] private TMP_Text textPaid;
+    [LocalizedLabel("Text Remaining Debt / 剩余债务文本")]
     [SerializeField] private TMP_Text textRemainingDebt;
 
-    [Header("Run Config (temporary numbers)")]
+    [Header("Run Config / 跑局配置")]
+    [LocalizedLabel("Total Rounds / 普通总回合数")]
     [SerializeField] private int totalRounds = 10;
+    [LocalizedLabel("Base Due / 基础债务")]
     [SerializeField] private int baseDue = 500;
+    [LocalizedLabel("Step Due / 每回合债务增量")]
     [SerializeField] private int stepDue = 200;
+    [LocalizedLabel("Round Duration Seconds / 每回合时长")]
     [SerializeField] private float roundDurationSeconds = 30f;
+    [LocalizedLabel("Base XP To Next / 基础升级经验")]
+    [SerializeField, Min(1)] private int baseXpToNext = 10;
 
-    [Header("Enemy Difficulty Curve")]
+    [Header("Debt Curve / 债务曲线")]
+    [LocalizedLabel("Use Debt Curve Multiplier / 启用债务曲线倍率")]
+    [SerializeField] private bool useDebtCurveMultiplier = true;
+    [LocalizedLabel("Debt Curve / 债务曲线")]
+    [SerializeField] private AnimationCurve debtCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2f);
+    [LocalizedLabel("Debt Min Growth Per Round / 债务最小每回合增长")]
+    [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
+
+    [Header("Enemy Difficulty Curve / 敌人难度曲线")]
+    [LocalizedLabel("Enemy HP Curve / 敌人血量曲线")]
     [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2.2f);
+    [LocalizedLabel("Enemy Speed Curve / 敌人速度曲线")]
     [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.7f);
+    [LocalizedLabel("Enemy HP Min Growth Per Round / 敌人血量最小每回合增长")]
     [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.12f;
+    [LocalizedLabel("Enemy Speed Min Growth Per Round / 敌人速度最小每回合增长")]
     [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.05f;
 
-    [Header("XP (temp)")]
+    [Header("XP / 经验配置")]
+    [LocalizedLabel("Level / 当前等级(初始)")]
     [SerializeField] private int level = 1;
+    [LocalizedLabel("XP / 当前经验(初始)")]
     [SerializeField] private int xp = 0;
+    [LocalizedLabel("XP To Next / 下级经验(初始)")]
     [SerializeField] private int xpToNext = 10;
+    [LocalizedLabel("XP Curve Max Level / 经验曲线最大等级")]
+    [SerializeField, Min(2)] private int xpCurveMaxLevel = 25;
+    [LocalizedLabel("XP To Next Curve / 升级经验曲线")]
+    [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 5f);
+    [LocalizedLabel("XP Min Growth Per Level / 升级经验最小每级增长")]
+    [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.12f;
 
-    [Header("Weapon Upgrade Pool Asset")]
+    [Header("Weapon Upgrade Pool / 武器升级池")]
+    [LocalizedLabel("Weapon Upgrade Pool Asset / 武器升级池资源")]
     [SerializeField] private WeaponUpgradePoolAsset weaponUpgradePoolAsset;
 
-
-    [Header("Gameplay Systems")]
+    [Header("Gameplay Systems / 核心系统")]
+    [LocalizedLabel("Enemy Spawner / 刷怪器")]
     [SerializeField] private EnemySpawner enemySpawner;
+    [LocalizedLabel("Player Shooter / 玩家射击")]
     [SerializeField] private PlayerShooter playerShooter;
+    [LocalizedLabel("Shop System / 商店系统")]
     [SerializeField] private ShopSystem shopSystem;
 
-    [Header("Fail Animation (Optional)")]
+    [Header("Fail Animation / 失败动画")]
+    [LocalizedLabel("Fail Animator / 失败动画器")]
     [SerializeField] private Animator failAnimator;
+    [LocalizedLabel("Fail Trigger Name / 失败触发器名")]
     [SerializeField] private string failTriggerName = "Fail";
+
+    [Header("Debug / 调试")]
+    [LocalizedLabel("Enable Debug Hotkeys / 启用调试热键")]
+    [SerializeField] private bool enableDebugHotkeys = true;
+    [LocalizedLabel("Debug Jump Boss Round Key / 跳Boss热键")]
+    [SerializeField] private KeyCode debugJumpBossRoundKey = KeyCode.F6;
+    [LocalizedLabel("Debug Reset Stats Before Boss / 跳Boss前重置属性")]
+    [SerializeField] private bool debugResetStatsBeforeBoss = false;
 
     private enum SettingsReturnTarget
     {
@@ -125,6 +230,8 @@ public class GameFlowController : MonoBehaviour
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // 当前回合剩余时间
     private readonly RunProgressionState runProgression = new RunProgressionState();
+    private int pendingDeferredLevelUpChoices;
+    private DeathPanel.DeathType currentDeathType = DeathPanel.DeathType.KilledByMonster;
 
     private void Awake()
     {
@@ -161,13 +268,69 @@ public class GameFlowController : MonoBehaviour
         EnsureShopSystemBound();
         EnsurePauseSettingsBound();
 
+        // 尝试自动绑定 DeathPanel 和 VictoryPanel（包括场景中处于 inactive 的对象）
+        if (deathPanel == null)
+        {
+            GameObject found = GameObject.Find("Panel_Death");
+            if (found != null)
+                deathPanel = found.GetComponent<DeathPanel>();
+            else
+            {
+                DeathPanel[] all = Resources.FindObjectsOfTypeAll<DeathPanel>();
+                for (int i = 0; i < all.Length; i++)
+                {
+                    DeathPanel dp = all[i];
+                    if (dp == null) continue;
+                    if (dp.gameObject.scene.IsValid() && dp.gameObject.scene.isLoaded)
+                    {
+                        deathPanel = dp;
+                        break;
+                    }
+                }
+            }
+
+            if (deathPanel != null)
+                RunLogger.Event("DeathPanel auto-bound to GameFlowController.");
+            else
+                RunLogger.Warning("DeathPanel not assigned and not found in scene. Assign Panel_Death in GameFlowController Inspector.");
+        }
+
+        if (victoryPanel == null)
+        {
+            GameObject found = GameObject.Find("Panel_Victory");
+            if (found != null)
+                victoryPanel = found.GetComponent<VictoryPanel>();
+            else
+            {
+                VictoryPanel[] all = Resources.FindObjectsOfTypeAll<VictoryPanel>();
+                for (int i = 0; i < all.Length; i++)
+                {
+                    VictoryPanel vp = all[i];
+                    if (vp == null) continue;
+                    if (vp.gameObject.scene.IsValid() && vp.gameObject.scene.isLoaded)
+                    {
+                        victoryPanel = vp;
+                        break;
+                    }
+                }
+            }
+
+            if (victoryPanel != null)
+                RunLogger.Event("VictoryPanel auto-bound to GameFlowController.");
+            else
+                RunLogger.Warning("VictoryPanel not assigned and not found in scene. Assign Panel_Victory in GameFlowController Inspector.");
+        }
+
         // 初始化升级池
         EnsureWeaponUpgradePool();
 
         // 初始数据
+        baseXpToNext = Mathf.Max(1, baseXpToNext);
+        level = Mathf.Max(1, level);
         roundIndex = 1;
         cash = 0;
         xp = 0;
+        xpToNext = CalculateXpToNext(level);
         runProgression.Reset();
         runProgression.BeginRound();
 
@@ -195,6 +358,7 @@ public class GameFlowController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F3)) EndRound();
         if (Input.GetKeyDown(KeyCode.F4)) EnterShop();
         if (Input.GetKeyDown(KeyCode.F5)) SwitchState(GameState.GameOver);
+        if (enableDebugHotkeys && Input.GetKeyDown(debugJumpBossRoundKey)) DebugJumpToBossRound(debugResetStatsBeforeBoss);
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
@@ -215,8 +379,15 @@ public class GameFlowController : MonoBehaviour
         // 更新倒计时显示
         if (state == GameState.Gameplay && textCountdown != null)
         {
-            int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
-            textCountdown.text = $"Time: {seconds}s";
+            if (IsCurrentRoundBoss())
+            {
+                textCountdown.text = "Boss: No Time Limit";
+            }
+            else
+            {
+                int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
+                textCountdown.text = $"Time: {seconds}s";
+            }
         }
     }
 
@@ -262,24 +433,67 @@ public class GameFlowController : MonoBehaviour
 private void LevelUp()
 {
     level += 1;
-    xpToNext = Mathf.RoundToInt(xpToNext * 1.1f);
+    xpToNext = CalculateXpToNext(level);
 
     RunLogger.Event($"Level up -> {level}, nextXP={xpToNext}");
 
-    if (levelUpPanel != null)
+    if (ShouldDeferLevelUpRewardPresentation())
     {
-        WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
-        if (selectedUpgrades.Length < 3)
-        {
-            RunLogger.Error("Level up skipped: weapon upgrade pool has no valid entries.");
-            return;
-        }
-
-        levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
-
-        // 只有面板存在且成功走到这里才暂停游戏
-        Time.timeScale = 0f;
+        pendingDeferredLevelUpChoices += 1;
+        RunLogger.Event($"Level-up reward deferred until next round. pending={pendingDeferredLevelUpChoices}");
+        return;
     }
+
+    if (!TryShowLevelUpRewardPanelNow())
+    {
+        pendingDeferredLevelUpChoices += 1;
+        RunLogger.Event($"Level-up reward queued. pending={pendingDeferredLevelUpChoices}");
+    }
+}
+
+private bool ShouldDeferLevelUpRewardPresentation()
+{
+    return deferLevelUpRewardsDuringRoundClear && roundClearActive;
+}
+
+private bool TryShowLevelUpRewardPanelNow()
+{
+    if (levelUpPanel == null)
+        return false;
+
+    if (panelLevelUp != null && panelLevelUp.activeSelf)
+        return false;
+
+    WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
+    if (selectedUpgrades.Length < 3)
+    {
+        RunLogger.Error("Level up skipped: weapon upgrade pool has no valid entries.");
+        return false;
+    }
+
+    levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
+
+    // 只有面板存在且成功走到这里才暂停游戏
+    Time.timeScale = 0f;
+    return true;
+}
+
+private void TryShowDeferredLevelUpRewardIfReady()
+{
+    if (pendingDeferredLevelUpChoices <= 0)
+        return;
+
+    if (state != GameState.Gameplay || roundIntroActive || roundClearActive)
+        return;
+
+    if (panelLevelUp != null && panelLevelUp.activeSelf)
+        return;
+
+    if (!TryShowLevelUpRewardPanelNow())
+        return;
+
+    pendingDeferredLevelUpChoices = Mathf.Max(0, pendingDeferredLevelUpChoices - 1);
+    RunLogger.Event($"Deferred level-up reward presented. remaining={pendingDeferredLevelUpChoices}");
 }
 
 
@@ -372,6 +586,8 @@ private void LevelUp()
 
         string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
         RunLogger.Event($"Upgrade selected: {upgradeTitle}");
+
+        TryShowDeferredLevelUpRewardIfReady();
     }
 
     /// <summary>获取当前等级</summary>
@@ -382,6 +598,9 @@ private void LevelUp()
 
     /// <summary>获取升级所需XP</summary>
     public int GetXPToNext() => xpToNext;
+    public int GetCurrentRound() => roundIndex;
+    public bool IsBossRoundActive() => IsCurrentRoundBoss();
+    public int GetBossRoundNumber() => GetBossRoundIndex();
 
     // UI Button: Start
     public void StartRun()
@@ -395,7 +614,9 @@ private void LevelUp()
         cash = 0;
         xp = 0;
         level = 1;
-        xpToNext = 10;
+        baseXpToNext = Mathf.Max(1, baseXpToNext);
+        xpToNext = CalculateXpToNext(level);
+        pendingDeferredLevelUpChoices = 0;
         runProgression.Reset();
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
@@ -433,15 +654,97 @@ private void LevelUp()
         RefreshHUD();
     }
 
+    [ContextMenu("Debug/Jump To Boss Round")]
+    private void DebugJumpToBossRoundContextMenu()
+    {
+        DebugJumpToBossRound(false);
+    }
+
+    public void DebugJumpToBossRound(bool resetStats)
+    {
+        StopRoundIntro();
+        StopRoundClearTransition(false);
+        StopRoundTimer();
+        Time.timeScale = 1f;
+        pendingDeferredLevelUpChoices = 0;
+
+        if (levelUpPanel != null)
+            levelUpPanel.ForceHideImmediate();
+
+        if (resetStats)
+        {
+            cash = 0;
+            xp = 0;
+            level = 1;
+            baseXpToNext = Mathf.Max(1, baseXpToNext);
+            xpToNext = CalculateXpToNext(level);
+            runProgression.Reset();
+
+            PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+            if (playerHealth != null)
+            {
+                playerHealth.ResetRuntimeStats();
+                playerHealth.RestoreHealth();
+            }
+
+            if (playerMotor != null)
+                playerMotor.ResetRuntimeStats();
+
+            if (playerShooter != null)
+                playerShooter.ResetRuntimeStats();
+        }
+
+        roundIndex = GetBossRoundIndex();
+        runProgression.BeginRound();
+        LogCurrentEnemyDifficulty();
+
+        if (state != GameState.Gameplay)
+            SwitchState(GameState.Gameplay);
+
+        ClearWorld();
+        ShowRoundIntro();
+        StartRoundTimer();
+        RefreshHUD();
+
+        RunLogger.Event($"Debug jump to boss round: round={roundIndex}/{totalRounds}, reset={resetStats}");
+    }
+
     // 回合结束入口（未来由倒计时/事件触发）
     public void EndRound()
+    {
+        EndRound(false);
+    }
+
+    private void EndRound(bool triggeredByTimer)
     {
         if (state != GameState.Gameplay || roundClearActive) return;
         Time.timeScale = 1f;
         StopRoundTimer();
 
+        if (triggeredByTimer)
+            ClearEnemiesForTimerEnd();
+
+        ClearRoundEndTransientObjects();
+
         // 注意：已移除“随机加钱”。现金应来自击杀敌人时 AddCash(固定值)。
-        RunLogger.Event($"Round {roundIndex} ended. cash={cash}, level={level}, xp={xp}/{xpToNext}");
+        RunLogger.Event($"Round {roundIndex} ended. cash={cash}, level={level}, xp={xp}/{xpToNext}, fromTimer={triggeredByTimer}");
+
+        // 检查是否战胜了Boss - 如果是则直接显示胜利界面
+        if (IsCurrentRoundBoss())
+        {
+            RunLogger.Event($"Boss defeated! Showing victory screen.");
+            
+            if (victoryPanel != null)
+            {
+                victoryPanel.ShowVictoryPanel(roundIndex, cash, level);
+            }
+            
+            // 暂停游戏
+            Time.timeScale = 0f;
+            
+            SwitchState(GameState.Victory);
+            return;
+        }
 
         if (showRoundClearTransition)
         {
@@ -464,7 +767,7 @@ private void LevelUp()
         {
             RunLogger.Warning($"Settlement failed: cash={cash}, due={due}");
             PlayFailAnimation();
-            SwitchState(GameState.GameOver);
+            ShowGameOverWithDeathPanel(DeathPanel.DeathType.FailedDebt);
             return;
         }
 
@@ -506,7 +809,7 @@ private void LevelUp()
         int bossRound = GetBossRoundIndex();
         if (roundIndex > bossRound)
         {
-            RunLogger.Event("Reached end of boss round. Return to title.");
+            RunLogger.Event("Already defeated boss. Returning to title.");
             SwitchState(GameState.Title);
             return;
         }
@@ -530,15 +833,51 @@ private void LevelUp()
         StartRun();
     }
 
-    // 玩家受到致命伤害 - 触发游戏结束
+    // 玩家受到致命伤害 - 触发游戏结束（被怪物击杀）
     public void TriggerGameOver()
     {
-        if (state != GameState.Gameplay) return;
-        RunLogger.Warning($"Game over triggered. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}");
+        TriggerGameOver(DeathPanel.DeathType.KilledByMonster);
+    }
+
+    // 玩家游戏结束 - 指定死因
+    public void TriggerGameOver(DeathPanel.DeathType deathType)
+    {
+        if (state == GameState.GameOver) return; // 已经是GameOver则忽略重复触发
+
+        if (state != GameState.Gameplay)
+            RunLogger.Warning($"TriggerGameOver called while state={state}; proceeding to show death panel.");
+
+        currentDeathType = deathType;
+        RunLogger.Warning($"Game over triggered. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
+
         PlayFailAnimation();
         StopRoundClearTransition(false);
-        Time.timeScale = 1f; // 确保游戏时间恢复
         StopRoundTimer();
+
+        // 显示死亡结算面板（并暂停世界）
+        if (deathPanel != null)
+        {
+            deathPanel.ShowDeathPanel(deathType);
+        }
+
+        // 暂停游戏世界，冻结一切动作
+        Time.timeScale = 0f;
+
+        SwitchState(GameState.GameOver);
+    }
+
+    // 游戏结束 - 显示死亡面板（用于非Gameplay状态）
+    private void ShowGameOverWithDeathPanel(DeathPanel.DeathType deathType)
+    {
+        currentDeathType = deathType;
+        RunLogger.Warning($"Game over with death panel. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
+        
+        // 显示死亡结算面板
+        if (deathPanel != null)
+        {
+            deathPanel.ShowDeathPanel(deathType);
+        }
+        
         SwitchState(GameState.GameOver);
     }
 
@@ -831,6 +1170,19 @@ private void SwitchState(GameState next)
     if (panelSettlement) panelSettlement.SetActive(state == GameState.Settlement);
     if (panelShop) panelShop.SetActive(state == GameState.Shop);
     if (panelGameOver) panelGameOver.SetActive(state == GameState.GameOver);
+    
+    // 离开GameOver状态时隐藏死亡面板
+    if (previous == GameState.GameOver && deathPanel != null)
+    {
+        deathPanel.HideDeathPanel();
+    }
+
+    // 离开Victory状态时隐藏胜利面板
+    if (previous == GameState.Victory && victoryPanel != null)
+    {
+        victoryPanel.HideVictoryPanel();
+        Time.timeScale = 1f; // 恢复时间流
+    }
 
     bool inGameplay = (state == GameState.Gameplay);
 
@@ -862,14 +1214,60 @@ private void ClearWorld()
         RunLogger.Event($"World cleared: enemies={enemyCount}, projectiles={projectileCount}, pickups={pickupCount}");
 }
 
-private void ClearEnemyProjectiles()
+private void ClearEnemiesForTimerEnd()
+{
+    EnemyController[] enemies = enemiesRoot != null
+        ? enemiesRoot.GetComponentsInChildren<EnemyController>(true)
+        : FindObjectsOfType<EnemyController>();
+
+    int enemyCleared = 0;
+    for (int i = 0; i < enemies.Length; i++)
+    {
+        EnemyController enemy = enemies[i];
+        if (enemy == null) continue;
+
+        enemy.gameObject.SetActive(false);
+        Destroy(enemy.gameObject);
+        enemyCleared++;
+    }
+
+    if (enemyCleared > 0)
+    {
+        RunLogger.Event(
+            $"Round timer cleanup done: enemies={enemyCleared}, pickupsKept={CountChildren(pickupsRoot)}");
+    }
+}
+
+private void ClearRoundEndTransientObjects()
+{
+    int projectileCount = CountChildren(projectilesRoot);
+    if (projectileCount > 0)
+        ClearChildren(projectilesRoot);
+
+    WorldPopupText[] popupTexts = FindObjectsOfType<WorldPopupText>();
+    int popupCount = 0;
+    for (int i = 0; i < popupTexts.Length; i++)
+    {
+        if (popupTexts[i] == null) continue;
+        Destroy(popupTexts[i].gameObject);
+        popupCount++;
+    }
+
+    if (projectileCount > 0 || popupCount > 0)
+    {
+        RunLogger.Event(
+            $"Round end transient cleanup: projectiles={projectileCount}, popups={popupCount}");
+    }
+}
+
+private int ClearEnemyProjectiles(string reason = "Post-level-up safety")
 {
     if (projectilesRoot == null)
-        return;
+        return 0;
 
     EnemyProjectile[] enemyProjectiles = projectilesRoot.GetComponentsInChildren<EnemyProjectile>(true);
     if (enemyProjectiles == null || enemyProjectiles.Length == 0)
-        return;
+        return 0;
 
     int cleared = 0;
     for (int i = 0; i < enemyProjectiles.Length; i++)
@@ -881,7 +1279,9 @@ private void ClearEnemyProjectiles()
     }
 
     if (cleared > 0)
-        RunLogger.Event($"Post-level-up safety: cleared {cleared} enemy projectile(s).");
+        RunLogger.Event($"{reason}: cleared {cleared} enemy projectile(s).");
+
+    return cleared;
 }
 
 private void ClearChildren(Transform root)
@@ -966,6 +1366,14 @@ private void SetPauseMenuVisible(bool visible)
     private void StartRoundTimer()
     {
         StopRoundTimer();
+        if (IsCurrentRoundBoss())
+        {
+            roundTimeRemaining = -1f;
+            RunLogger.Event($"Round {roundIndex} is boss round. Timer disabled.");
+            return;
+        }
+
+        roundTimeRemaining = roundDurationSeconds;
         roundTimerCo = StartCoroutine(RoundTimer());
         RunLogger.Event($"Round {roundIndex} timer started: {roundDurationSeconds:F1}s");
     }
@@ -993,7 +1401,7 @@ private void SetPauseMenuVisible(bool visible)
         {
             roundTimeRemaining = 0f;
             RunLogger.Event($"Round {roundIndex} timer reached 0.");
-            EndRound();
+            EndRound(true);
         }
     }
 
@@ -1001,6 +1409,11 @@ private void SetPauseMenuVisible(bool visible)
     {
         if (round <= 0) return 0;
         int due = baseDue + (round - 1) * stepDue;
+        if (useDebtCurveMultiplier)
+        {
+            float debtMultiplier = EvaluateMonotonicCurve(debtCurve, Mathf.Max(1, round), debtMinGrowthPerRound);
+            due = Mathf.RoundToInt(due * debtMultiplier);
+        }
 
         if (round == roundIndex)
             due += runProgression.CurrentRoundDebtIncrease;
@@ -1109,17 +1522,21 @@ private void SetPauseMenuVisible(bool visible)
         if (useOverlay && roundClearOverlay != null)
         {
             yield return FadeCanvasGroup(roundClearOverlay, 0f, 1f, roundClearFadeInSeconds);
-
-            float hold = Mathf.Max(0f, roundClearSeconds - roundClearFadeInSeconds - roundClearFadeOutSeconds);
-            if (hold > 0f)
-                yield return new WaitForSecondsRealtime(hold);
-
-            yield return FadeCanvasGroup(roundClearOverlay, 1f, 0f, roundClearFadeOutSeconds);
-            roundClearOverlay.gameObject.SetActive(false);
         }
-        else if (roundClearSeconds > 0f)
+
+        float collectStartedAt = Time.unscaledTime;
+        yield return PlayRoundClearAutoCollectAnimationRealtime(useOverlay);
+
+        float remainHold = Mathf.Max(0f, roundClearSeconds - (Time.unscaledTime - collectStartedAt));
+        if (remainHold > 0f)
+            yield return new WaitForSecondsRealtime(remainHold);
+
+        yield return WaitForLevelUpPanelToCloseRealtime();
+
+        if (useOverlay && roundClearOverlay != null)
         {
-            yield return new WaitForSecondsRealtime(roundClearSeconds);
+            yield return FadeCanvasGroup(roundClearOverlay, roundClearOverlay.alpha, 0f, roundClearFadeOutSeconds);
+            roundClearOverlay.gameObject.SetActive(false);
         }
 
         roundClearCo = null;
@@ -1127,6 +1544,198 @@ private void SetPauseMenuVisible(bool visible)
         Time.timeScale = 1f;
 
         EnterSettlementAfterRoundEnd();
+    }
+
+    private IEnumerator PlayRoundClearAutoCollectAnimationRealtime(bool useOverlay)
+    {
+        if (!autoCollectDropsOnRoundClear)
+            yield break;
+
+        Transform playerTransform = ResolvePlayerTransform();
+        if (playerTransform == null)
+            yield break;
+
+        Camera mainCamera = Camera.main;
+        float radiusSqr = roundClearAutoCollectRadius * roundClearAutoCollectRadius;
+        float collectDistanceSqr = roundClearAutoCollectCollectDistance * roundClearAutoCollectCollectDistance;
+        float moveSpeed = Mathf.Max(0.01f, roundClearAutoCollectMoveSpeed);
+
+        XPPickup[] xpPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<XPPickup>(true)
+            : FindObjectsOfType<XPPickup>();
+        HealthPickup[] hpPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<HealthPickup>(true)
+            : FindObjectsOfType<HealthPickup>();
+
+        List<XPPickup> xpTargets = new List<XPPickup>();
+        List<HealthPickup> hpTargets = new List<HealthPickup>();
+        Vector2 playerPos = playerTransform.position;
+
+        for (int i = 0; i < xpPool.Length; i++)
+        {
+            XPPickup pickup = xpPool[i];
+            if (pickup == null || !pickup.isActiveAndEnabled)
+                continue;
+
+            if (IsPickupEligibleForRoundClearCollect(pickup.transform.position, playerPos, mainCamera, radiusSqr))
+                xpTargets.Add(pickup);
+        }
+
+        for (int i = 0; i < hpPool.Length; i++)
+        {
+            HealthPickup pickup = hpPool[i];
+            if (pickup == null || !pickup.isActiveAndEnabled)
+                continue;
+
+            if (IsPickupEligibleForRoundClearCollect(pickup.transform.position, playerPos, mainCamera, radiusSqr))
+                hpTargets.Add(pickup);
+        }
+
+        if (xpTargets.Count == 0 && hpTargets.Count == 0)
+            yield break;
+
+        if (useOverlay && roundClearOverlay != null)
+            roundClearOverlay.alpha = Mathf.Clamp01(Mathf.Min(roundClearOverlay.alpha, roundClearOverlayAlphaDuringCollect));
+
+        float timeoutAt = Time.unscaledTime + roundClearAutoCollectMaxWaitSeconds;
+        int xpCollected = 0;
+        int hpCollected = 0;
+
+        while (xpTargets.Count > 0 || hpTargets.Count > 0)
+        {
+            if (playerTransform == null)
+                break;
+
+            playerPos = playerTransform.position;
+            float step = moveSpeed * Time.unscaledDeltaTime;
+
+            for (int i = xpTargets.Count - 1; i >= 0; i--)
+            {
+                XPPickup pickup = xpTargets[i];
+                if (pickup == null)
+                {
+                    xpTargets.RemoveAt(i);
+                    continue;
+                }
+
+                pickup.transform.position = Vector2.MoveTowards(pickup.transform.position, playerPos, step);
+
+                Vector2 delta = (Vector2)pickup.transform.position - playerPos;
+                if (delta.sqrMagnitude <= collectDistanceSqr)
+                {
+                    if (pickup.ForceCollect())
+                        xpCollected++;
+                    xpTargets.RemoveAt(i);
+                }
+            }
+
+            for (int i = hpTargets.Count - 1; i >= 0; i--)
+            {
+                HealthPickup pickup = hpTargets[i];
+                if (pickup == null)
+                {
+                    hpTargets.RemoveAt(i);
+                    continue;
+                }
+
+                pickup.transform.position = Vector2.MoveTowards(pickup.transform.position, playerPos, step);
+
+                Vector2 delta = (Vector2)pickup.transform.position - playerPos;
+                if (delta.sqrMagnitude <= collectDistanceSqr)
+                {
+                    if (pickup.ForceCollect())
+                        hpCollected++;
+                    hpTargets.RemoveAt(i);
+                }
+            }
+
+            if (roundClearAutoCollectMaxWaitSeconds > 0f && Time.unscaledTime >= timeoutAt)
+            {
+                RunLogger.Warning("Round clear auto-collect animation timed out. Forcing remaining pickups.");
+                break;
+            }
+
+            yield return null;
+        }
+
+        for (int i = 0; i < xpTargets.Count; i++)
+        {
+            XPPickup pickup = xpTargets[i];
+            if (pickup == null) continue;
+            if (pickup.ForceCollect())
+                xpCollected++;
+        }
+
+        for (int i = 0; i < hpTargets.Count; i++)
+        {
+            HealthPickup pickup = hpTargets[i];
+            if (pickup == null) continue;
+            if (pickup.ForceCollect())
+                hpCollected++;
+        }
+
+        int total = xpCollected + hpCollected;
+        if (total > 0)
+        {
+            string collectScope = mainCamera != null ? "screen" : "radius-fallback";
+            RunLogger.Event(
+                $"Round clear auto-collect animated: total={total}, xp={xpCollected}, hp={hpCollected}, scope={collectScope}, speed={roundClearAutoCollectMoveSpeed:F1}");
+        }
+
+        if (total > 0 && roundClearCollectDelaySeconds > 0f)
+            yield return new WaitForSecondsRealtime(roundClearCollectDelaySeconds);
+    }
+
+    private Transform ResolvePlayerTransform()
+    {
+        if (playerMotor != null)
+            return playerMotor.transform;
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+        if (playerObject != null)
+            return playerObject.transform;
+
+        return null;
+    }
+
+    private bool IsPickupEligibleForRoundClearCollect(Vector3 pickupWorldPos, Vector2 playerPos, Camera mainCamera, float radiusSqrFallback)
+    {
+        if (mainCamera != null)
+        {
+            Vector3 viewport = mainCamera.WorldToViewportPoint(pickupWorldPos);
+            const float edgePadding = 0.02f;
+            return viewport.z > 0f
+                && viewport.x >= -edgePadding
+                && viewport.x <= 1f + edgePadding
+                && viewport.y >= -edgePadding
+                && viewport.y <= 1f + edgePadding;
+        }
+
+        if (radiusSqrFallback > 0f)
+        {
+            Vector2 delta = (Vector2)pickupWorldPos - playerPos;
+            return delta.sqrMagnitude <= radiusSqrFallback;
+        }
+
+        return true;
+    }
+
+    private IEnumerator WaitForLevelUpPanelToCloseRealtime()
+    {
+        if (panelLevelUp == null || !panelLevelUp.activeSelf)
+            yield break;
+
+        float timeoutAt = Time.unscaledTime + roundClearAutoCollectMaxWaitSeconds;
+        while (panelLevelUp.activeSelf)
+        {
+            if (roundClearAutoCollectMaxWaitSeconds > 0f && Time.unscaledTime >= timeoutAt)
+            {
+                RunLogger.Warning("Round clear auto-collect wait timed out while level-up panel is still open.");
+                yield break;
+            }
+
+            yield return null;
+        }
     }
 
     private void ShowRoundIntro()
@@ -1228,6 +1837,8 @@ private void SetPauseMenuVisible(bool visible)
         if (state == GameState.Gameplay)
             SetRoundDebtVisible(false);
 
+        TryShowDeferredLevelUpRewardIfReady();
+
         RunLogger.Event("Round intro finished. Gameplay resumed.");
     }
 
@@ -1304,6 +1915,11 @@ private void SetPauseMenuVisible(bool visible)
         return totalRounds + 1;
     }
 
+    private bool IsCurrentRoundBoss()
+    {
+        return roundIndex == GetBossRoundIndex();
+    }
+
     private System.Collections.Generic.List<WeaponUpgrade> CreateDefaultFallbackWeaponUpgrades()
     {
         return new System.Collections.Generic.List<WeaponUpgrade>
@@ -1366,6 +1982,35 @@ private void SetPauseMenuVisible(bool visible)
         return value;
     }
 
+    private int CalculateXpToNext(int targetLevel)
+    {
+        int safeLevel = Mathf.Max(1, targetLevel);
+        float growth = EvaluateMonotonicCurveByIndex(
+            xpToNextCurve,
+            safeLevel,
+            Mathf.Max(2, xpCurveMaxLevel),
+            xpMinGrowthPerLevel);
+        int result = Mathf.RoundToInt(baseXpToNext * growth);
+        return Mathf.Max(1, result);
+    }
+
+    private float EvaluateMonotonicCurveByIndex(AnimationCurve curve, int targetIndex, int maxIndex, float minGrowthPerStep)
+    {
+        float value = Mathf.Max(1f, EvaluateCurveAtIndex(curve, 1, maxIndex));
+        if (targetIndex <= 1)
+            return value;
+
+        float minGrowth = Mathf.Max(0.001f, minGrowthPerStep);
+        for (int index = 2; index <= targetIndex; index++)
+        {
+            float targetValue = Mathf.Max(1f, EvaluateCurveAtIndex(curve, index, maxIndex));
+            float minValue = value + minGrowth;
+            value = Mathf.Max(targetValue, minValue);
+        }
+
+        return value;
+    }
+
     private float EvaluateCurveAtRound(AnimationCurve curve, int round)
     {
         if (curve == null || curve.length == 0)
@@ -1379,6 +2024,17 @@ private void SetPauseMenuVisible(bool visible)
         int safeRound = Mathf.Max(1, round);
         int maxRound = Mathf.Max(2, GetBossRoundIndex());
         return Mathf.Clamp01((safeRound - 1f) / (maxRound - 1f));
+    }
+
+    private float EvaluateCurveAtIndex(AnimationCurve curve, int index, int maxIndex)
+    {
+        if (curve == null || curve.length == 0)
+            return 1f;
+
+        int safeIndex = Mathf.Max(1, index);
+        int safeMax = Mathf.Max(2, maxIndex);
+        float t = Mathf.Clamp01((safeIndex - 1f) / (safeMax - 1f));
+        return curve.Evaluate(t);
     }
 
     private string GetDebtDisplay(int round)

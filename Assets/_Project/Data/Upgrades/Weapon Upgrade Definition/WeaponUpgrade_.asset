@@ -16,7 +16,7 @@ MonoBehaviour:
   description: +1 DAMAGE
   icon: {fileID: 0}
   rarity: 0
-  weightPercent: 100
+  weightPercent: 12
   effects:
   - effectType: 0
     intValue: 1

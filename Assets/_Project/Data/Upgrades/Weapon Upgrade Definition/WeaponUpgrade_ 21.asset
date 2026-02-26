@@ -12,12 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 21
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: New Weapon Upgrade
+  upgradeTitle: Apex Deck
   description: 
   icon: {fileID: 0}
-  rarity: 0
-  weightPercent: 10
+  rarity: 4
+  weightPercent: 3
   effects:
   - effectType: 0
+    intValue: 2
+    floatValue: 0
+  - effectType: 1
     intValue: 0
+    floatValue: 0.02
+  - effectType: 5
+    intValue: 1
     floatValue: 0

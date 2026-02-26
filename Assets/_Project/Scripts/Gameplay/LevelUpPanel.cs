@@ -4,14 +4,13 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 升级奖励面板管理（三选一）
-/// 关键点：不要把挂脚本的 GameObject SetActive(false)，否则协程无法启动。
-/// 这里用 CanvasGroup 隐藏/显示，避免 "Coroutine couldn't be started... inactive"。
+/// Handles the 3-choice level-up panel visibility and selection flow.
+/// Keeps the root active and uses CanvasGroup for show/hide to avoid coroutine issues.
 /// </summary>
 public class LevelUpPanel : MonoBehaviour
 {
     [Header("UI Refs")]
-    [SerializeField] private GameObject panel;                 // 建议指向一个子物体 Content（包含 DimBackground/CardContainer）
+    [SerializeField] private GameObject panel;
     [SerializeField] private Image dimBackground;
     [SerializeField] private UpgradeCard[] cardSlots = new UpgradeCard[3];
 
@@ -22,14 +21,13 @@ public class LevelUpPanel : MonoBehaviour
     private Action<WeaponUpgrade> onUpgradeSelected;
     private CanvasGroup canvasGroup;
     private Coroutine fadeCo;
+    private bool selectionLocked;
 
     private void Awake()
     {
-        // 兜底：如果没填 panel，就当成自己（但不会再 SetActive(false)）
         if (panel == null)
             panel = gameObject;
 
-        // CanvasGroup 挂在“脚本所在物体”上，保证即使 panel 是自己也能隐藏显示
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null)
             canvasGroup = gameObject.AddComponent<CanvasGroup>();
@@ -40,10 +38,6 @@ public class LevelUpPanel : MonoBehaviour
         ForceHideImmediate();
     }
 
-    /// <summary>
-    /// 立刻隐藏（不启动协程、不依赖 activeInHierarchy）。
-    /// 用于 StartRun/切状态时清理。
-    /// </summary>
     public void ForceHideImmediate()
     {
         if (fadeCo != null)
@@ -52,7 +46,9 @@ public class LevelUpPanel : MonoBehaviour
             fadeCo = null;
         }
 
-        // 直接把遮罩归零
+        selectionLocked = false;
+        onUpgradeSelected = null;
+
         if (dimBackground != null)
         {
             var c = dimBackground.color;
@@ -60,52 +56,54 @@ public class LevelUpPanel : MonoBehaviour
             dimBackground.color = c;
         }
 
-        // 隐藏内容（如果 panel 是子物体可以一起关掉；如果是自己，保持 active 但不可见）
         if (panel != null && panel != gameObject)
             panel.SetActive(false);
 
         SetVisible(false);
+        SetInputEnabled(false);
+        SetCardsInteractable(false);
     }
 
-    /// <summary>
-    /// 显示升级面板（三选一）
-    /// </summary>
     public void ShowUpgradePanel(WeaponUpgrade[] upgrades, Action<WeaponUpgrade> onSelected)
     {
-        onUpgradeSelected = onSelected;
-
-        if (upgrades == null || upgrades.Length < 3)
+        if (fadeCo != null)
         {
-            Debug.LogError("LevelUpPanel: 至少需要3个升级选项");
+            StopCoroutine(fadeCo);
+            fadeCo = null;
+        }
+
+        if (upgrades == null || upgrades.Length < cardSlots.Length)
+        {
+            Debug.LogError($"LevelUpPanel: expected at least {cardSlots.Length} upgrade options.");
             return;
         }
 
-        // 先保证可见/可交互
+        selectionLocked = false;
+        onUpgradeSelected = onSelected;
+
         if (panel != null && panel != gameObject)
             panel.SetActive(true);
 
         SetVisible(true);
+        SetInputEnabled(true);
 
-        // 配置卡牌
         for (int i = 0; i < cardSlots.Length; i++)
         {
             if (cardSlots[i] != null)
                 cardSlots[i].SetupCard(upgrades[i], OnCardSelected);
         }
 
-        // 暗化背景淡入（用 unscaledDeltaTime，暂停也能跑）
+        SetCardsInteractable(true);
+
         if (dimBackground != null)
-        {
             StartFade(0f, dimTargetAlpha, dimFadeDuration);
-        }
     }
 
-    /// <summary>
-    /// 隐藏升级面板（淡出）
-    /// </summary>
     public void HideUpgradePanel()
     {
-        // 如果对象不在层级激活状态，协程一定启动不了，直接强制隐藏
+        SetInputEnabled(false);
+        SetCardsInteractable(false);
+
         if (!gameObject.activeInHierarchy)
         {
             ForceHideImmediate();
@@ -114,8 +112,9 @@ public class LevelUpPanel : MonoBehaviour
 
         if (dimBackground != null)
         {
-            // 淡出结束后再隐藏
-            if (fadeCo != null) StopCoroutine(fadeCo);
+            if (fadeCo != null)
+                StopCoroutine(fadeCo);
+
             fadeCo = StartCoroutine(HideRoutine());
         }
         else
@@ -132,13 +131,24 @@ public class LevelUpPanel : MonoBehaviour
             panel.SetActive(false);
 
         SetVisible(false);
+        SetInputEnabled(false);
         fadeCo = null;
     }
 
     private void OnCardSelected(WeaponUpgrade upgrade)
     {
+        if (selectionLocked)
+            return;
+
+        selectionLocked = true;
+        SetCardsInteractable(false);
+        SetInputEnabled(false);
+
+        var callback = onUpgradeSelected;
+        onUpgradeSelected = null;
+
         HideUpgradePanel();
-        onUpgradeSelected?.Invoke(upgrade);
+        callback?.Invoke(upgrade);
     }
 
     private void StartFade(float from, float to, float duration)
@@ -151,16 +161,16 @@ public class LevelUpPanel : MonoBehaviour
             return;
         }
 
-        if (fadeCo != null) StopCoroutine(fadeCo);
+        if (fadeCo != null)
+            StopCoroutine(fadeCo);
+
         fadeCo = StartCoroutine(FadeDim(from, to, duration));
     }
 
-    /// <summary>
-    /// 屏幕暗化效果（unscaled）
-    /// </summary>
     private IEnumerator FadeDim(float startAlpha, float endAlpha, float duration)
     {
-        if (dimBackground == null) yield break;
+        if (dimBackground == null)
+            yield break;
 
         float elapsed = 0f;
 
@@ -186,10 +196,30 @@ public class LevelUpPanel : MonoBehaviour
 
     private void SetVisible(bool visible)
     {
-        if (canvasGroup == null) return;
+        if (canvasGroup == null)
+            return;
 
         canvasGroup.alpha = visible ? 1f : 0f;
-        canvasGroup.interactable = visible;
-        canvasGroup.blocksRaycasts = visible;
+    }
+
+    private void SetInputEnabled(bool enabled)
+    {
+        if (canvasGroup == null)
+            return;
+
+        canvasGroup.interactable = enabled;
+        canvasGroup.blocksRaycasts = enabled;
+    }
+
+    private void SetCardsInteractable(bool enabled)
+    {
+        if (cardSlots == null)
+            return;
+
+        for (int i = 0; i < cardSlots.Length; i++)
+        {
+            if (cardSlots[i] != null)
+                cardSlots[i].SetInteractable(enabled);
+        }
     }
 }

@@ -68,6 +68,15 @@ public class HealthPickup : MonoBehaviour
         Collect();
     }
 
+    public bool ForceCollect()
+    {
+        if (collected)
+            return false;
+
+        Collect();
+        return collected;
+    }
+
     private void Collect()
     {
         if (collected)

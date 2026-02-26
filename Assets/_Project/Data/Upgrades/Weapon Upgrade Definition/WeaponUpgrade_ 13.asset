@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 13
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: New Weapon Upgrade
+  upgradeTitle: Booster III
   description: 
   icon: {fileID: 0}
-  rarity: 0
-  weightPercent: 10
+  rarity: 2
+  weightPercent: 8
   effects:
-  - effectType: 0
+  - effectType: 1
     intValue: 0
-    floatValue: 0
+    floatValue: 0.03
