@@ -9,6 +9,7 @@ public class GameFlowController : MonoBehaviour
     public static GameFlowController Instance { get; private set; }
 
     public enum GameState { Title, Gameplay, Settlement, Shop, GameOver, Victory }
+    public enum DeathType { KilledByMonster, FailedDebt }
     public bool IsInGameplayState => state == GameState.Gameplay;
 
     [Header("Panels / 面板")]
@@ -22,10 +23,10 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelSettlement;
     [LocalizedLabel("Panel Shop / 商店面板")]
     [SerializeField] private GameObject panelShop;
-    [LocalizedLabel("Panel Game Over / 失败面板")]
-    [SerializeField] private GameObject panelGameOver;
-    [LocalizedLabel("Panel Death / 死亡结算面板")]
-    [SerializeField] private DeathPanel deathPanel;
+    [LocalizedLabel("Panel Death Monster / 怪物击杀死亡面板")]
+    [SerializeField] private DeathPanel monsterDeathPanel;
+    [LocalizedLabel("Panel Death Debt / 债务失败死亡面板")]
+    [SerializeField] private DeathPanel debtFailurePanel;
     [LocalizedLabel("Panel Victory / 胜利面板")]
     [SerializeField] private VictoryPanel victoryPanel;
     [LocalizedLabel("Panel Pause Menu / 暂停面板")]
@@ -231,7 +232,15 @@ public class GameFlowController : MonoBehaviour
     private float roundTimeRemaining;  // 当前回合剩余时间
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
-    private DeathPanel.DeathType currentDeathType = DeathPanel.DeathType.KilledByMonster;
+    private DeathType currentDeathType = DeathType.KilledByMonster;
+
+    // 商店道具加成（每局重置）
+    private int bonusXPPerKill;
+    private float bonusXPMagnetRadius;
+    private float cashBonusPercent;
+
+    public int BonusXPPerKill => bonusXPPerKill;
+    public float BonusXPMagnetRadius => bonusXPMagnetRadius;
 
     private void Awake()
     {
@@ -267,33 +276,10 @@ public class GameFlowController : MonoBehaviour
             playerShooter = FindObjectOfType<PlayerShooter>();
         EnsureShopSystemBound();
         EnsurePauseSettingsBound();
+        EnsureDeathPanelsBound();
+        DisableLegacyGameOverPanelIfPresent();
 
-        // 尝试自动绑定 DeathPanel 和 VictoryPanel（包括场景中处于 inactive 的对象）
-        if (deathPanel == null)
-        {
-            GameObject found = GameObject.Find("Panel_Death");
-            if (found != null)
-                deathPanel = found.GetComponent<DeathPanel>();
-            else
-            {
-                DeathPanel[] all = Resources.FindObjectsOfTypeAll<DeathPanel>();
-                for (int i = 0; i < all.Length; i++)
-                {
-                    DeathPanel dp = all[i];
-                    if (dp == null) continue;
-                    if (dp.gameObject.scene.IsValid() && dp.gameObject.scene.isLoaded)
-                    {
-                        deathPanel = dp;
-                        break;
-                    }
-                }
-            }
-
-            if (deathPanel != null)
-                RunLogger.Event("DeathPanel auto-bound to GameFlowController.");
-            else
-                RunLogger.Warning("DeathPanel not assigned and not found in scene. Assign Panel_Death in GameFlowController Inspector.");
-        }
+        // 尝试自动绑定两套死亡面板（怪物击杀 / 债务失败）
 
         if (victoryPanel == null)
         {
@@ -350,6 +336,63 @@ public class GameFlowController : MonoBehaviour
         RunLogger.Warning("Weapon upgrade pool asset is missing or empty.");
     }
 
+    private void EnsureDeathPanelsBound()
+    {
+        if (monsterDeathPanel == null)
+            monsterDeathPanel = FindDeathPanelByName("Panel_Death_Monster");
+        if (monsterDeathPanel == null)
+            monsterDeathPanel = FindDeathPanelByName("Panel_Death");
+
+        if (debtFailurePanel == null)
+            debtFailurePanel = FindDeathPanelByName("Panel_Death_Debt");
+        if (debtFailurePanel == null)
+            debtFailurePanel = FindDeathPanelByName("Panel_Death");
+
+        if (monsterDeathPanel != null)
+            RunLogger.Event("Monster death panel auto-bound.");
+        else
+            RunLogger.Warning("Monster death panel missing. Assign Panel_Death_Monster in GameFlowController.");
+
+        if (debtFailurePanel != null)
+            RunLogger.Event("Debt failure panel auto-bound.");
+        else
+            RunLogger.Warning("Debt failure panel missing. Assign Panel_Death_Debt in GameFlowController.");
+    }
+
+    private DeathPanel FindDeathPanelByName(string objectName)
+    {
+        if (string.IsNullOrWhiteSpace(objectName))
+            return null;
+
+        GameObject found = GameObject.Find(objectName);
+        if (found != null)
+            return found.GetComponent<DeathPanel>();
+
+        DeathPanel[] all = Resources.FindObjectsOfTypeAll<DeathPanel>();
+        for (int i = 0; i < all.Length; i++)
+        {
+            DeathPanel panel = all[i];
+            if (panel == null)
+                continue;
+            if (!panel.gameObject.scene.IsValid() || !panel.gameObject.scene.isLoaded)
+                continue;
+            if (panel.gameObject.name == objectName)
+                return panel;
+        }
+
+        return null;
+    }
+
+    private void DisableLegacyGameOverPanelIfPresent()
+    {
+        GameObject legacyPanel = GameObject.Find("Panel_GameOver");
+        if (legacyPanel == null)
+            return;
+
+        if (legacyPanel.activeSelf)
+            legacyPanel.SetActive(false);
+    }
+
     private void Update()
     {
         // 快速测试热键
@@ -398,6 +441,10 @@ public class GameFlowController : MonoBehaviour
     {
         int v = Mathf.Max(0, amount);
         if (v == 0) return;
+
+        // 追债回扣：按百分比加成
+        if (cashBonusPercent > 0f)
+            v = Mathf.Max(v, Mathf.RoundToInt(v * (1f + cashBonusPercent / 100f)));
 
         cash += v;
         RunLogger.Event($"Cash +{v}, total={cash}");
@@ -599,6 +646,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
     /// <summary>获取升级所需XP</summary>
     public int GetXPToNext() => xpToNext;
     public int GetCurrentRound() => roundIndex;
+    public int GetTotalRounds() => totalRounds;
+    public string GetNextRoundDebtDisplay() => GetDebtDisplay(roundIndex + 1);
     public bool IsBossRoundActive() => IsCurrentRoundBoss();
     public int GetBossRoundNumber() => GetBossRoundIndex();
 
@@ -637,9 +686,15 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (playerShooter != null)
             playerShooter.ResetRuntimeStats();
 
+        // 重置商店道具加成
+        bonusXPPerKill = 0;
+        bonusXPMagnetRadius = 0f;
+        cashBonusPercent = 0f;
+
         // 隐藏升级面板并重置武器
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
+        HideAllDeathPanels();
 
         SwitchState(GameState.Gameplay);
         ShowRoundIntro();
@@ -670,6 +725,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
+        HideAllDeathPanels();
 
         if (resetStats)
         {
@@ -692,6 +748,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
             if (playerShooter != null)
                 playerShooter.ResetRuntimeStats();
+
+            bonusXPPerKill = 0;
+            bonusXPMagnetRadius = 0f;
+            cashBonusPercent = 0f;
         }
 
         roundIndex = GetBossRoundIndex();
@@ -746,6 +806,14 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
+        int due = CalcDue(roundIndex);
+        if (cash < due)
+        {
+            RunLogger.Warning($"Round failed on debt check at round end: cash={cash}, due={due}, fromTimer={triggeredByTimer}");
+            ShowGameOverWithDeathPanel(DeathType.FailedDebt);
+            return;
+        }
+
         if (showRoundClearTransition)
         {
             ShowRoundClearTransition();
@@ -766,8 +834,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (cash < due)
         {
             RunLogger.Warning($"Settlement failed: cash={cash}, due={due}");
-            PlayFailAnimation();
-            ShowGameOverWithDeathPanel(DeathPanel.DeathType.FailedDebt);
+            ShowGameOverWithDeathPanel(DeathType.FailedDebt);
             return;
         }
 
@@ -836,13 +903,19 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // 玩家受到致命伤害 - 触发游戏结束（被怪物击杀）
     public void TriggerGameOver()
     {
-        TriggerGameOver(DeathPanel.DeathType.KilledByMonster);
+        TriggerGameOver(DeathType.KilledByMonster);
     }
 
     // 玩家游戏结束 - 指定死因
-    public void TriggerGameOver(DeathPanel.DeathType deathType)
+    public void TriggerGameOver(DeathType deathType)
     {
         if (state == GameState.GameOver) return; // 已经是GameOver则忽略重复触发
+
+        if (deathType == DeathType.KilledByMonster && state != GameState.Gameplay)
+        {
+            RunLogger.Warning($"Ignored monster death trigger outside gameplay. state={state}, requested={deathType}");
+            return;
+        }
 
         if (state != GameState.Gameplay)
             RunLogger.Warning($"TriggerGameOver called while state={state}; proceeding to show death panel.");
@@ -854,11 +927,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopRoundClearTransition(false);
         StopRoundTimer();
 
-        // 显示死亡结算面板（并暂停世界）
-        if (deathPanel != null)
-        {
-            deathPanel.ShowDeathPanel(deathType);
-        }
+        // 显示对应死因的死亡面板（并暂停世界）
+        DeathPanel targetPanel = GetDeathPanelForType(deathType);
+        if (targetPanel != null)
+            targetPanel.ShowDeathPanel();
+        else
+            RunLogger.Warning($"No death panel assigned for deathType={deathType}.");
 
         // 暂停游戏世界，冻结一切动作
         Time.timeScale = 0f;
@@ -867,18 +941,37 @@ private void TryShowDeferredLevelUpRewardIfReady()
     }
 
     // 游戏结束 - 显示死亡面板（用于非Gameplay状态）
-    private void ShowGameOverWithDeathPanel(DeathPanel.DeathType deathType)
+    private void ShowGameOverWithDeathPanel(DeathType deathType)
     {
         currentDeathType = deathType;
         RunLogger.Warning($"Game over with death panel. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
         
-        // 显示死亡结算面板
-        if (deathPanel != null)
-        {
-            deathPanel.ShowDeathPanel(deathType);
-        }
+        // 显示对应死因的死亡面板
+        DeathPanel targetPanel = GetDeathPanelForType(deathType);
+        if (targetPanel != null)
+            targetPanel.ShowDeathPanel();
+        else
+            RunLogger.Warning($"No death panel assigned for deathType={deathType}.");
+
+        Time.timeScale = 0f;
         
         SwitchState(GameState.GameOver);
+    }
+
+    private DeathPanel GetDeathPanelForType(DeathType deathType)
+    {
+        DeathPanel panel = deathType == DeathType.FailedDebt ? debtFailurePanel : monsterDeathPanel;
+        if (panel == null)
+            RunLogger.Warning($"Death panel is null for deathType={deathType}. Check Inspector assignment.");
+        return panel;
+    }
+
+    private void HideAllDeathPanels()
+    {
+        if (monsterDeathPanel != null)
+            monsterDeathPanel.HideDeathPanel();
+        if (debtFailurePanel != null)
+            debtFailurePanel.HideDeathPanel();
     }
 
     // UI Button: Main Menu
@@ -1026,21 +1119,6 @@ private void TryShowDeferredLevelUpRewardIfReady()
             playerMotor = FindObjectOfType<PlayerMotor2D>();
 
         PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
-        if (playerHealth == null && item.Effects != null)
-        {
-            for (int i = 0; i < item.Effects.Count; i++)
-            {
-                if (item.Effects[i] == null) continue;
-                if (item.Effects[i].effectType == ShopItemEffectType.MaxHealthAdd ||
-                    item.Effects[i].effectType == ShopItemEffectType.Heal ||
-                    item.Effects[i].effectType == ShopItemEffectType.AddShieldCharges ||
-                    item.Effects[i].effectType == ShopItemEffectType.EnablePeriodicShield)
-                {
-                    playerHealth = FindObjectOfType<PlayerHealth>();
-                    break;
-                }
-            }
-        }
 
         if (item.Effects != null)
         {
@@ -1051,23 +1129,26 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
                 switch (effect.effectType)
                 {
-                    case ShopItemEffectType.MoveSpeedFlatAdd:
-                        if (playerMotor != null) playerMotor.AddMoveSpeedFlat(effect.floatValue);
-                        break;
                     case ShopItemEffectType.MoveSpeedPercentAdd:
                         if (playerMotor != null) playerMotor.AddMoveSpeedPercent(effect.floatValue);
                         break;
                     case ShopItemEffectType.MaxHealthAdd:
                         if (playerHealth != null) playerHealth.AddMaxHealth(effect.intValue, true);
                         break;
-                    case ShopItemEffectType.Heal:
-                        if (playerHealth != null) playerHealth.Heal(effect.intValue);
-                        break;
                     case ShopItemEffectType.AddShieldCharges:
                         if (playerHealth != null) playerHealth.AddShieldCharges(effect.intValue);
                         break;
-                    case ShopItemEffectType.EnablePeriodicShield:
-                        if (playerHealth != null) playerHealth.EnablePeriodicShield(Mathf.Max(0.1f, effect.floatValue), Mathf.Max(1, effect.intValue));
+                    case ShopItemEffectType.XPPerKillAdd:
+                        bonusXPPerKill += Mathf.Max(0, effect.intValue);
+                        RunLogger.Event($"Bonus XP per kill +{effect.intValue}, total={bonusXPPerKill}");
+                        break;
+                    case ShopItemEffectType.XPMagnetRadiusAdd:
+                        bonusXPMagnetRadius += Mathf.Max(0f, effect.floatValue);
+                        RunLogger.Event($"Bonus XP magnet radius +{effect.floatValue:F1}, total={bonusXPMagnetRadius:F1}");
+                        break;
+                    case ShopItemEffectType.CashOnKillPercentAdd:
+                        cashBonusPercent += Mathf.Max(0f, effect.floatValue);
+                        RunLogger.Event($"Cash on kill bonus +{effect.floatValue:F1}%, total={cashBonusPercent:F1}%");
                         break;
                 }
             }
@@ -1111,7 +1192,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
             shopSystem = panelShop.GetComponent<ShopSystem>();
 
         if (shopSystem == null)
-            shopSystem = panelShop.AddComponent<ShopSystem>();
+        {
+            RunLogger.Warning("ShopSystem component not found on panelShop. Use menu to create shop panel template.");
+            return;
+        }
 
         shopSystem.Bind(this, runProgression);
     }
@@ -1169,13 +1253,10 @@ private void SwitchState(GameState next)
     if (panelLevelUp) panelLevelUp.SetActive(false);
     if (panelSettlement) panelSettlement.SetActive(state == GameState.Settlement);
     if (panelShop) panelShop.SetActive(state == GameState.Shop);
-    if (panelGameOver) panelGameOver.SetActive(state == GameState.GameOver);
     
     // 离开GameOver状态时隐藏死亡面板
-    if (previous == GameState.GameOver && deathPanel != null)
-    {
-        deathPanel.HideDeathPanel();
-    }
+    if (previous == GameState.GameOver)
+        HideAllDeathPanels();
 
     // 离开Victory状态时隐藏胜利面板
     if (previous == GameState.Victory && victoryPanel != null)

@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 2284842997876372299}
   - component: {fileID: -7703636692332815141}
   - component: {fileID: -948049645049251451}
+  - component: {fileID: -5250058237074367190}
   m_Layer: 7
   m_Name: "\u8FD1\u6218\u6742\u5175"
   m_TagString: Untagged
@@ -83,11 +84,11 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 421451715
-  m_SortingLayer: 4
+  m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: fc88c9e07aafe4904bd795a8dfa811f2, type: 3}
-  m_Color: {r: 0.3333037, g: 0.6603774, b: 0.65067035, a: 1}
+  m_Sprite: {fileID: 5187790658897864842, guid: cd7ed7455b70c3b4c91bcd7accfe5ea6, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -184,7 +185,7 @@ MonoBehaviour:
   separationUseOwnLayerOnly: 1
   separationBufferSize: 64
   maxHP: 3
-  cashValue: 5
+  cashValue: 100000
   xpDrop: 1
   cashPopupColor: {r: 0.9245283, g: 0.86318535, b: 0.02180491, a: 1}
   cashPopupFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -226,3 +227,24 @@ MonoBehaviour:
   damage: 1
   hitCooldown: 0.7
   requirePlayerTag: 1
+--- !u!114 &-5250058237074367190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816684970303777472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3bd782b65634484691cd77c38ee1445, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyVisualWobble
+  breathScale: 0.025
+  breathSpeed: 2.5
+  bounceAmplitude: 0.06
+  bounceFrequency: 8
+  squashAmount: 0.07
+  leanAngle: 5
+  leanLerpSpeed: 8
+  flipByMoveDirection: 1
+  moveThreshold: 0.15

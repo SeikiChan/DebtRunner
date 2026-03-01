@@ -6,16 +6,84 @@ using TMPro;
 using UnityEditor;
 
 /// <summary>
-/// 死亡结算面板模板生成工具
-/// 在编辑器中快速生成完整的死亡结算 UI 面板
-/// 使用方式：GameObject -> DebtRunner -> Create Death Panel Template
+/// 死亡面板模板工具 — 分别生成怪物击杀和债务失败两套独立面板
+/// 使用方式：
+///   GameObject -> DebtRunner -> Create Monster Death Panel
+///   GameObject -> DebtRunner -> Create Debt Failure Panel
 /// </summary>
 public class DeathPanelTemplate
 {
-    [MenuItem("GameObject/DebtRunner/Create Death Panel Template")]
-    public static void CreateDeathPanelTemplate()
+    // ─────────────────────────────────────────────
+    //  菜单项：怪物击杀死亡面板
+    // ─────────────────────────────────────────────
+    [MenuItem("GameObject/DebtRunner/Create Monster Death Panel")]
+    public static void CreateMonsterDeathPanel()
     {
-        // 检查是否存在 Canvas
+        CreatePanel(new PanelConfig
+        {
+            panelName          = "Panel_Death_Monster",
+            title              = "SLAIN!",
+            reason             = "KILLED BY MONSTER",
+            description        = "You were defeated by enemies in battle.",
+            titleColor         = new Color(1f, 0.2f, 0.2f, 1f),        // 红色
+            reasonColor        = new Color(1f, 0.8f, 0.2f, 1f),        // 金色
+            bgOverlayColor     = new Color(0.15f, 0f, 0f, 0.7f),       // 深红遮罩
+            bgImageColor       = new Color(0.3f, 0.05f, 0.05f, 0.5f),  // 暗红
+            successMessage     =
+                "怪物击杀死亡面板已创建！\n\n" +
+                "下一步：\n" +
+                "1. 将 Panel_Death_Monster 拖到 GameFlowController 的\n" +
+                "   \"Panel Death Monster\" 字段\n" +
+                "2. 在 Inspector 中可自定义文案和背景素材"
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    //  菜单项：债务失败死亡面板
+    // ─────────────────────────────────────────────
+    [MenuItem("GameObject/DebtRunner/Create Debt Failure Panel")]
+    public static void CreateDebtFailurePanel()
+    {
+        CreatePanel(new PanelConfig
+        {
+            panelName          = "Panel_Death_Debt",
+            title              = "DEBT DEFAULTED!",
+            reason             = "DEBT FAILURE",
+            description        = "You couldn't pay back your debt. The collectors are coming.",
+            titleColor         = new Color(1f, 0.75f, 0.15f, 1f),      // 金色
+            reasonColor        = new Color(0.9f, 0.4f, 0.4f, 1f),      // 浅红
+            bgOverlayColor     = new Color(0.08f, 0.06f, 0f, 0.75f),   // 深黄遮罩
+            bgImageColor       = new Color(0.25f, 0.18f, 0f, 0.5f),    // 暗金
+            successMessage     =
+                "债务失败死亡面板已创建！\n\n" +
+                "下一步：\n" +
+                "1. 将 Panel_Death_Debt 拖到 GameFlowController 的\n" +
+                "   \"Panel Death Debt\" 字段\n" +
+                "2. 在 Inspector 中可自定义文案和背景素材"
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    //  内部配置结构
+    // ─────────────────────────────────────────────
+    private struct PanelConfig
+    {
+        public string panelName;
+        public string title;
+        public string reason;
+        public string description;
+        public Color  titleColor;
+        public Color  reasonColor;
+        public Color  bgOverlayColor;
+        public Color  bgImageColor;
+        public string successMessage;
+    }
+
+    // ─────────────────────────────────────────────
+    //  核心创建逻辑（两个菜单项共用）
+    // ─────────────────────────────────────────────
+    private static void CreatePanel(PanelConfig cfg)
+    {
         Canvas canvas = Object.FindObjectOfType<Canvas>();
         if (canvas == null)
         {
@@ -23,142 +91,73 @@ public class DeathPanelTemplate
             return;
         }
 
-        // 检查是否已存在Death Panel
-        Transform existingDeathPanel = canvas.transform.Find("Panel_Death");
-        if (existingDeathPanel != null)
+        Transform existing = canvas.transform.Find(cfg.panelName);
+        if (existing != null)
         {
-            EditorUtility.DisplayDialog("提示", "Panel_Death 已存在！", "确定");
+            EditorUtility.DisplayDialog("提示", $"{cfg.panelName} 已存在！", "确定");
             return;
         }
 
-        // 创建根 Panel
-        GameObject panelRoot = new GameObject("Panel_Death");
+        // ── 根面板 ──
+        GameObject panelRoot = new GameObject(cfg.panelName);
         RectTransform panelRect = panelRoot.AddComponent<RectTransform>();
         panelRoot.AddComponent<CanvasGroup>();
         Image panelImage = panelRoot.AddComponent<Image>();
         panelImage.color = new Color(0, 0, 0, 0);
-        
+
         panelRect.SetParent(canvas.transform, false);
         panelRect.anchorMin = Vector2.zero;
         panelRect.anchorMax = Vector2.one;
         panelRect.offsetMin = Vector2.zero;
         panelRect.offsetMax = Vector2.zero;
 
-        // 创建背景图像 (可选的深色覆盖)
+        // ── 背景遮罩 ──
         GameObject bgOverlay = new GameObject("Background");
         RectTransform bgRect = bgOverlay.AddComponent<RectTransform>();
         Image bgImage = bgOverlay.AddComponent<Image>();
-        bgImage.color = new Color(0, 0, 0, 0.6f);
+        bgImage.color = cfg.bgOverlayColor;
         bgImage.raycastTarget = true;
+        SetStretch(bgRect, panelRect);
 
-        bgRect.SetParent(panelRect, false);
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
-
-        // 创建背景精灵占位符 (用于替换不同的背景素材)
+        // ── 背景精灵占位 ──
         GameObject bgImageObj = new GameObject("BackgroundImage");
         RectTransform bgImgRect = bgImageObj.AddComponent<RectTransform>();
         Image bgImg = bgImageObj.AddComponent<Image>();
-        bgImg.color = Color.gray; // 默认灰色，便于识别
+        bgImg.color = cfg.bgImageColor;
         bgImg.raycastTarget = false;
+        SetStretch(bgImgRect, panelRect);
 
-        bgImgRect.SetParent(panelRect, false);
-        bgImgRect.anchorMin = Vector2.zero;
-        bgImgRect.anchorMax = Vector2.one;
-        bgImgRect.offsetMin = Vector2.zero;
-        bgImgRect.offsetMax = Vector2.zero;
-
-        // 创建内容容器（用于布局）
+        // ── 内容容器 ──
         GameObject contentContainer = new GameObject("Content");
         RectTransform contentRect = contentContainer.AddComponent<RectTransform>();
         contentContainer.AddComponent<LayoutElement>();
-
         contentRect.SetParent(panelRect, false);
         contentRect.anchorMin = new Vector2(0.5f, 0.5f);
         contentRect.anchorMax = new Vector2(0.5f, 0.5f);
         contentRect.sizeDelta = new Vector2(1000, 600);
         contentRect.anchoredPosition = Vector2.zero;
 
-        // 创建标题文本 (Death Title)
-        GameObject titleObj = new GameObject("DeathTitle");
-        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-        TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
+        // ── 标题 ──
+        TextMeshProUGUI titleTMP = CreateText("DeathTitle", contentRect,
+            new Vector2(0, 150), new Vector2(900, 150),
+            cfg.title, 100, FontStyles.Bold, cfg.titleColor, 0.3f);
 
-        titleRect.SetParent(contentRect, false);
-        titleRect.anchorMin = new Vector2(0.5f, 0.5f);
-        titleRect.anchorMax = new Vector2(0.5f, 0.5f);
-        titleRect.sizeDelta = new Vector2(900, 150);
-        titleRect.anchoredPosition = new Vector2(0, 150);
+        // ── 原因 ──
+        TextMeshProUGUI reasonTMP = CreateText("DeathReason", contentRect,
+            new Vector2(0, 60), new Vector2(800, 60),
+            cfg.reason, 40, FontStyles.Bold, cfg.reasonColor, 0.2f);
 
-        titleText.text = "YOU DIED!";
-        titleText.fontSize = 100;
-        titleText.alignment = TextAlignmentOptions.Center;
-        titleText.fontStyle = FontStyles.Bold;
-        titleText.color = new Color(1, 0.2f, 0.2f, 1); // 红色
-        titleText.outlineWidth = 0.3f;
-        titleText.outlineColor = Color.black;
-        titleText.raycastTarget = false;
+        // ── 描述 ──
+        TextMeshProUGUI descTMP = CreateText("DeathDescription", contentRect,
+            new Vector2(0, -30), new Vector2(800, 100),
+            cfg.description, 28, FontStyles.Normal, new Color(1, 1, 1, 0.8f), 0.2f);
 
-        // 创建死因类型文本 (Death Reason)
-        GameObject reasonObj = new GameObject("DeathReason");
-        RectTransform reasonRect = reasonObj.AddComponent<RectTransform>();
-        TextMeshProUGUI reasonText = reasonObj.AddComponent<TextMeshProUGUI>();
+        // ── 提示文字 ──
+        CreateText("TipText", contentRect,
+            new Vector2(0, -140), new Vector2(800, 60),
+            "Press Any Key to Continue...", 24, FontStyles.Italic, new Color(0.8f, 0.8f, 0.8f, 0.6f), 0f);
 
-        reasonRect.SetParent(contentRect, false);
-        reasonRect.anchorMin = new Vector2(0.5f, 0.5f);
-        reasonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        reasonRect.sizeDelta = new Vector2(800, 60);
-        reasonRect.anchoredPosition = new Vector2(0, 60);
-
-        reasonText.text = "KILLED BY MONSTER";
-        reasonText.fontSize = 40;
-        reasonText.alignment = TextAlignmentOptions.Center;
-        reasonText.fontStyle = FontStyles.Bold;
-        reasonText.color = new Color(1, 0.8f, 0.2f, 1); // 金色
-        reasonText.outlineWidth = 0.2f;
-        reasonText.outlineColor = Color.black;
-        reasonText.raycastTarget = false;
-
-        // 创建描述文本 (Death Description)
-        GameObject descObj = new GameObject("DeathDescription");
-        RectTransform descRect = descObj.AddComponent<RectTransform>();
-        TextMeshProUGUI descText = descObj.AddComponent<TextMeshProUGUI>();
-
-        descRect.SetParent(contentRect, false);
-        descRect.anchorMin = new Vector2(0.5f, 0.5f);
-        descRect.anchorMax = new Vector2(0.5f, 0.5f);
-        descRect.sizeDelta = new Vector2(800, 100);
-        descRect.anchoredPosition = new Vector2(0, -30);
-
-        descText.text = "You were defeated by enemies in battle.";
-        descText.fontSize = 28;
-        descText.alignment = TextAlignmentOptions.Center;
-        descText.color = new Color(1, 1, 1, 0.8f);
-        descText.outlineWidth = 0.2f;
-        descText.outlineColor = Color.black;
-        descText.raycastTarget = false;
-
-        // 创建提示文本 (Tip)
-        GameObject tipObj = new GameObject("TipText");
-        RectTransform tipRect = tipObj.AddComponent<RectTransform>();
-        TextMeshProUGUI tipText = tipObj.AddComponent<TextMeshProUGUI>();
-
-        tipRect.SetParent(contentRect, false);
-        tipRect.anchorMin = new Vector2(0.5f, 0.5f);
-        tipRect.anchorMax = new Vector2(0.5f, 0.5f);
-        tipRect.sizeDelta = new Vector2(800, 60);
-        tipRect.anchoredPosition = new Vector2(0, -140);
-
-        tipText.text = "Press Any Key to Continue...";
-        tipText.fontSize = 24;
-        tipText.alignment = TextAlignmentOptions.Center;
-        tipText.fontStyle = FontStyles.Italic;
-        tipText.color = new Color(0.8f, 0.8f, 0.8f, 0.6f);
-        tipText.raycastTarget = false;
-
-        // 创建按钮容器
+        // ── 按钮容器 ──
         GameObject buttonsContainer = new GameObject("ButtonsContainer");
         RectTransform buttonsRect = buttonsContainer.AddComponent<RectTransform>();
         buttonsRect.SetParent(contentRect, false);
@@ -167,86 +166,115 @@ public class DeathPanelTemplate
         buttonsRect.sizeDelta = new Vector2(600, 80);
         buttonsRect.anchoredPosition = new Vector2(0, -240);
 
-        // 创建 Restart 按钮
-        GameObject restartBtnObj = new GameObject("Btn_Restart", typeof(RectTransform), typeof(Image), typeof(Button));
-        RectTransform restartRect = restartBtnObj.GetComponent<RectTransform>();
-        restartRect.SetParent(buttonsRect, false);
-        restartRect.anchorMin = new Vector2(0.5f, 0.5f);
-        restartRect.anchorMax = new Vector2(0.5f, 0.5f);
-        restartRect.sizeDelta = new Vector2(220, 60);
-        restartRect.anchoredPosition = new Vector2(-120, 0);
+        Button restartBtn = CreateButton("Btn_Restart", buttonsRect,
+            new Vector2(-120, 0), "Restart", new Color(0.2f, 0.6f, 1f, 1f));
 
-        Image restartImg = restartBtnObj.GetComponent<Image>();
-        restartImg.color = new Color(0.2f, 0.6f, 1f, 1f);
+        Button menuBtn = CreateButton("Btn_MainMenu", buttonsRect,
+            new Vector2(120, 0), "Main Menu", new Color(0.2f, 0.6f, 1f, 1f));
 
-        Button restartBtn = restartBtnObj.GetComponent<Button>();
+        // ── 添加 DeathPanel 组件并通过 SerializedObject 连接所有引用 ──
+        DeathPanel deathPanel = panelRoot.AddComponent<DeathPanel>();
+        SerializedObject so = new SerializedObject(deathPanel);
 
-        GameObject restartLabel = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        RectTransform restartLabelRect = restartLabel.GetComponent<RectTransform>();
-        restartLabelRect.SetParent(restartRect, false);
-        restartLabelRect.anchorMin = Vector2.zero;
-        restartLabelRect.anchorMax = Vector2.one;
-        restartLabelRect.offsetMin = Vector2.zero;
-        restartLabelRect.offsetMax = Vector2.zero;
-        TextMeshProUGUI restartTMP = restartLabel.GetComponent<TextMeshProUGUI>();
-        restartTMP.text = "Restart";
-        restartTMP.alignment = TextAlignmentOptions.Center;
-        restartTMP.fontSize = 28;
-        restartTMP.color = Color.white;
+        // 连接 UI 引用
+        so.FindProperty("deathTitleText").objectReferenceValue       = titleTMP;
+        so.FindProperty("deathReasonText").objectReferenceValue      = reasonTMP;
+        so.FindProperty("deathDescriptionText").objectReferenceValue = descTMP;
+        so.FindProperty("deathBackgroundImage").objectReferenceValue = bgImg;
 
-        // 创建 Main Menu 按钮
-        GameObject menuBtnObj = new GameObject("Btn_MainMenu", typeof(RectTransform), typeof(Image), typeof(Button));
-        RectTransform menuRect = menuBtnObj.GetComponent<RectTransform>();
-        menuRect.SetParent(buttonsRect, false);
-        menuRect.anchorMin = new Vector2(0.5f, 0.5f);
-        menuRect.anchorMax = new Vector2(0.5f, 0.5f);
-        menuRect.sizeDelta = new Vector2(220, 60);
-        menuRect.anchoredPosition = new Vector2(120, 0);
+        // 设置文案
+        so.FindProperty("title").stringValue       = cfg.title;
+        so.FindProperty("reason").stringValue      = cfg.reason;
+        so.FindProperty("description").stringValue = cfg.description;
 
-        Image menuImg = menuBtnObj.GetComponent<Image>();
-        menuImg.color = new Color(0.2f, 0.6f, 1f, 1f);
+        // 连接按钮
+        so.FindProperty("restartButton").objectReferenceValue  = restartBtn;
+        so.FindProperty("mainMenuButton").objectReferenceValue = menuBtn;
 
-        Button menuBtn = menuBtnObj.GetComponent<Button>();
+        so.ApplyModifiedPropertiesWithoutUndo();
 
-        GameObject menuLabel = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        RectTransform menuLabelRect = menuLabel.GetComponent<RectTransform>();
-        menuLabelRect.SetParent(menuRect, false);
-        menuLabelRect.anchorMin = Vector2.zero;
-        menuLabelRect.anchorMax = Vector2.one;
-        menuLabelRect.offsetMin = Vector2.zero;
-        menuLabelRect.offsetMax = Vector2.zero;
-        TextMeshProUGUI menuTMP = menuLabel.GetComponent<TextMeshProUGUI>();
-        menuTMP.text = "Main Menu";
-        menuTMP.alignment = TextAlignmentOptions.Center;
-        menuTMP.fontSize = 28;
-        menuTMP.color = Color.white;
-
-        // 给根Panel添加DeathPanel组件
-        DeathPanel deathPanelScript = panelRoot.AddComponent<DeathPanel>();
-
-        // 将生成的按钮引用赋值到 DeathPanel（如果组件存在）
-        if (deathPanelScript != null)
-        {
-            deathPanelScript.restartButton = restartBtn;
-            deathPanelScript.mainMenuButton = menuBtn;
-        }
-
-        // 默认隐藏，只在死亡时显示
+        // 默认隐藏
         panelRoot.SetActive(false);
 
-        // 在Inspector中设置引用
+        Undo.RegisterCreatedObjectUndo(panelRoot, $"Create {cfg.panelName}");
         EditorGUIUtility.PingObject(panelRoot);
         Selection.activeGameObject = panelRoot;
 
-        EditorUtility.DisplayDialog("成功", 
-            "Death Panel Template 已创建！\n\n" +
-            "下一步：\n" +
-            "1. 将此 Panel_Death 拖拽到 GameFlowController 的 \"Panel Death\" 字段\n" +
-            "2. 在 Panel_Death 的 Inspector 中配置各项参数\n" +
-            "3. 为不同的死因设置不同的背景素材和文案", 
-            "确定");
+        EditorUtility.DisplayDialog("成功", cfg.successMessage, "确定");
+        Debug.Log($"{cfg.panelName} created successfully!");
+    }
 
-        Debug.Log("Death Panel Template created successfully!");
+    // ─────────────────────────────────────────────
+    //  辅助方法
+    // ─────────────────────────────────────────────
+    private static void SetStretch(RectTransform child, Transform parent)
+    {
+        child.SetParent(parent, false);
+        child.anchorMin = Vector2.zero;
+        child.anchorMax = Vector2.one;
+        child.offsetMin = Vector2.zero;
+        child.offsetMax = Vector2.zero;
+    }
+
+    private static TextMeshProUGUI CreateText(
+        string name, Transform parent,
+        Vector2 pos, Vector2 size,
+        string text, float fontSize, FontStyles style, Color color,
+        float outlineWidth)
+    {
+        GameObject obj = new GameObject(name);
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = pos;
+
+        TextMeshProUGUI tmp = obj.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = fontSize;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.fontStyle = style;
+        tmp.color = color;
+        tmp.raycastTarget = false;
+        if (outlineWidth > 0f)
+        {
+            tmp.outlineWidth = outlineWidth;
+            tmp.outlineColor = Color.black;
+        }
+        return tmp;
+    }
+
+    private static Button CreateButton(
+        string name, Transform parent,
+        Vector2 pos, string label, Color bgColor)
+    {
+        GameObject btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        RectTransform rect = btnObj.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(220, 60);
+        rect.anchoredPosition = pos;
+
+        Image img = btnObj.GetComponent<Image>();
+        img.color = bgColor;
+
+        GameObject labelObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.SetParent(rect, false);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI tmp = labelObj.GetComponent<TextMeshProUGUI>();
+        tmp.text = label;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.fontSize = 28;
+        tmp.color = Color.white;
+
+        return btnObj.GetComponent<Button>();
     }
 }
 

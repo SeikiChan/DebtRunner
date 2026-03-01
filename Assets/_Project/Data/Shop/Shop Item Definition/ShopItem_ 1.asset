@@ -12,10 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 1
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: New Shop Item
-  description: 
+  itemTitle: Add  sheild
+  description: Add 1 sheild
   icon: {fileID: 0}
   price: 120
   rarity: 0
   weightPercent: 10
-  effects: []
+  effects:
+  - effectType: 4
+    intValue: 1
+    floatValue: 0

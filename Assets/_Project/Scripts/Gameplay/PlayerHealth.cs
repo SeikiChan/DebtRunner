@@ -9,6 +9,7 @@ public class PlayerHealth : MonoBehaviour
     private int hp;
     private bool invuln;
 
+    private PlayerHitFeedback hitFeedback;
     private int shieldCharges;
     private bool periodicShieldEnabled;
     private float periodicShieldInterval = 12f;
@@ -21,7 +22,11 @@ public class PlayerHealth : MonoBehaviour
     public int MaxHP => maxHP;
     public int ShieldCharges => shieldCharges;
 
-    private void Awake() => hp = Mathf.Max(1, maxHP);
+    private void Awake()
+    {
+        hp = Mathf.Max(1, maxHP);
+        hitFeedback = GetComponent<PlayerHitFeedback>();
+    }
 
     private void Update()
     {
@@ -112,6 +117,7 @@ public class PlayerHealth : MonoBehaviour
         {
             shieldCharges -= 1;
             RunLogger.Event($"Shield blocked damage. remaining={shieldCharges}");
+            if (hitFeedback != null) hitFeedback.PlayHitFlash();
             ApplyInvulnerabilityFor(iFrameSeconds);
             return;
         }
@@ -119,6 +125,8 @@ public class PlayerHealth : MonoBehaviour
         int actualDamage = Mathf.Max(1, dmg);
         hp -= actualDamage;
         RunLogger.Warning($"Player took damage: -{actualDamage}, hp={Mathf.Max(hp, 0)}/{maxHP}");
+
+        if (hitFeedback != null) hitFeedback.PlayHitFlash();
 
         if (hp <= 0)
         {
@@ -151,6 +159,7 @@ public class PlayerHealth : MonoBehaviour
             invulnUntilUnscaledTime = targetEndTime;
 
         invuln = true;
+        if (hitFeedback != null) hitFeedback.StartBlink();
         if (invulnRoutine == null)
             invulnRoutine = StartCoroutine(InvulnerabilityTimerRoutine());
     }
@@ -162,5 +171,6 @@ public class PlayerHealth : MonoBehaviour
 
         invuln = false;
         invulnRoutine = null;
+        if (hitFeedback != null) hitFeedback.StopBlink();
     }
 }

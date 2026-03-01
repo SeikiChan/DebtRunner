@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 2284842997876372299}
   - component: {fileID: 5889809405980213394}
   - component: {fileID: -7703636692332815141}
+  - component: {fileID: -4470491470205376751}
   m_Layer: 7
   m_Name: "\u8FDC\u7A0B\u5175"
   m_TagString: Untagged
@@ -83,11 +84,11 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 421451715
-  m_SortingLayer: 4
+  m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: ba345f2f643d842459447c374943401d, type: 3}
-  m_Color: {r: 0.6208844, g: 0.754717, b: 0.23851903, a: 1}
+  m_Sprite: {fileID: 3225131261367237910, guid: 0eaa7b04f166ab041958d7c14f9557fb, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -227,3 +228,24 @@ MonoBehaviour:
   hitSpeed: 2.5
   maxKnockbackSpeed: 5
   recoveryPerSecond: 10
+--- !u!114 &-4470491470205376751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816684970303777472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3bd782b65634484691cd77c38ee1445, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyVisualWobble
+  breathScale: 0.025
+  breathSpeed: 2.5
+  bounceAmplitude: 0.06
+  bounceFrequency: 8
+  squashAmount: 0.07
+  leanAngle: 5
+  leanLerpSpeed: 8
+  flipByMoveDirection: 1
+  moveThreshold: 0.15

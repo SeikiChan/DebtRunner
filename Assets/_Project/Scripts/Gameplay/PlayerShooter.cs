@@ -19,6 +19,8 @@ public class PlayerShooter : MonoBehaviour
     [Header("Projectile Traits")]
     [SerializeField] private int pierceCount = 0;
     [SerializeField] private float knockbackMultiplier = 1f;
+    [SerializeField] private bool enableEnemyKnockback = true;
+    [SerializeField, Min(0f)] private float maxKnockbackMultiplier = 0.6f;
     [SerializeField] private int onHitScatterCount = 0;
     [SerializeField] private float onHitScatterAngle = 18f;
 
@@ -140,7 +142,7 @@ public class PlayerShooter : MonoBehaviour
                 projectileSpeed,
                 damage,
                 pierceCount,
-                knockbackMultiplier,
+                GetAppliedKnockbackMultiplier(),
                 onHitScatterCount,
                 onHitScatterAngle);
         }
@@ -181,7 +183,7 @@ public class PlayerShooter : MonoBehaviour
                     continue;
 
                 orbitLastHitAt[id] = now;
-                enemy.TakeDamage(orbitDamage, offset.normalized, knockbackMultiplier * 0.65f);
+                enemy.TakeDamage(orbitDamage, offset.normalized, GetAppliedKnockbackMultiplier(0.65f));
             }
         }
 
@@ -288,6 +290,16 @@ public class PlayerShooter : MonoBehaviour
 
     public int GetDamage() => damage;
     public float GetFireRate() => 1f / fireInterval;
+
+    private float GetAppliedKnockbackMultiplier(float extraScale = 1f)
+    {
+        if (!enableEnemyKnockback)
+            return 0f;
+
+        float cap = Mathf.Max(0f, maxKnockbackMultiplier);
+        float clampedMultiplier = Mathf.Min(Mathf.Max(0f, knockbackMultiplier), cap);
+        return clampedMultiplier * Mathf.Max(0f, extraScale);
+    }
 
     private void OnDrawGizmosSelected()
     {

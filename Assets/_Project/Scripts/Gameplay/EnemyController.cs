@@ -74,6 +74,14 @@ public class EnemyController : MonoBehaviour
     public float MaxHP => Mathf.Max(1f, runtimeMaxHP);
     public float HealthRatio => Mathf.Clamp01(CurrentHP / MaxHP);
 
+    /// <summary>
+    /// 当为 true 时，FixedUpdate 跳过追踪移动。
+    /// EnemyDashAttack / EnemyOrbitMovement 等组件使用此属性接管移动。
+    /// </summary>
+    public bool SuppressChaseMovement { get; set; }
+    public Transform Player => player;
+    public Rigidbody2D Rb => rb;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -110,6 +118,7 @@ public class EnemyController : MonoBehaviour
     private void FixedUpdate()
     {
         if (player == null) return;
+        if (SuppressChaseMovement) return;
         Vector2 pos = rb.position;
         Vector2 dir = ((Vector2)player.position - pos).normalized;
         Vector2 knockbackVelocity = hitKnockback != null
@@ -245,8 +254,11 @@ public class EnemyController : MonoBehaviour
 
         if (xpPrefab != null)
         {
+            int totalXP = xpDrop;
+            if (GameFlowController.Instance != null)
+                totalXP += GameFlowController.Instance.BonusXPPerKill;
             var p = Instantiate(xpPrefab, transform.position, Quaternion.identity, pickupsRoot);
-            p.SetAmount(xpDrop);
+            p.SetAmount(totalXP);
         }
 
         TryDropHealthPickup();
