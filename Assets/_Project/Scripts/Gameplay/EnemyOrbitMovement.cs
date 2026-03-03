@@ -69,6 +69,9 @@ public class EnemyOrbitMovement : MonoBehaviour
         float effectiveSpeed = Mathf.Max(radiusApproachSpeed * Time.fixedDeltaTime, angularDisplacement);
         Vector2 nextPos = Vector2.MoveTowards(currentPos, idealPos, effectiveSpeed);
 
+        if (CircleBoundary.Instance != null)
+            nextPos = CircleBoundary.Instance.ClampPosition(nextPos);
+
         if (rb != null)
             rb.MovePosition(nextPos);
         else

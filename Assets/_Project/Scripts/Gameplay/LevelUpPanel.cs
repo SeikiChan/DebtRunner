@@ -14,6 +14,10 @@ public class LevelUpPanel : MonoBehaviour
     [SerializeField] private Image dimBackground;
     [SerializeField] private UpgradeCard[] cardSlots = new UpgradeCard[3];
 
+    [Header("SFX / 音效")]
+    [LocalizedLabel("选择升级音效")]
+    [SerializeField] private AudioClip sfxSelect;
+
     [Header("Dim Settings")]
     [SerializeField] private float dimTargetAlpha = 0.5f;
     [SerializeField] private float dimFadeDuration = 0.3f;
@@ -141,6 +145,8 @@ public class LevelUpPanel : MonoBehaviour
             return;
 
         selectionLocked = true;
+        if (sfxSelect != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxSelect);
         SetCardsInteractable(false);
         SetInputEnabled(false);
 

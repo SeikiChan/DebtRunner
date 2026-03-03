@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,202 +12,108 @@ public class GameFlowController : MonoBehaviour
     public enum DeathType { KilledByMonster, FailedDebt }
     public bool IsInGameplayState => state == GameState.Gameplay;
 
-    [Header("Panels / 面板")]
-    [LocalizedLabel("Panel Title / 标题面板")]
     [SerializeField] private GameObject panelTitle;
-    [LocalizedLabel("Panel HUD / HUD面板")]
     [SerializeField] private GameObject panelHUD;
-    [LocalizedLabel("Panel Level Up / 升级面板")]
     [SerializeField] private GameObject panelLevelUp;
-    [LocalizedLabel("Panel Settlement / 结算面板")]
     [SerializeField] private GameObject panelSettlement;
-    [LocalizedLabel("Panel Shop / 商店面板")]
     [SerializeField] private GameObject panelShop;
-    [LocalizedLabel("Panel Death Monster / 怪物击杀死亡面板")]
     [SerializeField] private DeathPanel monsterDeathPanel;
-    [LocalizedLabel("Panel Death Debt / 债务失败死亡面板")]
     [SerializeField] private DeathPanel debtFailurePanel;
-    [LocalizedLabel("Panel Victory / 胜利面板")]
     [SerializeField] private VictoryPanel victoryPanel;
-    [LocalizedLabel("Panel Pause Menu / 暂停面板")]
     [SerializeField] private GameObject panelPauseMenu;
-    [LocalizedLabel("Panel Settings Placeholder / 设置占位面板")]
     [SerializeField] private GameObject panelSettingsPlaceholder;
-    [LocalizedLabel("Pause Settings Menu / 暂停设置菜单")]
     [SerializeField] private SettingsMenuController pauseSettingsMenu;
 
-    [Header("World Roots / 场景根节点")]
-    [LocalizedLabel("Enemies Root / 敌人根节点")]
     [SerializeField] private Transform enemiesRoot;
-    [LocalizedLabel("Projectiles Root / 子弹根节点")]
     [SerializeField] private Transform projectilesRoot;
-    [LocalizedLabel("Pickups Root / 掉落根节点")]
     [SerializeField] private Transform pickupsRoot;
 
-    [Header("World References / 世界引用")]
-    [LocalizedLabel("Player Motor / 玩家移动组件")]
     [SerializeField] private PlayerMotor2D playerMotor;
-    [LocalizedLabel("Camera Follow / 相机跟随组件")]
     [SerializeField] private CameraFollow2D cameraFollow;
 
-    [Header("HUD Text / HUD文案")]
-    [LocalizedLabel("Text Round / 回合文本")]
     [SerializeField] private TMP_Text textRound;
-    [LocalizedLabel("Text Cash / 金钱文本")]
     [SerializeField] private TMP_Text textCash;
-    [LocalizedLabel("Text Debt / 债务文本")]
     [SerializeField] private TMP_Text textDebt;
-    [LocalizedLabel("Text Countdown / 倒计时文本")]
     [SerializeField] private TMP_Text textCountdown;
-    [LocalizedLabel("Round Intro Seconds / 开场停留时长")]
     [SerializeField] private float roundIntroSeconds = 2.5f;
 
-    [Header("Round Intro Overlay / 回合开场遮罩")]
-    [LocalizedLabel("Round Intro Overlay / 开场遮罩")]
     [SerializeField] private CanvasGroup roundIntroOverlay;
-    [LocalizedLabel("Round Intro Round Text / 开场回合文本")]
     [SerializeField] private TMP_Text roundIntroRoundText;
-    [LocalizedLabel("Round Intro Debt Text / 开场债务文本")]
     [SerializeField] private TMP_Text roundIntroDebtText;
-    [LocalizedLabel("Round Intro Continue Hint Text / 开场继续提示文本")]
     [SerializeField] private TMP_Text roundIntroContinueHintText;
-    [LocalizedLabel("Round Intro Require Any Key / 开场需任意键继续")]
     [SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
-    [LocalizedLabel("Round Intro Hint Message / 开场提示文案")]
     [SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
-    [LocalizedLabel("Round Intro Fade In Seconds / 开场淡入时长")]
     [SerializeField] private float roundIntroFadeInSeconds = 0.15f;
-    [LocalizedLabel("Round Intro Fade Out Seconds / 开场淡出时长")]
     [SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
 
-    [Header("Round Clear Overlay / 回合通过遮罩")]
-    [LocalizedLabel("Round Clear Overlay / 通关遮罩")]
     [SerializeField] private CanvasGroup roundClearOverlay;
-    [LocalizedLabel("Round Clear Title Text / 通关标题文本")]
     [SerializeField] private TMP_Text roundClearTitleText;
-    [LocalizedLabel("Round Clear Sub Text / 通关副标题文本")]
     [SerializeField] private TMP_Text roundClearSubText;
-    [LocalizedLabel("Show Round Clear Transition / 显示通关过渡")]
     [SerializeField] private bool showRoundClearTransition = true;
-    [LocalizedLabel("Round Clear Title Message / 通关标题文案")]
     [SerializeField] private string roundClearTitleMessage = "YOU PASS!";
-    [LocalizedLabel("Round Clear Sub Message / 通关副文案")]
     [SerializeField] private string roundClearSubMessage = "Round Cleared";
-    [LocalizedLabel("Round Clear Seconds / 通关停留时长")]
     [SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
-    [LocalizedLabel("Round Clear Fade In Seconds / 通关淡入时长")]
     [SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
-    [LocalizedLabel("Round Clear Fade Out Seconds / 通关淡出时长")]
     [SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
-    [LocalizedLabel("Auto Collect Drops On Round Clear / 通关自动吸取掉落")]
     [SerializeField] private bool autoCollectDropsOnRoundClear = true;
-    [LocalizedLabel("Round Clear Auto Collect Radius / 自动吸取半径")]
     [SerializeField, Min(0f)] private float roundClearAutoCollectRadius = 4.5f;
-    [LocalizedLabel("Round Clear Auto Collect Move Speed / 自动吸取移动速度")]
     [SerializeField, Min(0f)] private float roundClearAutoCollectMoveSpeed = 15f;
-    [LocalizedLabel("Round Clear Auto Collect Distance / 自动吸取判定距离")]
     [SerializeField, Min(0f)] private float roundClearAutoCollectCollectDistance = 0.2f;
-    [LocalizedLabel("Round Clear Overlay Alpha During Collect / 吸取时遮罩透明度")]
     [SerializeField, Range(0f, 1f)] private float roundClearOverlayAlphaDuringCollect = 0.45f;
-    [LocalizedLabel("Round Clear Collect Delay Seconds / 吸取完成延迟")]
     [SerializeField, Min(0f)] private float roundClearCollectDelaySeconds = 0.12f;
-    [LocalizedLabel("Round Clear Auto Collect Max Wait Seconds / 自动吸取最大等待")]
     [SerializeField, Min(0f)] private float roundClearAutoCollectMaxWaitSeconds = 15f;
 
-    [Header("HUD Health / 血量UI")]
-    [LocalizedLabel("Health UI / 血量界面")]
     [SerializeField] private HealthUI healthUI;
 
-    [Header("HUD XP / 经验UI")]
-    [LocalizedLabel("XP UI / 经验界面")]
     [SerializeField] private XPUI xpUI;
 
-    [Header("Level Up Rewards / 升级奖励")]
-    [LocalizedLabel("Level Up Panel / 升级面板脚本")]
     [SerializeField] private LevelUpPanel levelUpPanel;
-    [LocalizedLabel("Post Level Up Safety Invuln Seconds / 升级后无敌时长")]
     [SerializeField, Min(0f)] private float postLevelUpSafetyInvulnSeconds = 0.75f;
-    [LocalizedLabel("Clear Enemy Projectiles After Level Up / 升级后清敌方子弹")]
     [SerializeField] private bool clearEnemyProjectilesAfterLevelUp = true;
-    [LocalizedLabel("Defer Level Up Rewards During Round Clear / 通关阶段延后升级奖励")]
     [SerializeField] private bool deferLevelUpRewardsDuringRoundClear = true;
 
-    [Header("Settlement Text / 结算文案")]
-    [LocalizedLabel("Text Due / 应付文本")]
+    [SerializeField] private AudioClip sfxLevelUp;
+    [SerializeField] private AudioClip sfxUIButtonClick;
+    [SerializeField] private AudioClip sfxUIButtonHover;
+    [SerializeField, Min(0f)] private float uiButtonHoverSfxMinInterval = 0.03f;
+
     [SerializeField] private TMP_Text textDue;
-    [LocalizedLabel("Text Paid / 已付文本")]
     [SerializeField] private TMP_Text textPaid;
-    [LocalizedLabel("Text Remaining Debt / 剩余债务文本")]
     [SerializeField] private TMP_Text textRemainingDebt;
 
-    [Header("Run Config / 跑局配置")]
-    [LocalizedLabel("Total Rounds / 普通总回合数")]
     [SerializeField] private int totalRounds = 10;
-    [LocalizedLabel("Base Due / 基础债务")]
     [SerializeField] private int baseDue = 500;
-    [LocalizedLabel("Step Due / 每回合债务增量")]
     [SerializeField] private int stepDue = 200;
-    [LocalizedLabel("Round Duration Seconds / 每回合时长")]
     [SerializeField] private float roundDurationSeconds = 30f;
-    [LocalizedLabel("Base XP To Next / 基础升级经验")]
     [SerializeField, Min(1)] private int baseXpToNext = 10;
 
-    [Header("Debt Curve / 债务曲线")]
-    [LocalizedLabel("Use Debt Curve Multiplier / 启用债务曲线倍率")]
     [SerializeField] private bool useDebtCurveMultiplier = true;
-    [LocalizedLabel("Debt Curve / 债务曲线")]
     [SerializeField] private AnimationCurve debtCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2f);
-    [LocalizedLabel("Debt Min Growth Per Round / 债务最小每回合增长")]
     [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
 
-    [Header("Enemy Difficulty Curve / 敌人难度曲线")]
-    [LocalizedLabel("Enemy HP Curve / 敌人血量曲线")]
     [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2.2f);
-    [LocalizedLabel("Enemy Speed Curve / 敌人速度曲线")]
     [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.7f);
-    [LocalizedLabel("Enemy HP Min Growth Per Round / 敌人血量最小每回合增长")]
     [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.12f;
-    [LocalizedLabel("Enemy Speed Min Growth Per Round / 敌人速度最小每回合增长")]
     [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.05f;
 
-    [Header("XP / 经验配置")]
-    [LocalizedLabel("Level / 当前等级(初始)")]
     [SerializeField] private int level = 1;
-    [LocalizedLabel("XP / 当前经验(初始)")]
     [SerializeField] private int xp = 0;
-    [LocalizedLabel("XP To Next / 下级经验(初始)")]
     [SerializeField] private int xpToNext = 10;
-    [LocalizedLabel("XP Curve Max Level / 经验曲线最大等级")]
     [SerializeField, Min(2)] private int xpCurveMaxLevel = 25;
-    [LocalizedLabel("XP To Next Curve / 升级经验曲线")]
     [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 5f);
-    [LocalizedLabel("XP Min Growth Per Level / 升级经验最小每级增长")]
     [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.12f;
 
-    [Header("Weapon Upgrade Pool / 武器升级池")]
-    [LocalizedLabel("Weapon Upgrade Pool Asset / 武器升级池资源")]
     [SerializeField] private WeaponUpgradePoolAsset weaponUpgradePoolAsset;
 
-    [Header("Gameplay Systems / 核心系统")]
-    [LocalizedLabel("Enemy Spawner / 刷怪器")]
     [SerializeField] private EnemySpawner enemySpawner;
-    [LocalizedLabel("Player Shooter / 玩家射击")]
     [SerializeField] private PlayerShooter playerShooter;
-    [LocalizedLabel("Shop System / 商店系统")]
     [SerializeField] private ShopSystem shopSystem;
 
-    [Header("Fail Animation / 失败动画")]
-    [LocalizedLabel("Fail Animator / 失败动画器")]
     [SerializeField] private Animator failAnimator;
-    [LocalizedLabel("Fail Trigger Name / 失败触发器名")]
     [SerializeField] private string failTriggerName = "Fail";
 
-    [Header("Debug / 调试")]
-    [LocalizedLabel("Enable Debug Hotkeys / 启用调试热键")]
     [SerializeField] private bool enableDebugHotkeys = true;
-    [LocalizedLabel("Debug Jump Boss Round Key / 跳Boss热键")]
     [SerializeField] private KeyCode debugJumpBossRoundKey = KeyCode.F6;
-    [LocalizedLabel("Debug Reset Stats Before Boss / 跳Boss前重置属性")]
     [SerializeField] private bool debugResetStatsBeforeBoss = false;
 
     private enum SettingsReturnTarget
@@ -229,12 +135,13 @@ public class GameFlowController : MonoBehaviour
     private bool roundClearActive;
     private bool pauseMenuOpen;
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
-    private float roundTimeRemaining;  // 当前回合剩余时间
+    private float roundTimeRemaining;  // 褰撳墠鍥炲悎鍓╀綑鏃堕棿
+    private float lastUIButtonHoverSfxTime = -10f;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
     private DeathType currentDeathType = DeathType.KilledByMonster;
 
-    // 商店道具加成（每局重置）
+    // 鍟嗗簵閬撳叿鍔犳垚锛堟瘡灞€閲嶇疆锛?
     private int bonusXPPerKill;
     private float bonusXPMagnetRadius;
     private float cashBonusPercent;
@@ -244,7 +151,7 @@ public class GameFlowController : MonoBehaviour
 
     private void Awake()
     {
-        // 单例
+        // 鍗曚緥
         if (Instance != null && Instance != this)
         {
             bool oldInDontDestroy = Instance.gameObject.scene.name == "DontDestroyOnLoad";
@@ -267,19 +174,25 @@ public class GameFlowController : MonoBehaviour
             Instance = this;
         }
 
-        if (panelSettingsPlaceholder != null)
-            panelSettingsPlaceholder.SetActive(false);
+        PrepareInitialMenuSafetyState();
 
         if (enemySpawner == null)
             enemySpawner = FindObjectOfType<EnemySpawner>();
         if (playerShooter == null)
             playerShooter = FindObjectOfType<PlayerShooter>();
-        EnsureShopSystemBound();
-        EnsurePauseSettingsBound();
-        EnsureDeathPanelsBound();
+
+        try { EnsureShopSystemBound(); }
+        catch (System.Exception ex) { RunLogger.Error($"EnsureShopSystemBound failed: {ex.Message}"); }
+
+        try { EnsurePauseSettingsBound(); }
+        catch (System.Exception ex) { RunLogger.Error($"EnsurePauseSettingsBound failed: {ex.Message}"); }
+
+        try { EnsureDeathPanelsBound(); }
+        catch (System.Exception ex) { RunLogger.Error($"EnsureDeathPanelsBound failed: {ex.Message}"); }
+
         DisableLegacyGameOverPanelIfPresent();
 
-        // 尝试自动绑定两套死亡面板（怪物击杀 / 债务失败）
+        // 灏濊瘯鑷姩缁戝畾涓ゅ姝讳骸闈㈡澘锛堟€墿鍑绘潃 / 鍊哄姟澶辫触锛?
 
         if (victoryPanel == null)
         {
@@ -307,10 +220,10 @@ public class GameFlowController : MonoBehaviour
                 RunLogger.Warning("VictoryPanel not assigned and not found in scene. Assign Panel_Victory in GameFlowController Inspector.");
         }
 
-        // 初始化升级池
+        // 鍒濆鍖栧崌绾ф睜
         EnsureWeaponUpgradePool();
 
-        // 初始数据
+        // 鍒濆鏁版嵁
         baseXpToNext = Mathf.Max(1, baseXpToNext);
         level = Mathf.Max(1, level);
         roundIndex = 1;
@@ -322,10 +235,36 @@ public class GameFlowController : MonoBehaviour
 
         RunLogger.Event($"GameFlow ready: rounds={totalRounds}, round1Due={CalcDue(1)}, dueStep={stepDue}, roundDuration={roundDurationSeconds:F1}s");
 
-        // 初始界面：只显示Title
+        // 鍒濆鐣岄潰锛氬彧鏄剧ずTitle
         SwitchState(GameState.Title);
         ForceClosePauseMenu(false);
+        BindHoverSfxToSceneButtons();
         RefreshHUD();
+    }
+
+    private IEnumerator Start()
+    {
+        // Warm up global SFX singleton before first UI hover event.
+        _ = SFXManager.Instance;
+
+        // Some UI buttons are instantiated/enabled in Start of other scripts.
+        yield return null;
+        BindHoverSfxToSceneButtons();
+
+        // One extra frame makes title-menu first-open binding stable.
+        yield return null;
+        BindHoverSfxToSceneButtons();
+    }
+
+    private void PrepareInitialMenuSafetyState()
+    {
+        if (panelTitle != null) panelTitle.SetActive(true);
+        if (panelHUD != null) panelHUD.SetActive(false);
+        if (panelLevelUp != null) panelLevelUp.SetActive(false);
+        if (panelSettlement != null) panelSettlement.SetActive(false);
+        if (panelShop != null) panelShop.SetActive(false);
+        if (panelPauseMenu != null) panelPauseMenu.SetActive(false);
+        if (panelSettingsPlaceholder != null) panelSettingsPlaceholder.SetActive(false);
     }
 
     private void EnsureWeaponUpgradePool()
@@ -395,7 +334,7 @@ public class GameFlowController : MonoBehaviour
 
     private void Update()
     {
-        // 快速测试热键
+        // 蹇€熸祴璇曠儹閿?
         if (Input.GetKeyDown(KeyCode.F1)) SwitchState(GameState.Title);
         if (Input.GetKeyDown(KeyCode.F2)) StartRun();
         if (Input.GetKeyDown(KeyCode.F3)) EndRound();
@@ -419,7 +358,7 @@ public class GameFlowController : MonoBehaviour
             }
         }
         
-        // 更新倒计时显示
+        // 鏇存柊鍊掕鏃舵樉绀?
         if (state == GameState.Gameplay && textCountdown != null)
         {
             if (IsCurrentRoundBoss())
@@ -434,15 +373,15 @@ public class GameFlowController : MonoBehaviour
         }
     }
 
-    // ====== Public APIs (给其他系统调用) ======
+    // ====== Public APIs (缁欏叾浠栫郴缁熻皟鐢? ======
 
-    // 敌人死亡自动加钱会调用这个
+    // 鏁屼汉姝讳骸鑷姩鍔犻挶浼氳皟鐢ㄨ繖涓?
     public void AddCash(int amount)
     {
         int v = Mathf.Max(0, amount);
         if (v == 0) return;
 
-        // 追债回扣：按百分比加成
+        // 杩藉€哄洖鎵ｏ細鎸夌櫨鍒嗘瘮鍔犳垚
         if (cashBonusPercent > 0f)
             v = Mathf.Max(v, Mathf.RoundToInt(v * (1f + cashBonusPercent / 100f)));
 
@@ -452,7 +391,7 @@ public class GameFlowController : MonoBehaviour
         if (shopSystem != null) shopSystem.RefreshShopUI();
     }
 
-    // 捡到XP会调用这个
+    // 鎹″埌XP浼氳皟鐢ㄨ繖涓?
     public void AddXP(int amount)
     {
         int v = Mathf.Max(0, amount);
@@ -461,18 +400,18 @@ public class GameFlowController : MonoBehaviour
         xp += v;
         RunLogger.Event($"XP +{v}, current={xp}/{xpToNext}, level={level}");
         
-        // 检查是否升级
+        // 妫€鏌ユ槸鍚﹀崌绾?
         while (xp >= xpToNext)
         {
             xp -= xpToNext;
             LevelUp();
             
-            // 升级后立即更新UI显示
+            // 鍗囩骇鍚庣珛鍗虫洿鏂癠I鏄剧ず
             if (xpUI != null)
                 xpUI.UpdateXPDisplay();
         }
 
-        // 更新XP UI
+        // 鏇存柊XP UI
         if (xpUI != null)
             xpUI.UpdateXPDisplay();
     }
@@ -483,6 +422,9 @@ private void LevelUp()
     xpToNext = CalculateXpToNext(level);
 
     RunLogger.Event($"Level up -> {level}, nextXP={xpToNext}");
+
+    if (sfxLevelUp != null && SFXManager.Instance != null)
+        SFXManager.Instance.Play(sfxLevelUp);
 
     if (ShouldDeferLevelUpRewardPresentation())
     {
@@ -520,7 +462,7 @@ private bool TryShowLevelUpRewardPanelNow()
 
     levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
 
-    // 只有面板存在且成功走到这里才暂停游戏
+    // 鍙湁闈㈡澘瀛樺湪涓旀垚鍔熻蛋鍒拌繖閲屾墠鏆傚仠娓告垙
     Time.timeScale = 0f;
     return true;
 }
@@ -545,7 +487,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
 
     /// <summary>
-    /// 随机选择升级选项
+    /// 闅忔満閫夋嫨鍗囩骇閫夐」
     /// </summary>
     private WeaponUpgrade[] SelectRandomUpgrades(int count)
     {
@@ -609,7 +551,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     }
 
     /// <summary>
-    /// 玩家选择了升级
+    /// 鐜╁閫夋嫨浜嗗崌绾?
     /// </summary>
     private void OnUpgradeSelected(WeaponUpgrade upgrade)
     {
@@ -621,7 +563,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (clearEnemyProjectilesAfterLevelUp)
             ClearEnemyProjectiles();
 
-        // 恢复游戏时间
+        // 鎭㈠娓告垙鏃堕棿
         Time.timeScale = 1f;
 
         if (postLevelUpSafetyInvulnSeconds > 0f)
@@ -637,13 +579,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
         TryShowDeferredLevelUpRewardIfReady();
     }
 
-    /// <summary>获取当前等级</summary>
+    /// <summary>鑾峰彇褰撳墠绛夌骇</summary>
     public int GetLevel() => level;
 
-    /// <summary>获取当前XP</summary>
+    /// <summary>鑾峰彇褰撳墠XP</summary>
     public int GetCurrentXP() => xp;
 
-    /// <summary>获取升级所需XP</summary>
+    /// <summary>鑾峰彇鍗囩骇鎵€闇€XP</summary>
     public int GetXPToNext() => xpToNext;
     public int GetCurrentRound() => roundIndex;
     public int GetTotalRounds() => totalRounds;
@@ -654,11 +596,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Start
     public void StartRun()
     {
-        // 恢复游戏时间（以防还在暂停状态）
+        PlayUIButtonClickSfx();
+
+        // 鎭㈠娓告垙鏃堕棿锛堜互闃茶繕鍦ㄦ殏鍋滅姸鎬侊級
         StopRoundClearTransition(false);
         Time.timeScale = 1f;
 
-        // 新开局：重置
+        // 鏂板紑灞€锛氶噸缃?
         roundIndex = 1;
         cash = 0;
         xp = 0;
@@ -672,7 +616,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
 
-        // 重置玩家血量和血量UI
+        // 閲嶇疆鐜╁琛€閲忓拰琛€閲廢I
         var playerHealth = FindObjectOfType<PlayerHealth>();
         if (playerHealth != null)
         {
@@ -686,12 +630,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (playerShooter != null)
             playerShooter.ResetRuntimeStats();
 
-        // 重置商店道具加成
+        // 閲嶇疆鍟嗗簵閬撳叿鍔犳垚
         bonusXPPerKill = 0;
         bonusXPMagnetRadius = 0f;
         cashBonusPercent = 0f;
 
-        // 隐藏升级面板并重置武器
+        // 闅愯棌鍗囩骇闈㈡澘骞堕噸缃鍣?
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
         HideAllDeathPanels();
@@ -769,7 +713,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         RunLogger.Event($"Debug jump to boss round: round={roundIndex}/{totalRounds}, reset={resetStats}");
     }
 
-    // 回合结束入口（未来由倒计时/事件触发）
+    // 鍥炲悎缁撴潫鍏ュ彛锛堟湭鏉ョ敱鍊掕鏃?浜嬩欢瑙﹀彂锛?
     public void EndRound()
     {
         EndRound(false);
@@ -786,10 +730,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         ClearRoundEndTransientObjects();
 
-        // 注意：已移除“随机加钱”。现金应来自击杀敌人时 AddCash(固定值)。
+        // 娉ㄦ剰锛氬凡绉婚櫎鈥滈殢鏈哄姞閽扁€濄€傜幇閲戝簲鏉ヨ嚜鍑绘潃鏁屼汉鏃?AddCash(鍥哄畾鍊?銆?
         RunLogger.Event($"Round {roundIndex} ended. cash={cash}, level={level}, xp={xp}/{xpToNext}, fromTimer={triggeredByTimer}");
 
-        // 检查是否战胜了Boss - 如果是则直接显示胜利界面
+        // 妫€鏌ユ槸鍚︽垬鑳滀簡Boss - 濡傛灉鏄垯鐩存帴鏄剧ず鑳滃埄鐣岄潰
         if (IsCurrentRoundBoss())
         {
             RunLogger.Event($"Boss defeated! Showing victory screen.");
@@ -799,7 +743,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 victoryPanel.ShowVictoryPanel(roundIndex, cash, level);
             }
             
-            // 暂停游戏
+            // 鏆傚仠娓告垙
             Time.timeScale = 0f;
             
             SwitchState(GameState.Victory);
@@ -828,6 +772,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (state != GameState.Settlement) return;
 
+        PlayUIButtonClickSfx();
         Time.timeScale = 1f;
 
         int due = CalcDue(roundIndex);
@@ -838,7 +783,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
-        // 支付本轮债务
+        // 鏀粯鏈疆鍊哄姟
         cash -= due;
         RunLogger.Event($"Settlement passed: due={due}, paid={due}, cashLeft={cash}");
 
@@ -860,6 +805,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void NextRound()
     {
         if (state != GameState.Shop) return;
+
+        PlayUIButtonClickSfx();
 
         if (shopSystem != null && shopSystem.IsPrizeDrawInProgress())
         {
@@ -894,22 +841,22 @@ private void TryShowDeferredLevelUpRewardIfReady()
         RefreshHUD();
     }
 
-    // UI Button: Restart（直接开始游戏）
+    // UI Button: Restart锛堢洿鎺ュ紑濮嬫父鎴忥級
     public void Restart()
     {
         StartRun();
     }
 
-    // 玩家受到致命伤害 - 触发游戏结束（被怪物击杀）
+    // 鐜╁鍙楀埌鑷村懡浼ゅ - 瑙﹀彂娓告垙缁撴潫锛堣鎬墿鍑绘潃锛?
     public void TriggerGameOver()
     {
         TriggerGameOver(DeathType.KilledByMonster);
     }
 
-    // 玩家游戏结束 - 指定死因
+    // 鐜╁娓告垙缁撴潫 - 鎸囧畾姝诲洜
     public void TriggerGameOver(DeathType deathType)
     {
-        if (state == GameState.GameOver) return; // 已经是GameOver则忽略重复触发
+        if (state == GameState.GameOver) return; // 宸茬粡鏄疓ameOver鍒欏拷鐣ラ噸澶嶈Е鍙?
 
         if (deathType == DeathType.KilledByMonster && state != GameState.Gameplay)
         {
@@ -927,26 +874,26 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopRoundClearTransition(false);
         StopRoundTimer();
 
-        // 显示对应死因的死亡面板（并暂停世界）
+        // 鏄剧ず瀵瑰簲姝诲洜鐨勬浜￠潰鏉匡紙骞舵殏鍋滀笘鐣岋級
         DeathPanel targetPanel = GetDeathPanelForType(deathType);
         if (targetPanel != null)
             targetPanel.ShowDeathPanel();
         else
             RunLogger.Warning($"No death panel assigned for deathType={deathType}.");
 
-        // 暂停游戏世界，冻结一切动作
+        // 鏆傚仠娓告垙涓栫晫锛屽喕缁撲竴鍒囧姩浣?
         Time.timeScale = 0f;
 
         SwitchState(GameState.GameOver);
     }
 
-    // 游戏结束 - 显示死亡面板（用于非Gameplay状态）
+    // 娓告垙缁撴潫 - 鏄剧ず姝讳骸闈㈡澘锛堢敤浜庨潪Gameplay鐘舵€侊級
     private void ShowGameOverWithDeathPanel(DeathType deathType)
     {
         currentDeathType = deathType;
         RunLogger.Warning($"Game over with death panel. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
         
-        // 显示对应死因的死亡面板
+        // 鏄剧ず瀵瑰簲姝诲洜鐨勬浜￠潰鏉?
         DeathPanel targetPanel = GetDeathPanelForType(deathType);
         if (targetPanel != null)
             targetPanel.ShowDeathPanel();
@@ -977,7 +924,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Main Menu
     public void BackToMenu()
     {
-        // 确保游戏时间恢复
+        PlayUIButtonClickSfx();
+
+        // 纭繚娓告垙鏃堕棿鎭㈠
         StopRoundClearTransition(false);
         Time.timeScale = 1f;
         StopRoundTimer();
@@ -988,6 +937,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Quit
     public void QuitGame()
     {
+        PlayUIButtonClickSfx();
         RunLogger.Event("Quit game requested.");
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.ExitPlaymode();
@@ -1000,6 +950,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (pauseMenuOpen || !CanOpenPauseMenu()) return;
 
+        PlayUIButtonClickSfx();
         pauseMenuOpen = true;
         Time.timeScale = 0f;
         SetGameplaySystemsActive(false);
@@ -1011,6 +962,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (!pauseMenuOpen) return;
 
+        PlayUIButtonClickSfx();
         ForceClosePauseMenu(true);
         RunLogger.Event("Pause menu closed.");
     }
@@ -1020,6 +972,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (!EnsurePauseSettingsReady())
             return;
 
+        PlayUIButtonClickSfx();
         bool openFromPause = pauseMenuOpen || state == GameState.Gameplay || state == GameState.Shop;
         RunLogger.Event($"OpenPauseSettings requested. state={state}, fromPause={openFromPause}, pauseOpen={pauseMenuOpen}");
 
@@ -1049,6 +1002,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     public void BackFromPauseSettings()
     {
+        PlayUIButtonClickSfx();
+
         if (pauseSettingsMenu != null)
             pauseSettingsMenu.HideMenu();
 
@@ -1076,7 +1031,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void QuitFromPauseMenu()
     {
         ForceClosePauseMenu(true);
-        QuitGame();
+        BackToMenu();
     }
 
     public int GetCashAmount() => cash;
@@ -1219,6 +1174,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             pauseSettingsMenu = panelSettingsPlaceholder.AddComponent<SettingsMenuController>();
 
         pauseSettingsMenu.Bind(this);
+        panelSettingsPlaceholder.SetActive(false);
     }
 
     private bool EnsurePauseSettingsReady()
@@ -1254,15 +1210,15 @@ private void SwitchState(GameState next)
     if (panelSettlement) panelSettlement.SetActive(state == GameState.Settlement);
     if (panelShop) panelShop.SetActive(state == GameState.Shop);
     
-    // 离开GameOver状态时隐藏死亡面板
+    // 绂诲紑GameOver鐘舵€佹椂闅愯棌姝讳骸闈㈡澘
     if (previous == GameState.GameOver)
         HideAllDeathPanels();
 
-    // 离开Victory状态时隐藏胜利面板
+    // 绂诲紑Victory鐘舵€佹椂闅愯棌鑳滃埄闈㈡澘
     if (previous == GameState.Victory && victoryPanel != null)
     {
         victoryPanel.HideVictoryPanel();
-        Time.timeScale = 1f; // 恢复时间流
+        Time.timeScale = 1f; // 鎭㈠鏃堕棿娴?
     }
 
     bool inGameplay = (state == GameState.Gameplay);
@@ -1275,10 +1231,12 @@ private void SwitchState(GameState next)
 
     bool gameplaySystemsActive = inGameplay && !roundIntroActive && !roundClearActive;
     SetGameplaySystemsActive(gameplaySystemsActive);
-    
-    // 离开Gameplay就清场（结算/商店/失败/回菜单都干净）
+
+    // Leave gameplay -> clean world objects (settlement/shop/gameover/title should be clean).
     if (!inGameplay)
         ClearWorld();
+
+    BindHoverSfxToSceneButtons();
 }
 
 private void ClearWorld()
@@ -1474,7 +1432,7 @@ private void SetPauseMenuVisible(bool visible)
         while (t > 0f && state == GameState.Gameplay)
         {
             t -= Time.deltaTime;
-            roundTimeRemaining = t;  // 实时更新剩余时间
+            roundTimeRemaining = t;  // 瀹炴椂鏇存柊鍓╀綑鏃堕棿
             yield return null;
         }
 
@@ -1511,7 +1469,7 @@ private void SetPauseMenuVisible(bool visible)
         int nextDue = CalcDue(nextRound);
         RunLogger.Event($"Settlement preview: round={roundIndex}, due={due}, cash={cash}, nextDue={nextDue}");
 
-        // 显示结算信息（这里不进行实际扣款操作）
+        // 鏄剧ず缁撶畻淇℃伅锛堣繖閲屼笉杩涜瀹為檯鎵ｆ鎿嶄綔锛?
         if (textDue) textDue.text = $"Due: {due}";
         if (textPaid) textPaid.text = $"Cash: {cash}";
         if (textRemainingDebt)
@@ -1525,7 +1483,7 @@ private void SetPauseMenuVisible(bool visible)
         if (textRound) textRound.text = $"Round: {roundIndex}/{totalRounds}";
         if (textCash) textCash.text = $"$ {cash}";
         if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
-        // 倒计时在Update中更新，这里只初始化
+        // 鍊掕鏃跺湪Update涓洿鏂帮紝杩欓噷鍙垵濮嬪寲
         if (state != GameState.Gameplay && textCountdown != null)
         {
             textCountdown.text = "";
@@ -1548,6 +1506,54 @@ private void SetPauseMenuVisible(bool visible)
         SwitchState(GameState.Settlement);
         ApplySettlement();
         RefreshHUD();
+    }
+
+    private void PlayUIButtonClickSfx(float volumeScale = 1f)
+    {
+        if (sfxUIButtonClick != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxUIButtonClick, volumeScale);
+    }
+
+    public void PlayUIButtonHoverSfx(float volumeScale = 1f)
+    {
+        if (sfxUIButtonHover == null || SFXManager.Instance == null)
+            return;
+
+        if (uiButtonHoverSfxMinInterval > 0f)
+        {
+            float now = Time.unscaledTime;
+            if (now - lastUIButtonHoverSfxTime < uiButtonHoverSfxMinInterval)
+                return;
+
+            lastUIButtonHoverSfxTime = now;
+        }
+
+        SFXManager.Instance.Play(sfxUIButtonHover, volumeScale);
+    }
+
+    private void BindHoverSfxToSceneButtons()
+    {
+        Button[] buttons = Resources.FindObjectsOfTypeAll<Button>();
+        int attachedCount = 0;
+
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null)
+                continue;
+
+            if (!button.gameObject.scene.IsValid() || !button.gameObject.scene.isLoaded)
+                continue;
+
+            if (button.GetComponent<UIButtonHoverSfxEmitter>() != null)
+                continue;
+
+            button.gameObject.AddComponent<UIButtonHoverSfxEmitter>();
+            attachedCount++;
+        }
+
+        if (attachedCount > 0)
+            RunLogger.Event($"UI hover SFX emitter attached to {attachedCount} button(s).");
     }
 
     private void ShowRoundClearTransition()
@@ -2005,10 +2011,10 @@ private void SetPauseMenuVisible(bool visible)
     {
         return new System.Collections.Generic.List<WeaponUpgrade>
         {
-            new WeaponUpgrade("伤害强化 I", "提升伤害 +1", null, power: 1),
-            new WeaponUpgrade("速度强化 I", "提升弹速 +2", null, speed: 2f),
-            new WeaponUpgrade("攻速强化 I", "提升攻速 +0.05/秒", null, fireRate: 0.05f),
-            new WeaponUpgrade("散射弹", "额外子弹 +1, 散射角 +4", null)
+            new WeaponUpgrade("Power Up I", "Increase damage +1", null, power: 1),
+            new WeaponUpgrade("Speed Up I", "Increase projectile speed +2", null, speed: 2f),
+            new WeaponUpgrade("Fire Rate Up I", "Increase fire rate +0.05/s", null, fireRate: 0.05f),
+            new WeaponUpgrade("Spread Shot", "Extra projectile +1, spread angle +4", null)
             {
                 effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
                 {
@@ -2016,7 +2022,7 @@ private void SetPauseMenuVisible(bool visible)
                     new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.SpreadAngleAdd, floatValue = 4f },
                 }
             },
-            new WeaponUpgrade("贯穿弹", "子弹穿透 +1, 击退增强 +0.2", null)
+            new WeaponUpgrade("Piercing Shot", "Pierce +1, knockback +0.2", null)
             {
                 effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
                 {
@@ -2121,7 +2127,7 @@ private void SetPauseMenuVisible(bool visible)
     private string GetDebtDisplay(int round)
     {
         if (round == GetBossRoundIndex())
-            return "∞";
+            return "INF";
         return $"${CalcDue(round)}";
     }
 
@@ -2297,3 +2303,5 @@ private void SetPauseMenuVisible(bool visible)
         if (textDebt != null) textDebt.gameObject.SetActive(visible);
     }
 }
+
+

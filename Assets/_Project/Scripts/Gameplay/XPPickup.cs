@@ -3,6 +3,8 @@ using UnityEngine;
 public class XPPickup : MonoBehaviour
 {
     [SerializeField] private int amount = 1;
+    [Header("SFX / 音效")]
+    [SerializeField] private AudioClip sfxCollect;
     [Header("Magnet")]
     [SerializeField, Min(0f)] private float magnetRadius = 2.6f;
     [SerializeField, Min(0f)] private float magnetSpeed = 8f;
@@ -77,6 +79,8 @@ public class XPPickup : MonoBehaviour
         RunLogger.Event($"XP pickup collected: +{amount}");
         if (GameFlowController.Instance != null)
             GameFlowController.Instance.AddXP(amount);
+        if (sfxCollect != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxCollect, 0.35f);
         Destroy(gameObject);
     }
 

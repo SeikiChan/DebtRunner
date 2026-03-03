@@ -3,7 +3,8 @@ using UnityEngine;
 public class HealthPickup : MonoBehaviour
 {
     [SerializeField] private int healAmount = 1;
-
+    [Header("SFX / 音效")]
+    [SerializeField] private AudioClip sfxCollect;
     [Header("Magnet")]
     [SerializeField, Min(0f)] private float magnetRadius = 2.2f;
     [SerializeField, Min(0f)] private float magnetSpeed = 7f;
@@ -91,6 +92,8 @@ public class HealthPickup : MonoBehaviour
         playerHealth.Heal(healAmount);
         int healed = Mathf.Max(0, playerHealth.CurrentHP - before);
         RunLogger.Event($"HP pickup collected: +{healed}");
+        if (sfxCollect != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxCollect, 0.5f);
         Destroy(gameObject);
     }
 

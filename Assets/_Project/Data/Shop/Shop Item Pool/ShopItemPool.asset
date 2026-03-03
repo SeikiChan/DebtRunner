@@ -23,4 +23,13 @@ MonoBehaviour:
     weightPercent: 0.14
   - rarity: 4
     weightPercent: 0.06
-  entries: []
+  entries:
+  - {fileID: 11400000, guid: cfb2365a70cf65f488efb99861c60e87, type: 2}
+  - {fileID: 11400000, guid: cd3fe948d80223d49b4bbb029cc4fbca, type: 2}
+  - {fileID: 11400000, guid: affc08771ec1a934ca455729a15b25dc, type: 2}
+  - {fileID: 11400000, guid: d9519f36bd327224ca920e265c07ff8f, type: 2}
+  - {fileID: 11400000, guid: 31e18ecfb53b11648b517c1e01038772, type: 2}
+  - {fileID: 11400000, guid: 19096ce69ef13604c99829be3205a91c, type: 2}
+  - {fileID: 11400000, guid: ffef05c3fd99c964383c742615fac1d0, type: 2}
+  - {fileID: 11400000, guid: 3d53c2cacb05b2044bb24464ab030b5b, type: 2}
+  - {fileID: 11400000, guid: 9f21aedfd71370540853e7f3751247bf, type: 2}

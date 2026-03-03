@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: -7703636692332815141}
   - component: {fileID: -948049645049251451}
   - component: {fileID: 6604321902874121513}
+  - component: {fileID: 3159326140730362051}
   m_Layer: 7
   m_Name: "\u51B2\u523A\u602A"
   m_TagString: Untagged
@@ -271,3 +272,21 @@ MonoBehaviour:
   leanLerpSpeed: 8
   flipByMoveDirection: 1
   moveThreshold: 0.15
+--- !u!114 &3159326140730362051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816684970303777472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4669af3280bc02842b09f1589a64cc6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyHitFeedback
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
+  flashDuration: 0.06
+  punchScale: 1.25
+  punchRecoverSpeed: 12
+  deathShrinkDuration: 1
+  deathSpinAngle: 45

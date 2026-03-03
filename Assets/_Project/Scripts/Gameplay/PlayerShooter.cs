@@ -7,6 +7,10 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private Projectile projectilePrefab;
     [SerializeField] private Transform projectilesRoot;
 
+    [Header("SFX / 音效")]
+    [LocalizedLabel("射击音效")]
+    [SerializeField] private AudioClip sfxShoot;
+
     [Header("Weapon (base)")]
     [SerializeField] private float fireInterval = 0.25f;
     [SerializeField] private float projectileSpeed = 12f;
@@ -146,6 +150,9 @@ public class PlayerShooter : MonoBehaviour
                 onHitScatterCount,
                 onHitScatterAngle);
         }
+
+        if (sfxShoot != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxShoot, 0.5f);
     }
 
     private Vector2 Rotate(Vector2 value, float angleDegrees)

@@ -26,6 +26,12 @@ public class EnemyController : MonoBehaviour
     [LocalizedLabel("分离缓存大小")]
     [SerializeField, Min(1)] private int separationBufferSize = 64;
 
+    [Header("SFX / 音效")]
+    [LocalizedLabel("受击音效")]
+    [SerializeField] private AudioClip sfxHit;
+    [LocalizedLabel("死亡音效")]
+    [SerializeField] private AudioClip sfxDeath;
+
     [Header("HP / 生命")]
     [LocalizedLabel("最大生命值")]
     [SerializeField] private int maxHP = 3;
@@ -65,6 +71,7 @@ public class EnemyController : MonoBehaviour
     private float baseMoveSpeed;
     private float runtimeMaxHP;
     private EnemyHitKnockback hitKnockback;
+    private EnemyHitFeedback hitFeedback;
 
     private XPPickup xpPrefab;
     private Transform pickupsRoot;
@@ -86,6 +93,7 @@ public class EnemyController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         hitKnockback = GetComponent<EnemyHitKnockback>();
+        hitFeedback = GetComponent<EnemyHitFeedback>();
         baseMaxHP = Mathf.Max(1, maxHP);
         baseMoveSpeed = Mathf.Max(0.2f, moveSpeed);
         runtimeMaxHP = baseMaxHP;
@@ -129,7 +137,10 @@ public class EnemyController : MonoBehaviour
         // In dense crowds, reduce direct "rush-to-player" force and let separation dominate.
         float seekScale = Mathf.Lerp(1f, 0.42f, Mathf.Clamp01((nearbyEnemies - 1) / 7f));
         Vector2 velocity = (dir * moveSpeed * seekScale) + knockbackVelocity + separationVelocity;
-        rb.MovePosition(pos + velocity * Time.fixedDeltaTime);
+        Vector2 newPos = pos + velocity * Time.fixedDeltaTime;
+        if (CircleBoundary.Instance != null)
+            newPos = CircleBoundary.Instance.ClampPosition(newPos);
+        rb.MovePosition(newPos);
     }
 
     private Vector2 ComputeSeparationVelocity(Vector2 selfPos, out int nearbyEnemyCount)
@@ -236,11 +247,24 @@ public class EnemyController : MonoBehaviour
 
     public void TakeDamage(int dmg, Vector2 hitDirection, float knockbackForceMultiplier)
     {
+        if (hp <= 0f) return; // 已死亡忽略
+
         hp -= Mathf.Max(0, dmg);
         if (hitKnockback != null)
             hitKnockback.ApplyHit(hitDirection, knockbackForceMultiplier);
 
-        if (hp <= 0f) Die();
+        if (hp <= 0f)
+        {
+            if (sfxDeath != null && SFXManager.Instance != null)
+                SFXManager.Instance.PlayAtPoint(sfxDeath, transform.position, 0.6f);
+            Die();
+        }
+        else
+        {
+            if (hitFeedback != null) hitFeedback.PlayHit();
+            if (sfxHit != null && SFXManager.Instance != null)
+                SFXManager.Instance.PlayAtPoint(sfxHit, transform.position, 0.4f);
+        }
     }
 
     private void Die()
@@ -263,7 +287,19 @@ public class EnemyController : MonoBehaviour
 
         TryDropHealthPickup();
 
-        Destroy(gameObject);
+        // 禁用碰撞和移动，播放死亡动画后销毁
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+        SuppressChaseMovement = true;
+
+        float deathDuration = 0f;
+        if (hitFeedback != null)
+            deathDuration = hitFeedback.PlayDeath();
+
+        if (deathDuration > 0f)
+            Destroy(gameObject, deathDuration + 0.02f);
+        else
+            Destroy(gameObject);
     }
 
     private void SpawnCashPopup()

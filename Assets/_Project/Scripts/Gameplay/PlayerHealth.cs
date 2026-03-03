@@ -6,6 +6,14 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private int maxHP = 3;
     [SerializeField] private float iFrameSeconds = 0.7f;
 
+    [Header("SFX / 音效")]
+    [LocalizedLabel("受伤音效")]
+    [SerializeField] private AudioClip sfxHurt;
+    [LocalizedLabel("护盾格挡音效")]
+    [SerializeField] private AudioClip sfxShieldBlock;
+    [LocalizedLabel("死亡音效")]
+    [SerializeField] private AudioClip sfxDeath;
+
     private int hp;
     private bool invuln;
 
@@ -118,6 +126,8 @@ public class PlayerHealth : MonoBehaviour
             shieldCharges -= 1;
             RunLogger.Event($"Shield blocked damage. remaining={shieldCharges}");
             if (hitFeedback != null) hitFeedback.PlayHitFlash();
+            if (sfxShieldBlock != null && SFXManager.Instance != null)
+                SFXManager.Instance.Play(sfxShieldBlock);
             ApplyInvulnerabilityFor(iFrameSeconds);
             return;
         }
@@ -130,11 +140,15 @@ public class PlayerHealth : MonoBehaviour
 
         if (hp <= 0)
         {
+            if (sfxDeath != null && SFXManager.Instance != null)
+                SFXManager.Instance.Play(sfxDeath);
             RunLogger.Warning("Player died.");
             GameFlowController.Instance.TriggerGameOver();
             return;
         }
 
+        if (sfxHurt != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxHurt);
         ApplyInvulnerabilityFor(iFrameSeconds);
     }
 

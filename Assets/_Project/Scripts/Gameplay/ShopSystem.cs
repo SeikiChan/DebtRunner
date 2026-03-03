@@ -40,6 +40,12 @@ public class ShopSystem : MonoBehaviour
         }
     }
 
+    [Header("SFX / 音效")]
+    [LocalizedLabel("购买音效")]
+    [SerializeField] private AudioClip sfxBuy;
+    [LocalizedLabel("金钱不足音效")]
+    [SerializeField] private AudioClip sfxCantBuy;
+
     [Header("Costs / 费用")]
     [LocalizedLabel("Gamble Cost / 抽奖费用")]
     [SerializeField] private int gambleCost = 120;
@@ -263,9 +269,13 @@ public class ShopSystem : MonoBehaviour
         if (!gameFlow.TrySpendCash(finalCost))
         {
             SetInfo("Not enough cash.");
+            if (sfxCantBuy != null && SFXManager.Instance != null)
+                SFXManager.Instance.Play(sfxCantBuy);
             return;
         }
 
+        if (sfxBuy != null && SFXManager.Instance != null)
+            SFXManager.Instance.Play(sfxBuy);
         gameFlow.ApplyShopItem(offer.definition);
         offer.purchased = true;
 

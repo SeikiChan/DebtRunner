@@ -151,6 +151,9 @@ public class EnemyDashAttack : MonoBehaviour
         float t = dashDuration > 0f ? Mathf.Clamp01(dashElapsed / dashDuration) : 1f;
         Vector2 nextPos = Vector2.Lerp(dashStartPos, dashTargetPos, t);
 
+        if (CircleBoundary.Instance != null)
+            nextPos = CircleBoundary.Instance.ClampPosition(nextPos);
+
         if (rb != null)
             rb.MovePosition(nextPos);
         else

@@ -64,6 +64,14 @@ public class EnemySpawner : MonoBehaviour
     [LocalizedLabel("最小刷怪距离")]
     [SerializeField, Min(0f)] private float minSpawnDistance = 12f;
 
+    [Header("Safe Gap / 安全缺口")]
+    [LocalizedLabel("启用安全缺口")]
+    [SerializeField] private bool enableSafeGap = true;
+    [LocalizedLabel("安全缺口角度")]
+    [SerializeField, Range(30f, 120f)] private float safeGapAngle = 70f;
+    [LocalizedLabel("缺口方向更新间隔")]
+    [SerializeField, Min(0.5f)] private float safeGapRotateInterval = 3f;
+
     [Header("Extra Difficulty / 额外难度")]
     [LocalizedLabel("全局敌人生命倍率")]
     [SerializeField, Min(0.1f)] private float globalEnemyHpMultiplier = 1.25f;
@@ -101,6 +109,8 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private EnemyController bossPrefab;
 
     private float timer;
+    private float safeGapTimer;
+    private float safeGapDirection; // 安全缺口中心角度 (度)
     private float runtimeSpawnInterval;
     private int runtimeSpawnPerTick;
     private int runtimeMaxAlive;
@@ -117,6 +127,8 @@ public class EnemySpawner : MonoBehaviour
     private void OnEnable()
     {
         timer = 0f;
+        safeGapTimer = 0f;
+        safeGapDirection = Random.Range(0f, 360f);
         trackedRound = -1;
         bossSpawnedThisRound = false;
         RefreshRuntimeSpawnSettings();
@@ -153,6 +165,17 @@ public class EnemySpawner : MonoBehaviour
         }
 
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return;
+
+        // 定期旋转安全缺口方向
+        if (enableSafeGap)
+        {
+            safeGapTimer -= Time.deltaTime;
+            if (safeGapTimer <= 0f)
+            {
+                safeGapTimer = safeGapRotateInterval;
+                safeGapDirection = Random.Range(0f, 360f);
+            }
+        }
 
         RefreshRuntimeSpawnSettings();
 
@@ -302,6 +325,10 @@ public class EnemySpawner : MonoBehaviour
                 candidate += new Vector3(jitter.x, jitter.y, 0f);
             }
 
+            // 安全缺口：拒绝在缺口角度范围内的生成点
+            if (enableSafeGap && player != null && IsInSafeGap(candidate))
+                continue;
+
             if (spacing <= 0f || IsSpawnPointClear(candidate, spacing))
                 return candidate;
 
@@ -309,6 +336,16 @@ public class EnemySpawner : MonoBehaviour
         }
 
         return fallback;
+    }
+
+    private bool IsInSafeGap(Vector3 spawnPos)
+    {
+        Vector2 dir = (Vector2)(spawnPos - player.position);
+        if (dir.sqrMagnitude < 0.01f) return false;
+
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        float diff = Mathf.DeltaAngle(angle, safeGapDirection);
+        return Mathf.Abs(diff) < safeGapAngle * 0.5f;
     }
 
     private bool IsSpawnPointClear(Vector3 point, float spacingRadius)
