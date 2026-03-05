@@ -282,6 +282,8 @@ MonoBehaviour:
     m_Bits: 4294967295
   separationUseOwnLayerOnly: 1
   separationBufferSize: 64
+  sfxHit: {fileID: 8300000, guid: 8bbef4317dfcc084f8719502ffc54518, type: 3}
+  sfxDeath: {fileID: 0}
   maxHP: 1000
   cashValue: 20
   xpDrop: 1

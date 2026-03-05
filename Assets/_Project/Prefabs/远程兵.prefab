@@ -185,6 +185,8 @@ MonoBehaviour:
     m_Bits: 192
   separationUseOwnLayerOnly: 1
   separationBufferSize: 64
+  sfxHit: {fileID: 8300000, guid: 51dca3f8a418efe40a4e86f6b3517569, type: 3}
+  sfxDeath: {fileID: 0}
   maxHP: 3
   cashValue: 20
   xpDrop: 1
@@ -211,8 +213,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
   projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
-  fireInterval: 0.5
-  projectileSpeed: 3
+  fireInterval: 1.35
+  projectileSpeed: 5.2
   damage: 1
 --- !u!114 &-7703636692332815141
 MonoBehaviour:

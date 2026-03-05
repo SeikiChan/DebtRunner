@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class EnemyProjectile : MonoBehaviour
 {
-    [SerializeField] private float lifeSeconds = 4f;
+    [SerializeField] private float lifeSeconds = 3f;
     private Rigidbody2D rb;
     private int damage = 1;
 

@@ -3,8 +3,8 @@ using UnityEngine;
 public class EnemyShooter : MonoBehaviour
 {
     [SerializeField] private EnemyProjectile projectilePrefab;
-    [SerializeField] private float fireInterval = 1.2f;
-    [SerializeField] private float projectileSpeed = 6f;
+    [SerializeField] private float fireInterval = 1.35f;
+    [SerializeField] private float projectileSpeed = 5.2f;
     [SerializeField] private int damage = 1;
 
     private Transform player;
@@ -19,7 +19,8 @@ public class EnemyShooter : MonoBehaviour
 
     private void OnEnable()
     {
-        timer = Random.Range(0f, fireInterval);
+        // Avoid instant spawn shots; gives player a readable reaction window.
+        timer = Random.Range(fireInterval * 0.6f, fireInterval);
     }
 
     private void Update()

@@ -26,6 +26,9 @@ public class PlayerMotor2D : MonoBehaviour
 
         if (GetComponent<PlayerVisualAnim>() == null)
             gameObject.AddComponent<PlayerVisualAnim>();
+
+        if (GetComponent<FootShadow2D>() == null)
+            gameObject.AddComponent<FootShadow2D>();
     }
 
     private void Update()

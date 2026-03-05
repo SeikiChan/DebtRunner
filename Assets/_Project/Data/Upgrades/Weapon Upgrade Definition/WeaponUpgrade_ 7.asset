@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: WeaponUpgrade_ 7
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
   upgradeTitle: Muzzle Speed II
-  description: 
+  description: +21% projectile speed
   icon: {fileID: 0}
   rarity: 1
   weightPercent: 9
   effects:
   - effectType: 2
     intValue: 0
-    floatValue: 3
+    floatValue: 2.5

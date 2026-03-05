@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerHealth : MonoBehaviour
 {
-    [SerializeField] private int maxHP = 3;
+    [SerializeField] private int maxHP = 6;
     [SerializeField] private float iFrameSeconds = 0.7f;
 
     [Header("SFX / 音效")]

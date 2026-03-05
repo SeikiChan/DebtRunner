@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 6
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: kill add more cash
-  description: 
+  itemTitle: Golden Ledger
+  description: +10% cash from kills
   icon: {fileID: 0}
-  price: 120
-  rarity: 0
-  weightPercent: 10
+  price: 170
+  rarity: 2
+  weightPercent: 7
   effects:
   - effectType: 8
     intValue: 0
-    floatValue: 0.1
+    floatValue: 10.0

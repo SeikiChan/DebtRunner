@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 5
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: suck more
-  description: suck xp
+  itemTitle: Debt Magnet
+  description: +1.2 XP magnet radius
   icon: {fileID: 0}
   price: 120
   rarity: 0
@@ -21,4 +21,4 @@ MonoBehaviour:
   effects:
   - effectType: 7
     intValue: 0
-    floatValue: 0.25
+    floatValue: 1.2

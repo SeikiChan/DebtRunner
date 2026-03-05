@@ -398,6 +398,20 @@ public class EnemySpawner : MonoBehaviour
     {
         runtimeEnemyPoolBuffer.Clear();
 
+        // Fallback template: if round pools are enabled but empty, build a sane progressive pool
+        // from base prefabs so gameplay still matches expected round structure.
+        if (useRoundEnemyPools && !HasConfiguredRoundPoolEntries())
+        {
+            if (TryBuildFallbackProgressiveRoundPool(currentRound))
+            {
+                runtimeEnemyPool = runtimeEnemyPoolBuffer.ToArray();
+                RunLogger.Warning(
+                    $"Round {currentRound} enemy pool fallback applied: " +
+                    "R1 melee, R2 +ranged +dash, R3 +tank +treasure.");
+                return;
+            }
+        }
+
         if (seedWithBaseEnemyPrefabs)
             AddUniquePrefabs(enemyPrefabs);
 
@@ -436,6 +450,106 @@ public class EnemySpawner : MonoBehaviour
         RunLogger.Event(
             $"Round {currentRound} enemy pool ready: types={runtimeEnemyPool.Length}, " +
             $"mode={(useRoundEnemyPools ? "round-config" : "base-only")}");
+    }
+
+    private bool HasConfiguredRoundPoolEntries()
+    {
+        if (roundEnemyPools == null || roundEnemyPools.Count <= 0)
+            return false;
+
+        for (int i = 0; i < roundEnemyPools.Count; i++)
+        {
+            RoundEnemyPoolEntry entry = roundEnemyPools[i];
+            if (entry == null || entry.round <= 0 || entry.prefabs == null)
+                continue;
+
+            for (int p = 0; p < entry.prefabs.Length; p++)
+            {
+                if (entry.prefabs[p] != null)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryBuildFallbackProgressiveRoundPool(int currentRound)
+    {
+        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
+            return false;
+
+        EnemyController melee = FindPrefabByNameKeyword("\u8FD1\u6218", "melee");
+        EnemyController ranged = FindPrefabByNameKeyword("\u8FDC\u7A0B", "ranged");
+        EnemyController dash = FindPrefabByNameKeyword("\u51B2\u523A", "dash", "charger");
+        EnemyController tank = FindPrefabByNameKeyword("\u8089\u76FE", "tank", "brute", "heavy");
+        EnemyController treasure = FindPrefabByNameKeyword("\u5B9D\u7BB1", "chest", "treasure");
+
+        // Last-resort fallback so pool is never empty due naming mismatch.
+        if (melee == null)
+            melee = FindFirstNonNullPrefab();
+
+        AddUniqueIfNotNull(melee);
+        if (currentRound >= 2)
+        {
+            AddUniqueIfNotNull(ranged);
+            AddUniqueIfNotNull(dash);
+        }
+        if (currentRound >= 3)
+        {
+            AddUniqueIfNotNull(tank);
+            AddUniqueIfNotNull(treasure);
+        }
+
+        return runtimeEnemyPoolBuffer.Count > 0;
+    }
+
+    private EnemyController FindPrefabByNameKeyword(params string[] keywords)
+    {
+        if (enemyPrefabs == null || enemyPrefabs.Length <= 0 || keywords == null || keywords.Length <= 0)
+            return null;
+
+        for (int i = 0; i < enemyPrefabs.Length; i++)
+        {
+            EnemyController prefab = enemyPrefabs[i];
+            if (prefab == null)
+                continue;
+
+            string nameLower = prefab.name != null ? prefab.name.ToLowerInvariant() : string.Empty;
+            for (int k = 0; k < keywords.Length; k++)
+            {
+                string keyword = keywords[k];
+                if (string.IsNullOrWhiteSpace(keyword))
+                    continue;
+
+                if (nameLower.Contains(keyword.ToLowerInvariant()))
+                    return prefab;
+            }
+        }
+
+        return null;
+    }
+
+    private EnemyController FindFirstNonNullPrefab()
+    {
+        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
+            return null;
+
+        for (int i = 0; i < enemyPrefabs.Length; i++)
+        {
+            if (enemyPrefabs[i] != null)
+                return enemyPrefabs[i];
+        }
+
+        return null;
+    }
+
+    private void AddUniqueIfNotNull(EnemyController prefab)
+    {
+        if (prefab == null)
+            return;
+        if (runtimeEnemyPoolBuffer.Contains(prefab))
+            return;
+        runtimeEnemyPoolBuffer.Add(prefab);
     }
 
     private void AddUniquePrefabs(EnemyController[] prefabs)

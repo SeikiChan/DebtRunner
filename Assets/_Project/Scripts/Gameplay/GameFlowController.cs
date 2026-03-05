@@ -2,6 +2,7 @@
 using TMPro;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 public class GameFlowController : MonoBehaviour
@@ -11,12 +12,14 @@ public class GameFlowController : MonoBehaviour
     public enum GameState { Title, Gameplay, Settlement, Shop, GameOver, Victory }
     public enum DeathType { KilledByMonster, FailedDebt }
     public bool IsInGameplayState => state == GameState.Gameplay;
+    public bool IsInShopState => state == GameState.Shop;
 
     [SerializeField] private GameObject panelTitle;
     [SerializeField] private GameObject panelHUD;
     [SerializeField] private GameObject panelLevelUp;
     [SerializeField] private GameObject panelSettlement;
     [SerializeField] private GameObject panelShop;
+    [SerializeField] private GameObject panelCredits;
     [SerializeField] private DeathPanel monsterDeathPanel;
     [SerializeField] private DeathPanel debtFailurePanel;
     [SerializeField] private VictoryPanel victoryPanel;
@@ -35,6 +38,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textDebt;
     [SerializeField] private TMP_Text textCountdown;
+    [SerializeField] private bool isolateCountdownMaterialAtRuntime = true;
     [SerializeField] private float roundIntroSeconds = 2.5f;
 
     [SerializeField] private CanvasGroup roundIntroOverlay;
@@ -80,21 +84,32 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textDue;
     [SerializeField] private TMP_Text textPaid;
     [SerializeField] private TMP_Text textRemainingDebt;
+    [SerializeField] private TMP_Text textSettlementCashEarned;
+    [SerializeField] private TMP_Text textSettlementDebtPayment;
+    [SerializeField] private TMP_Text textSettlementNetCash;
+    [SerializeField] private TMP_Text textSettlementNextRoundDebt;
+    [SerializeField] private TMP_Text textSettlementRoundsLeft;
 
     [SerializeField] private int totalRounds = 10;
-    [SerializeField] private int baseDue = 500;
-    [SerializeField] private int stepDue = 200;
-    [SerializeField] private float roundDurationSeconds = 30f;
+    [SerializeField] private int baseDue = 220;
+    [SerializeField] private int stepDue = 140;
+    [SerializeField] private float roundDurationSeconds = 22f;
+    [SerializeField, Min(1)] private int countdownUrgentThresholdSeconds = 10;
+    [SerializeField] private Color countdownUrgentColor = new Color(1f, 0.78f, 0.22f, 1f);
+    [SerializeField] private Color countdownCriticalColor = new Color(1f, 0.28f, 0.28f, 1f);
+    [SerializeField, Min(1f)] private float countdownUrgentScaleMultiplier = 1.28f;
+    [SerializeField, Min(0f)] private float countdownTickPopSeconds = 0.18f;
+    [SerializeField, Min(0f)] private float countdownTickPopAmplitude = 0.16f;
     [SerializeField, Min(1)] private int baseXpToNext = 10;
 
     [SerializeField] private bool useDebtCurveMultiplier = true;
     [SerializeField] private AnimationCurve debtCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2f);
     [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
 
-    [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2.2f);
-    [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.7f);
-    [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.12f;
-    [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.05f;
+    [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.75f);
+    [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.35f);
+    [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.08f;
+    [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.03f;
 
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
@@ -133,13 +148,25 @@ public class GameFlowController : MonoBehaviour
     private bool roundClearOverlayAutoCreated;
     private bool roundIntroActive;
     private bool roundClearActive;
+    private bool creditsOpen;
+    private bool creditsPanelMissingWarned;
     private bool pauseMenuOpen;
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // 褰撳墠鍥炲悎鍓╀綑鏃堕棿
     private float lastUIButtonHoverSfxTime = -10f;
+    private float nextBossDefeatCheckTime = -10f;
+    private bool bossSeenInCurrentBossRound;
+    private int trackedBossRoundIndex = -1;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
     private DeathType currentDeathType = DeathType.KilledByMonster;
+    private bool countdownStyleInitialized;
+    private TMP_Text countdownStyleTarget;
+    private Color countdownBaseColor = Color.white;
+    private Vector3 countdownBaseScale = Vector3.one;
+    private int lastDisplayedCountdownSecond = int.MinValue;
+    private float countdownTickPopEndTime = -1f;
+    private Material countdownRuntimeMaterial;
 
     // 鍟嗗簵閬撳叿鍔犳垚锛堟瘡灞€閲嶇疆锛?
     private int bonusXPPerKill;
@@ -175,6 +202,7 @@ public class GameFlowController : MonoBehaviour
         }
 
         PrepareInitialMenuSafetyState();
+        EnsureCountdownMaterialIsolated();
 
         if (enemySpawner == null)
             enemySpawner = FindObjectOfType<EnemySpawner>();
@@ -247,6 +275,10 @@ public class GameFlowController : MonoBehaviour
         // Warm up global SFX singleton before first UI hover event.
         _ = SFXManager.Instance;
 
+        BGMManager bgm = BGMManager.Instance != null ? BGMManager.Instance : FindObjectOfType<BGMManager>();
+        if (bgm != null)
+            bgm.OnGameStateChanged(state);
+
         // Some UI buttons are instantiated/enabled in Start of other scripts.
         yield return null;
         BindHoverSfxToSceneButtons();
@@ -256,15 +288,30 @@ public class GameFlowController : MonoBehaviour
         BindHoverSfxToSceneButtons();
     }
 
+    private void OnDestroy()
+    {
+        if (countdownRuntimeMaterial != null)
+        {
+            Destroy(countdownRuntimeMaterial);
+            countdownRuntimeMaterial = null;
+        }
+    }
+
     private void PrepareInitialMenuSafetyState()
     {
+        EnsureCreditsPanelBound();
+        EnsureLevelUpPanelBound();
         if (panelTitle != null) panelTitle.SetActive(true);
         if (panelHUD != null) panelHUD.SetActive(false);
-        if (panelLevelUp != null) panelLevelUp.SetActive(false);
+        if (levelUpPanel != null) levelUpPanel.ForceHideImmediate();
+        else if (panelLevelUp != null) panelLevelUp.SetActive(false);
         if (panelSettlement != null) panelSettlement.SetActive(false);
         if (panelShop != null) panelShop.SetActive(false);
+        if (panelCredits != null) panelCredits.SetActive(false);
         if (panelPauseMenu != null) panelPauseMenu.SetActive(false);
         if (panelSettingsPlaceholder != null) panelSettingsPlaceholder.SetActive(false);
+        creditsOpen = false;
+        EnsureCreditsButtonsBound();
     }
 
     private void EnsureWeaponUpgradePool()
@@ -273,6 +320,43 @@ public class GameFlowController : MonoBehaviour
             return;
 
         RunLogger.Warning("Weapon upgrade pool asset is missing or empty.");
+    }
+
+    private bool EnsureLevelUpPanelBound()
+    {
+        if (levelUpPanel != null)
+            return true;
+
+        levelUpPanel = FindObjectOfType<LevelUpPanel>();
+        if (levelUpPanel == null)
+        {
+            LevelUpPanel[] allPanels = Resources.FindObjectsOfTypeAll<LevelUpPanel>();
+            for (int i = 0; i < allPanels.Length; i++)
+            {
+                LevelUpPanel panel = allPanels[i];
+                if (panel == null)
+                    continue;
+                if (!panel.gameObject.scene.IsValid() || !panel.gameObject.scene.isLoaded)
+                    continue;
+
+                levelUpPanel = panel;
+                break;
+            }
+        }
+
+        if (levelUpPanel == null)
+            return false;
+
+        if (panelLevelUp == null)
+            panelLevelUp = levelUpPanel.gameObject;
+
+        RunLogger.Event("LevelUpPanel auto-bound to GameFlowController.");
+        return true;
+    }
+
+    private bool IsLevelUpPanelOpen()
+    {
+        return levelUpPanel != null && levelUpPanel.IsShowing;
     }
 
     private void EnsureDeathPanelsBound()
@@ -344,6 +428,11 @@ public class GameFlowController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
+            if (creditsOpen)
+            {
+                CloseCredits();
+            }
+            else
             if (panelSettingsPlaceholder != null && panelSettingsPlaceholder.activeSelf)
             {
                 BackFromPauseSettings();
@@ -358,19 +447,10 @@ public class GameFlowController : MonoBehaviour
             }
         }
         
-        // 鏇存柊鍊掕鏃舵樉绀?
-        if (state == GameState.Gameplay && textCountdown != null)
-        {
-            if (IsCurrentRoundBoss())
-            {
-                textCountdown.text = "Boss: No Time Limit";
-            }
-            else
-            {
-                int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
-                textCountdown.text = $"Time: {seconds}s";
-            }
-        }
+        UpdateCountdownDisplay();
+
+        AutoCompleteBossRoundIfBossDefeated();
+        TryShowDeferredLevelUpRewardIfReady();
     }
 
     // ====== Public APIs (缁欏叾浠栫郴缁熻皟鐢? ======
@@ -447,10 +527,13 @@ private bool ShouldDeferLevelUpRewardPresentation()
 
 private bool TryShowLevelUpRewardPanelNow()
 {
-    if (levelUpPanel == null)
+    if (!EnsureLevelUpPanelBound())
+    {
+        RunLogger.Warning("Level-up reward queued: LevelUpPanel reference missing.");
         return false;
+    }
 
-    if (panelLevelUp != null && panelLevelUp.activeSelf)
+    if (IsLevelUpPanelOpen())
         return false;
 
     WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
@@ -461,6 +544,7 @@ private bool TryShowLevelUpRewardPanelNow()
     }
 
     levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
+    PlayLevelUpPanelBGM();
 
     // 鍙湁闈㈡澘瀛樺湪涓旀垚鍔熻蛋鍒拌繖閲屾墠鏆傚仠娓告垙
     Time.timeScale = 0f;
@@ -475,7 +559,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     if (state != GameState.Gameplay || roundIntroActive || roundClearActive)
         return;
 
-    if (panelLevelUp != null && panelLevelUp.activeSelf)
+    if (IsLevelUpPanelOpen())
         return;
 
     if (!TryShowLevelUpRewardPanelNow())
@@ -573,11 +657,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 playerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
         }
 
-        string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
-        RunLogger.Event($"Upgrade selected: {upgradeTitle}");
+    string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
+    RunLogger.Event($"Upgrade selected: {upgradeTitle}");
 
-        TryShowDeferredLevelUpRewardIfReady();
-    }
+    TryShowDeferredLevelUpRewardIfReady();
+    RefreshBGMForCurrentGameplayContext();
+}
 
     /// <summary>鑾峰彇褰撳墠绛夌骇</summary>
     public int GetLevel() => level;
@@ -610,6 +695,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
         baseXpToNext = Mathf.Max(1, baseXpToNext);
         xpToNext = CalculateXpToNext(level);
         pendingDeferredLevelUpChoices = 0;
+        bossSeenInCurrentBossRound = false;
+        trackedBossRoundIndex = -1;
+        nextBossDefeatCheckTime = -10f;
         runProgression.Reset();
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
@@ -699,6 +787,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         roundIndex = GetBossRoundIndex();
+        MarkBossRoundEntered();
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
 
@@ -706,6 +795,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             SwitchState(GameState.Gameplay);
 
         ClearWorld();
+        TryPlayBossRoundBGM();
         ShowRoundIntro();
         StartRoundTimer();
         RefreshHUD();
@@ -717,6 +807,61 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void EndRound()
     {
         EndRound(false);
+    }
+
+    public void NotifyBossDefeated()
+    {
+        if (state != GameState.Gameplay)
+            return;
+
+        if (!IsCurrentRoundBoss())
+            return;
+
+        RunLogger.Event("Boss defeat notified. Ending boss round.");
+        EndRound(false);
+    }
+
+    private void AutoCompleteBossRoundIfBossDefeated()
+    {
+        if (state != GameState.Gameplay)
+            return;
+
+        if (!IsCurrentRoundBoss())
+            return;
+
+        if (roundIntroActive || roundClearActive)
+            return;
+
+        if (trackedBossRoundIndex != roundIndex)
+            MarkBossRoundEntered();
+
+        if (Time.unscaledTime < nextBossDefeatCheckTime)
+            return;
+
+        nextBossDefeatCheckTime = Time.unscaledTime + 0.2f;
+
+        BossAttackController[] bosses = enemiesRoot != null
+            ? enemiesRoot.GetComponentsInChildren<BossAttackController>(true)
+            : FindObjectsOfType<BossAttackController>();
+
+        bool hasAliveBoss = false;
+        for (int i = 0; i < bosses.Length; i++)
+        {
+            BossAttackController boss = bosses[i];
+            if (boss == null || !boss.gameObject.activeInHierarchy)
+                continue;
+
+            EnemyController bossEnemy = boss.GetComponent<EnemyController>();
+            if (bossEnemy == null || bossEnemy.CurrentHP > 0f)
+            {
+                hasAliveBoss = true;
+                bossSeenInCurrentBossRound = true;
+                break;
+            }
+        }
+
+        if (!hasAliveBoss && bossSeenInCurrentBossRound)
+            NotifyBossDefeated();
     }
 
     private void EndRound(bool triggeredByTimer)
@@ -829,13 +974,18 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         if (roundIndex == bossRound)
+        {
+            MarkBossRoundEntered();
             RunLogger.Event($"Enter boss round: {roundIndex}/{totalRounds}");
+        }
         else
             RunLogger.Event($"Next round -> {roundIndex}");
 
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
         SwitchState(GameState.Gameplay);
+        TryPlayBossRoundBGM();
+
         ShowRoundIntro();
         StartRoundTimer();
         RefreshHUD();
@@ -932,6 +1082,48 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopRoundTimer();
         RunLogger.Event("Back to title menu.");
         SwitchState(GameState.Title);
+    }
+
+    // UI Button: Credits
+    public void OpenCredits()
+    {
+        if (state != GameState.Title)
+            return;
+
+        EnsureCreditsButtonsBound();
+
+        if (!EnsureCreditsPanelBound())
+        {
+            if (!creditsPanelMissingWarned)
+            {
+                RunLogger.Warning("OpenCredits failed: Panel_Credits is not assigned and was not found in loaded scenes.");
+                creditsPanelMissingWarned = true;
+            }
+            return;
+        }
+
+        creditsPanelMissingWarned = false;
+        PlayUIButtonClickSfx();
+        creditsOpen = true;
+        RefreshTitleAndCreditsPanels();
+        RunLogger.Event("Credits opened.");
+    }
+
+    // UI Button: Close Credits
+    public void CloseCredits()
+    {
+        PlayUIButtonClickSfx();
+        if (state != GameState.Title)
+        {
+            BackToMenu();
+            return;
+        }
+
+        bool wasOpen = creditsOpen || (panelCredits != null && panelCredits.activeSelf);
+        creditsOpen = false;
+        RefreshTitleAndCreditsPanels();
+        if (wasOpen)
+            RunLogger.Event("Credits closed.");
     }
 
     // UI Button: Quit
@@ -1192,7 +1384,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     // ====== Internal ======
 
-private void SwitchState(GameState next)
+    private void SwitchState(GameState next)
 {
     ForceClosePauseMenu(true);
 
@@ -1204,11 +1396,18 @@ private void SwitchState(GameState next)
     if (previous == GameState.Shop && next != GameState.Shop && shopSystem != null)
         shopSystem.OnShopClosed();
 
-    if (panelTitle) panelTitle.SetActive(state == GameState.Title);
+    if (state != GameState.Title)
+        creditsOpen = false;
+
+    RefreshTitleAndCreditsPanels();
     if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement || state == GameState.Shop);
-    if (panelLevelUp) panelLevelUp.SetActive(false);
+    if (levelUpPanel != null)
+        levelUpPanel.ForceHideImmediate();
+    else if (panelLevelUp != null)
+        panelLevelUp.SetActive(false);
     if (panelSettlement) panelSettlement.SetActive(state == GameState.Settlement);
     if (panelShop) panelShop.SetActive(state == GameState.Shop);
+    if (healthUI != null) healthUI.SetHiddenForShop(state == GameState.Shop);
     
     // 绂诲紑GameOver鐘舵€佹椂闅愯棌姝讳骸闈㈡澘
     if (previous == GameState.GameOver)
@@ -1227,6 +1426,9 @@ private void SwitchState(GameState next)
     {
         StopRoundIntro();
         StopRoundClearTransition(false);
+        bossSeenInCurrentBossRound = false;
+        trackedBossRoundIndex = -1;
+        nextBossDefeatCheckTime = -10f;
     }
 
     bool gameplaySystemsActive = inGameplay && !roundIntroActive && !roundClearActive;
@@ -1236,7 +1438,158 @@ private void SwitchState(GameState next)
     if (!inGameplay)
         ClearWorld();
 
+    if (BGMManager.Instance != null)
+        BGMManager.Instance.OnGameStateChanged(state);
+
     BindHoverSfxToSceneButtons();
+}
+
+private void RefreshTitleAndCreditsPanels()
+{
+    EnsureCreditsButtonsBound();
+
+    bool hasCreditsPanel = EnsureCreditsPanelBound();
+    bool inTitle = state == GameState.Title;
+    if (inTitle && creditsOpen && !hasCreditsPanel)
+    {
+        if (!creditsPanelMissingWarned)
+        {
+            RunLogger.Warning("Credits requested but Panel_Credits is missing. Keeping title panel visible.");
+            creditsPanelMissingWarned = true;
+        }
+        creditsOpen = false;
+    }
+    else if (hasCreditsPanel)
+    {
+        creditsPanelMissingWarned = false;
+    }
+
+    bool showCredits = inTitle && creditsOpen && hasCreditsPanel;
+    bool showTitle = inTitle && !showCredits;
+
+    if (panelTitle != null)
+        panelTitle.SetActive(showTitle);
+    if (hasCreditsPanel && panelCredits != null)
+        panelCredits.SetActive(showCredits);
+}
+
+private bool EnsureCreditsPanelBound()
+{
+    if (panelCredits != null)
+        return true;
+
+    GameObject found = GameObject.Find("Panel_Credits");
+    if (found == null)
+    {
+        GameObject[] all = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < all.Length; i++)
+        {
+            GameObject go = all[i];
+            if (go == null)
+                continue;
+            if (!go.scene.IsValid() || !go.scene.isLoaded)
+                continue;
+            if (go.name == "Panel_Credits")
+            {
+                found = go;
+                break;
+            }
+        }
+    }
+
+    if (found == null)
+        return false;
+
+    panelCredits = found;
+    if (!creditsOpen)
+        panelCredits.SetActive(false);
+
+    RunLogger.Event("Panel_Credits auto-bound to GameFlowController.");
+    return true;
+}
+
+private void EnsureCreditsButtonsBound()
+{
+    BindButtonOnPanel(panelTitle, OpenCredits, "Btn_Credit", "Btn_Credits", "Btn_CreditsOpen");
+
+    if (!EnsureCreditsPanelBound())
+        return;
+
+    BindButtonOnPanel(panelCredits, CloseCredits, "Btn_Back", "Btn_CreditsBack", "Btn_CloseCredits");
+}
+
+private void BindButtonOnPanel(GameObject panel, UnityAction action, params string[] buttonNames)
+{
+    if (panel == null || action == null || buttonNames == null || buttonNames.Length == 0)
+        return;
+
+    Button[] buttons = panel.GetComponentsInChildren<Button>(true);
+    for (int i = 0; i < buttons.Length; i++)
+    {
+        Button button = buttons[i];
+        if (button == null)
+            continue;
+
+        bool nameMatch = false;
+        for (int j = 0; j < buttonNames.Length; j++)
+        {
+            string candidate = buttonNames[j];
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            if (button.name == candidate)
+            {
+                nameMatch = true;
+                break;
+            }
+        }
+
+        if (!nameMatch)
+            continue;
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+}
+
+private void TryPlayBossRoundBGM()
+{
+    if (!IsCurrentRoundBoss())
+        return;
+
+    if (BGMManager.Instance != null)
+        BGMManager.Instance.PlayBossBGM();
+}
+
+private void PlayLevelUpPanelBGM()
+{
+    if (BGMManager.Instance == null)
+        return;
+
+    BGMManager.Instance.PlayLevelUpBGM();
+}
+
+private void RefreshBGMForCurrentGameplayContext()
+{
+    if (BGMManager.Instance == null)
+        return;
+
+    if (state != GameState.Gameplay)
+    {
+        BGMManager.Instance.OnGameStateChanged(state);
+        return;
+    }
+
+    if (IsLevelUpPanelOpen())
+    {
+        BGMManager.Instance.PlayLevelUpBGM();
+        return;
+    }
+
+    if (IsCurrentRoundBoss())
+        BGMManager.Instance.PlayBossBGM();
+    else
+        BGMManager.Instance.OnGameStateChanged(GameState.Gameplay);
 }
 
 private void ClearWorld()
@@ -1467,28 +1820,153 @@ private void SetPauseMenuVisible(bool visible)
         int due = CalcDue(roundIndex);
         int nextRound = roundIndex + 1;
         int nextDue = CalcDue(nextRound);
-        RunLogger.Event($"Settlement preview: round={roundIndex}, due={due}, cash={cash}, nextDue={nextDue}");
+        int cashEarned = cash;
+        int netCash = cash - due;
+        int roundsLeft = Mathf.Max(0, GetBossRoundIndex() - roundIndex);
+        bool hasNextRound = nextRound <= GetBossRoundIndex();
+        string nextDebtText = hasNextRound ? GetDebtDisplay(nextRound) : "-";
 
-        // 鏄剧ず缁撶畻淇℃伅锛堣繖閲屼笉杩涜瀹為檯鎵ｆ鎿嶄綔锛?
-        if (textDue) textDue.text = $"Due: {due}";
-        if (textPaid) textPaid.text = $"Cash: {cash}";
+        RunLogger.Event(
+            $"Settlement preview: round={roundIndex}, due={due}, cash={cash}, net={netCash}, nextDue={nextDue}, roundsLeft={roundsLeft}");
+
+        // Legacy fields (backward-compatible with older settlement panels).
+        if (textDue) textDue.text = $"Debt Payment: -{FormatCurrency(due)}";
+        if (textPaid) textPaid.text = $"Cash Earned: +{FormatCurrency(cashEarned)}";
         if (textRemainingDebt)
-            textRemainingDebt.text = nextRound <= GetBossRoundIndex()
-                ? $"Next Round Debt: {GetDebtDisplay(nextRound)}"
+            textRemainingDebt.text = hasNextRound
+                ? $"Next Round Debt: {nextDebtText}"
                 : "Next Round Debt: -";
+
+        // New settlement template fields.
+        if (textSettlementCashEarned) textSettlementCashEarned.text = $"+{FormatCurrency(cashEarned)}";
+        if (textSettlementDebtPayment) textSettlementDebtPayment.text = $"-{FormatCurrency(due)}";
+        if (textSettlementNetCash) textSettlementNetCash.text = $"{FormatSignedCurrency(netCash)}";
+        if (textSettlementNextRoundDebt) textSettlementNextRoundDebt.text = nextDebtText;
+        if (textSettlementRoundsLeft) textSettlementRoundsLeft.text = roundsLeft.ToString();
+    }
+
+    private static string FormatCurrency(int amount)
+    {
+        return $"${Mathf.Max(0, amount):N0}";
+    }
+
+    private static string FormatSignedCurrency(int amount)
+    {
+        string sign = amount >= 0 ? "+" : "-";
+        return $"{sign}${Mathf.Abs(amount):N0}";
     }
 
     private void RefreshHUD()
     {
         if (textRound) textRound.text = $"Round: {roundIndex}/{totalRounds}";
-        if (textCash) textCash.text = $"$ {cash}";
+        if (textCash) textCash.text = $"$ {cash} / Debt {GetDebtDisplay(roundIndex)}";
         if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
         // 鍊掕鏃跺湪Update涓洿鏂帮紝杩欓噷鍙垵濮嬪寲
         if (state != GameState.Gameplay && textCountdown != null)
         {
             textCountdown.text = "";
+            ResetCountdownStyle();
         }
         UpdateRoundIntroText();
+    }
+
+    private void UpdateCountdownDisplay()
+    {
+        if (textCountdown == null)
+            return;
+
+        EnsureCountdownStyleInitialized();
+
+        if (state != GameState.Gameplay)
+        {
+            textCountdown.text = string.Empty;
+            ResetCountdownStyle();
+            return;
+        }
+
+        if (IsCurrentRoundBoss())
+        {
+            textCountdown.text = "Boss: No Time Limit";
+            ResetCountdownStyle();
+            return;
+        }
+
+        int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
+        textCountdown.text = $"Time: {seconds}s";
+
+        int urgentThreshold = Mathf.Max(1, countdownUrgentThresholdSeconds);
+        bool urgent = seconds > 0 && seconds <= urgentThreshold;
+        if (!urgent)
+        {
+            ResetCountdownStyle();
+            lastDisplayedCountdownSecond = seconds;
+            return;
+        }
+
+        if (seconds != lastDisplayedCountdownSecond)
+        {
+            lastDisplayedCountdownSecond = seconds;
+            countdownTickPopEndTime = Time.unscaledTime + countdownTickPopSeconds;
+        }
+
+        float normalizedUrgency = urgentThreshold > 1
+            ? 1f - Mathf.Clamp01((seconds - 1f) / (urgentThreshold - 1f))
+            : 1f;
+        float scale = Mathf.Lerp(1f, countdownUrgentScaleMultiplier, normalizedUrgency);
+
+        if (countdownTickPopSeconds > 0f && countdownTickPopEndTime > Time.unscaledTime)
+        {
+            float remain01 = Mathf.Clamp01((countdownTickPopEndTime - Time.unscaledTime) / countdownTickPopSeconds);
+            scale += countdownTickPopAmplitude * remain01 * remain01;
+        }
+
+        textCountdown.color = Color.Lerp(countdownUrgentColor, countdownCriticalColor, normalizedUrgency);
+        textCountdown.rectTransform.localScale = countdownBaseScale * scale;
+    }
+
+    private void EnsureCountdownStyleInitialized()
+    {
+        if (textCountdown == null)
+            return;
+
+        if (countdownStyleInitialized && countdownStyleTarget == textCountdown)
+            return;
+
+        countdownStyleTarget = textCountdown;
+        countdownBaseColor = textCountdown.color;
+        countdownBaseScale = textCountdown.rectTransform != null
+            ? textCountdown.rectTransform.localScale
+            : Vector3.one;
+        countdownStyleInitialized = true;
+    }
+
+    private void EnsureCountdownMaterialIsolated()
+    {
+        if (!isolateCountdownMaterialAtRuntime || textCountdown == null || countdownRuntimeMaterial != null)
+            return;
+
+        Material shared = textCountdown.fontSharedMaterial;
+        if (shared == null)
+            return;
+
+        countdownRuntimeMaterial = new Material(shared);
+        countdownRuntimeMaterial.name = $"{shared.name}_CountdownRuntime";
+        textCountdown.fontSharedMaterial = countdownRuntimeMaterial;
+        countdownStyleInitialized = false;
+    }
+
+    private void ResetCountdownStyle()
+    {
+        if (textCountdown == null)
+            return;
+
+        EnsureCountdownStyleInitialized();
+        textCountdown.color = countdownBaseColor;
+        if (textCountdown.rectTransform != null)
+            textCountdown.rectTransform.localScale = countdownBaseScale;
+
+        countdownTickPopEndTime = -1f;
+        lastDisplayedCountdownSecond = int.MinValue;
     }
 
     private void PlayFailAnimation()
@@ -1560,6 +2038,9 @@ private void SetPauseMenuVisible(bool visible)
     {
         if (roundClearCo != null || roundClearActive)
             StopRoundClearTransition(false);
+
+        if (BGMManager.Instance != null)
+            BGMManager.Instance.PlayVictoryBGM();
 
         UpdateRoundClearText();
         bool useOverlay = EnsureRoundClearOverlay();
@@ -1809,11 +2290,11 @@ private void SetPauseMenuVisible(bool visible)
 
     private IEnumerator WaitForLevelUpPanelToCloseRealtime()
     {
-        if (panelLevelUp == null || !panelLevelUp.activeSelf)
+        if (!IsLevelUpPanelOpen())
             yield break;
 
         float timeoutAt = Time.unscaledTime + roundClearAutoCollectMaxWaitSeconds;
-        while (panelLevelUp.activeSelf)
+        while (IsLevelUpPanelOpen())
         {
             if (roundClearAutoCollectMaxWaitSeconds > 0f && Time.unscaledTime >= timeoutAt)
             {
@@ -2005,6 +2486,14 @@ private void SetPauseMenuVisible(bool visible)
     private bool IsCurrentRoundBoss()
     {
         return roundIndex == GetBossRoundIndex();
+    }
+
+    private void MarkBossRoundEntered()
+    {
+        trackedBossRoundIndex = roundIndex;
+        bossSeenInCurrentBossRound = false;
+        // Give spawner a short grace window before first boss-defeat fallback check.
+        nextBossDefeatCheckTime = Time.unscaledTime + 0.8f;
     }
 
     private System.Collections.Generic.List<WeaponUpgrade> CreateDefaultFallbackWeaponUpgrades()

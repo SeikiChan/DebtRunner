@@ -12,7 +12,7 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private AudioClip sfxShoot;
 
     [Header("Weapon (base)")]
-    [SerializeField] private float fireInterval = 0.25f;
+    [SerializeField] private float fireInterval = 0.30f;
     [SerializeField] private float projectileSpeed = 12f;
     [SerializeField] private int damage = 1;
 
@@ -46,6 +46,7 @@ public class PlayerShooter : MonoBehaviour
     private float baseFireInterval;
     private float baseProjectileSpeed;
     private int baseDamage;
+    private float baseKnockbackMultiplier;
 
     private void Reset()
     {
@@ -57,6 +58,7 @@ public class PlayerShooter : MonoBehaviour
         baseFireInterval = fireInterval;
         baseProjectileSpeed = projectileSpeed;
         baseDamage = damage;
+        baseKnockbackMultiplier = Mathf.Max(0f, knockbackMultiplier);
     }
 
     private void OnEnable()
@@ -214,7 +216,7 @@ public class PlayerShooter : MonoBehaviour
         extraProjectiles = 0;
         spreadAngleStep = 8f;
         pierceCount = 0;
-        knockbackMultiplier = 1f;
+        knockbackMultiplier = baseKnockbackMultiplier;
         onHitScatterCount = 0;
         onHitScatterAngle = 18f;
 
@@ -278,17 +280,19 @@ public class PlayerShooter : MonoBehaviour
             }
         }
 
-        damage = Mathf.Max(1, damage);
-        projectileSpeed = Mathf.Max(1f, projectileSpeed);
-        fireInterval = Mathf.Max(0.05f, fireInterval);
-        extraProjectiles = Mathf.Max(0, extraProjectiles);
-        spreadAngleStep = Mathf.Clamp(spreadAngleStep, 0f, 35f);
-        pierceCount = Mathf.Max(0, pierceCount);
+        // Keep upgrades fun while preventing extreme runaway scaling.
+        damage = Mathf.Clamp(damage, 1, 10);
+        projectileSpeed = Mathf.Clamp(projectileSpeed, 1f, 26f);
+        fireInterval = Mathf.Clamp(fireInterval, 0.08f, 2f);
+        extraProjectiles = Mathf.Clamp(extraProjectiles, 0, 4);
+        spreadAngleStep = Mathf.Clamp(spreadAngleStep, 0f, 30f);
+        pierceCount = Mathf.Clamp(pierceCount, 0, 3);
         knockbackMultiplier = Mathf.Max(0f, knockbackMultiplier);
-        onHitScatterCount = Mathf.Max(0, onHitScatterCount);
-        onHitScatterAngle = Mathf.Clamp(onHitScatterAngle, 0f, 120f);
-        orbitProjectileCount = Mathf.Clamp(orbitProjectileCount, 0, 12);
-        orbitRadius = Mathf.Clamp(orbitRadius, 0.4f, 4f);
+        onHitScatterCount = Mathf.Clamp(onHitScatterCount, 0, 2);
+        onHitScatterAngle = Mathf.Clamp(onHitScatterAngle, 0f, 70f);
+        orbitProjectileCount = Mathf.Clamp(orbitProjectileCount, 0, 4);
+        orbitRadius = Mathf.Clamp(orbitRadius, 0.8f, 3f);
+        orbitAngularSpeed = Mathf.Clamp(orbitAngularSpeed, 60f, 300f);
 
         RunLogger.Event(
             $"Weapon upgraded: dmg={damage}, rate={1f / fireInterval:F2}/s, speed={projectileSpeed:F1}, " +
@@ -303,7 +307,8 @@ public class PlayerShooter : MonoBehaviour
         if (!enableEnemyKnockback)
             return 0f;
 
-        float cap = Mathf.Max(0f, maxKnockbackMultiplier);
+        // maxKnockbackMultiplier is treated as extra headroom above base knockback.
+        float cap = Mathf.Max(0f, baseKnockbackMultiplier + Mathf.Max(0f, maxKnockbackMultiplier));
         float clampedMultiplier = Mathf.Min(Mathf.Max(0f, knockbackMultiplier), cap);
         return clampedMultiplier * Mathf.Max(0f, extraScale);
     }

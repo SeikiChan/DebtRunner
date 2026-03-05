@@ -6,16 +6,28 @@ using UnityEngine.UI;
 public class SettingsMenuController : MonoBehaviour
 {
     private const string KeyMasterVolume = "settings.master_volume";
+    private const string KeyBGMVolume = "settings.bgm_volume";
+    private const string KeySFXVolume = "settings.sfx_volume";
     private const string KeyResolutionWidth = "settings.resolution_width";
     private const string KeyResolutionHeight = "settings.resolution_height";
 
     [Header("Flow")]
     [SerializeField] private GameFlowController gameFlow;
 
-    [Header("Volume UI")]
+    [Header("Master Volume UI / 总音量")]
     [SerializeField] private Slider volumeSlider;
     [SerializeField] private TMP_Text volumeValueText;
     [SerializeField, Range(0f, 1f)] private float defaultVolume = 0.8f;
+
+    [Header("BGM Volume UI / 背景音乐音量")]
+    [SerializeField] private Slider bgmVolumeSlider;
+    [SerializeField] private TMP_Text bgmVolumeValueText;
+    [SerializeField, Range(0f, 1f)] private float defaultBGMVolume = 0.8f;
+
+    [Header("SFX Volume UI / 音效音量")]
+    [SerializeField] private Slider sfxVolumeSlider;
+    [SerializeField] private TMP_Text sfxVolumeValueText;
+    [SerializeField, Range(0f, 1f)] private float defaultSFXVolume = 1.0f;
 
     [Header("Resolution UI (assign one dropdown)")]
     [SerializeField] private TMP_Dropdown resolutionTMPDropdown;
@@ -85,6 +97,12 @@ public class SettingsMenuController : MonoBehaviour
         if (volumeSlider != null)
             volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
 
+        if (bgmVolumeSlider != null)
+            bgmVolumeSlider.onValueChanged.AddListener(OnBGMVolumeChanged);
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
+
         if (resolutionTMPDropdown != null)
             resolutionTMPDropdown.onValueChanged.AddListener(OnResolutionChanged);
 
@@ -102,6 +120,12 @@ public class SettingsMenuController : MonoBehaviour
         float savedVolume = PlayerPrefs.GetFloat(KeyMasterVolume, defaultVolume);
         ApplyVolume(savedVolume, save: false);
 
+        float savedBGM = PlayerPrefs.GetFloat(KeyBGMVolume, defaultBGMVolume);
+        ApplyBGMVolume(savedBGM, save: false);
+
+        float savedSFX = PlayerPrefs.GetFloat(KeySFXVolume, defaultSFXVolume);
+        ApplySFXVolume(savedSFX, save: false);
+
         BuildResolutionList();
         int savedWidth = PlayerPrefs.GetInt(KeyResolutionWidth, Screen.width);
         int savedHeight = PlayerPrefs.GetInt(KeyResolutionHeight, Screen.height);
@@ -115,10 +139,24 @@ public class SettingsMenuController : MonoBehaviour
 
         suppressCallbacks = true;
 
+        // Master volume
         if (volumeSlider != null)
             volumeSlider.SetValueWithoutNotify(Mathf.Clamp01(AudioListener.volume));
         UpdateVolumeText(Mathf.Clamp01(AudioListener.volume));
 
+        // BGM volume
+        float bgmVol = BGMManager.Instance != null ? BGMManager.Instance.Volume : defaultBGMVolume;
+        if (bgmVolumeSlider != null)
+            bgmVolumeSlider.SetValueWithoutNotify(Mathf.Clamp01(bgmVol));
+        UpdateBGMVolumeText(bgmVol);
+
+        // SFX volume
+        float sfxVol = SFXManager.Instance != null ? SFXManager.Instance.GetMasterVolume() : defaultSFXVolume;
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.SetValueWithoutNotify(Mathf.Clamp01(sfxVol));
+        UpdateSFXVolumeText(sfxVol);
+
+        // Resolution
         BuildResolutionList();
         RebuildResolutionOptions();
 
@@ -226,21 +264,33 @@ public class SettingsMenuController : MonoBehaviour
         }
     }
 
+    // ====== Volume Callbacks ======
+
     private void OnVolumeChanged(float value)
     {
-        if (suppressCallbacks)
-            return;
-
+        if (suppressCallbacks) return;
         ApplyVolume(value, save: true);
+    }
+
+    private void OnBGMVolumeChanged(float value)
+    {
+        if (suppressCallbacks) return;
+        ApplyBGMVolume(value, save: true);
+    }
+
+    private void OnSFXVolumeChanged(float value)
+    {
+        if (suppressCallbacks) return;
+        ApplySFXVolume(value, save: true);
     }
 
     private void OnResolutionChanged(int index)
     {
-        if (suppressCallbacks)
-            return;
-
+        if (suppressCallbacks) return;
         ApplyResolutionByIndex(index, save: true);
     }
+
+    // ====== Apply ======
 
     private void ApplyVolume(float value, bool save)
     {
@@ -248,10 +298,32 @@ public class SettingsMenuController : MonoBehaviour
         AudioListener.volume = clamped;
         UpdateVolumeText(clamped);
 
-        if (!save)
-            return;
-
+        if (!save) return;
         PlayerPrefs.SetFloat(KeyMasterVolume, clamped);
+        PlayerPrefs.Save();
+    }
+
+    private void ApplyBGMVolume(float value, bool save)
+    {
+        float clamped = Mathf.Clamp01(value);
+        if (BGMManager.Instance != null)
+            BGMManager.Instance.SetVolume(clamped);
+        UpdateBGMVolumeText(clamped);
+
+        if (!save) return;
+        PlayerPrefs.SetFloat(KeyBGMVolume, clamped);
+        PlayerPrefs.Save();
+    }
+
+    private void ApplySFXVolume(float value, bool save)
+    {
+        float clamped = Mathf.Clamp01(value);
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.SetMasterVolume(clamped);
+        UpdateSFXVolumeText(clamped);
+
+        if (!save) return;
+        PlayerPrefs.SetFloat(KeySFXVolume, clamped);
         PlayerPrefs.Save();
     }
 
@@ -269,13 +341,13 @@ public class SettingsMenuController : MonoBehaviour
 
         UpdateResolutionText(safeIndex, applied: true);
 
-        if (!save)
-            return;
-
+        if (!save) return;
         PlayerPrefs.SetInt(KeyResolutionWidth, target.x);
         PlayerPrefs.SetInt(KeyResolutionHeight, target.y);
         PlayerPrefs.Save();
     }
+
+    // ====== Resolution Helpers ======
 
     private int FindClosestResolutionIndex(int width, int height)
     {
@@ -299,13 +371,27 @@ public class SettingsMenuController : MonoBehaviour
         return bestIndex;
     }
 
+    // ====== UI Text Updates ======
+
     private void UpdateVolumeText(float value)
     {
-        if (volumeValueText == null)
-            return;
-
+        if (volumeValueText == null) return;
         int pct = Mathf.RoundToInt(Mathf.Clamp01(value) * 100f);
         volumeValueText.text = pct + "%";
+    }
+
+    private void UpdateBGMVolumeText(float value)
+    {
+        if (bgmVolumeValueText == null) return;
+        int pct = Mathf.RoundToInt(Mathf.Clamp01(value) * 100f);
+        bgmVolumeValueText.text = pct + "%";
+    }
+
+    private void UpdateSFXVolumeText(float value)
+    {
+        if (sfxVolumeValueText == null) return;
+        int pct = Mathf.RoundToInt(Mathf.Clamp01(value) * 100f);
+        sfxVolumeValueText.text = pct + "%";
     }
 
     private void UpdateResolutionText(int index, bool applied)

@@ -169,4 +169,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be9cd3e2475c44448ad8c8828396b9af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyProjectile
-  lifeSeconds: 5
+  lifeSeconds: 3

@@ -1,68 +1,36 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TMPro;
 
 public class EnemyController : MonoBehaviour
 {
-    [Header("Move / 移动")]
-    [LocalizedLabel("移动速度")]
     [SerializeField] private float moveSpeed = 2.5f;
-    [Header("Enemy Separation / 敌人分离")]
-    [LocalizedLabel("启用敌人分离")]
     [SerializeField] private bool enableEnemySeparation = true;
-    [LocalizedLabel("分离检测半径")]
     [SerializeField, Min(0f)] private float separationRadius = 1.25f;
-    [LocalizedLabel("分离强度")]
     [SerializeField, Min(0f)] private float separationStrength = 7f;
-    [LocalizedLabel("分离最大速度")]
     [SerializeField, Min(0f)] private float separationMaxSpeed = 4.8f;
-    [LocalizedLabel("近距离强分离半径")]
     [SerializeField, Min(0f)] private float closeRepelDistance = 0.42f;
-    [LocalizedLabel("近距离分离倍率")]
     [SerializeField, Min(1f)] private float closeRepelBoost = 1.9f;
-    [LocalizedLabel("分离检测层")]
     [SerializeField] private LayerMask separationMask = ~0;
-    [LocalizedLabel("分离仅检测自身层")]
     [SerializeField] private bool separationUseOwnLayerOnly = true;
-    [LocalizedLabel("分离缓存大小")]
     [SerializeField, Min(1)] private int separationBufferSize = 64;
 
-    [Header("SFX / 音效")]
-    [LocalizedLabel("受击音效")]
     [SerializeField] private AudioClip sfxHit;
-    [LocalizedLabel("死亡音效")]
     [SerializeField] private AudioClip sfxDeath;
 
-    [Header("HP / 生命")]
-    [LocalizedLabel("最大生命值")]
     [SerializeField] private int maxHP = 3;
     private float hp;
 
-    [Header("Rewards / 击杀奖励")]
-    [LocalizedLabel("现金奖励")]
     [SerializeField] private int cashValue = 20;
-    [LocalizedLabel("经验掉落")]
     [SerializeField] private int xpDrop = 1;
-    [Header("Popup: Cash / 金币飘字")]
-    [LocalizedLabel("飘字颜色")]
     [SerializeField] private Color cashPopupColor = new Color(0.64f, 1f, 0.64f, 1f);
-    [LocalizedLabel("飘字字体")]
     [SerializeField] private TMP_FontAsset cashPopupFont;
-    [LocalizedLabel("飘字字号")]
     [SerializeField, Min(0.1f)] private float cashPopupTextSize = 6f;
-    [LocalizedLabel("飘字缩放")]
     [SerializeField, Min(0.01f)] private float cashPopupTextScale = 0.12f;
-    [LocalizedLabel("飘字上升速度")]
     [SerializeField, Min(0f)] private float cashPopupRiseSpeed = 1.5f;
-    [LocalizedLabel("飘字持续时间")]
     [SerializeField, Min(0.05f)] private float cashPopupLifetime = 0.9f;
-    [LocalizedLabel("飘字淡出时长")]
     [SerializeField, Min(0.01f)] private float cashPopupFadeOutDuration = 0.35f;
-    [Header("Drop: HP / 血包掉落")]
-    [LocalizedLabel("血包掉率")]
     [SerializeField, Range(0f, 1f)] private float hpDropChance = 0.12f;
-    [LocalizedLabel("血包回复量")]
     [SerializeField] private int hpHealAmount = 1;
-    [LocalizedLabel("血包预制体")]
     [SerializeField] private HealthPickup hpPickupPrefab;
 
     private Rigidbody2D rb;
@@ -82,8 +50,8 @@ public class EnemyController : MonoBehaviour
     public float HealthRatio => Mathf.Clamp01(CurrentHP / MaxHP);
 
     /// <summary>
-    /// 当为 true 时，FixedUpdate 跳过追踪移动。
-    /// EnemyDashAttack / EnemyOrbitMovement 等组件使用此属性接管移动。
+    /// 褰撲负 true 鏃讹紝FixedUpdate 璺宠繃杩借釜绉诲姩銆?
+    /// EnemyDashAttack / EnemyOrbitMovement 绛夌粍浠朵娇鐢ㄦ灞炴€ф帴绠＄Щ鍔ㄣ€?
     /// </summary>
     public bool SuppressChaseMovement { get; set; }
     public Transform Player => player;
@@ -247,7 +215,7 @@ public class EnemyController : MonoBehaviour
 
     public void TakeDamage(int dmg, Vector2 hitDirection, float knockbackForceMultiplier)
     {
-        if (hp <= 0f) return; // 已死亡忽略
+        if (hp <= 0f) return; // 宸叉浜″拷鐣?
 
         hp -= Mathf.Max(0, dmg);
         if (hitKnockback != null)
@@ -255,8 +223,12 @@ public class EnemyController : MonoBehaviour
 
         if (hp <= 0f)
         {
-            if (sfxDeath != null && SFXManager.Instance != null)
-                SFXManager.Instance.PlayAtPoint(sfxDeath, transform.position, 0.6f);
+            if (SFXManager.Instance != null)
+            {
+                AudioClip deathClip = sfxDeath != null ? sfxDeath : sfxHit;
+                if (deathClip != null)
+                    SFXManager.Instance.PlayAtPoint(deathClip, transform.position, 0.6f);
+            }
             Die();
         }
         else
@@ -270,6 +242,8 @@ public class EnemyController : MonoBehaviour
     private void Die()
     {
         RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
+
+        bool isBossEnemy = GetComponent<BossAttackController>() != null;
 
         if (GameFlowController.Instance != null)
             GameFlowController.Instance.AddCash(cashValue);
@@ -286,8 +260,8 @@ public class EnemyController : MonoBehaviour
         }
 
         TryDropHealthPickup();
+        LateBossDefeatNotify(isBossEnemy);
 
-        // 禁用碰撞和移动，播放死亡动画后销毁
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
         SuppressChaseMovement = true;
@@ -348,4 +322,14 @@ public class EnemyController : MonoBehaviour
         pickup.SetHealAmount(hpHealAmount);
         RunLogger.Event($"HP pickup dropped. heal={Mathf.Max(1, hpHealAmount)}, chance={hpDropChance:F2}");
     }
+
+    private void LateBossDefeatNotify(bool isBossEnemy)
+    {
+        if (!isBossEnemy)
+            return;
+
+        if (GameFlowController.Instance != null)
+            GameFlowController.Instance.NotifyBossDefeated();
+    }
 }
+

@@ -2,12 +2,15 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// 玩家受击视觉反馈 — 受击闪白 + 无敌时间内闪烁
-/// 挂在玩家 GameObject 上，自动查找 SpriteRenderer
+/// Player hit feedback: flash color on hit and blink during invulnerability.
+/// Robustly resolves the visible player renderer (avoids picking FootShadow).
 /// </summary>
 [DisallowMultipleComponent]
 public class PlayerHitFeedback : MonoBehaviour
 {
+    [Header("Target Renderer / 目标渲染器")]
+    [SerializeField] private SpriteRenderer targetRenderer;
+
     [Header("Flash / 闪白")]
     [LocalizedLabel("闪白颜色")]
     [SerializeField] private Color flashColor = Color.white;
@@ -20,50 +23,54 @@ public class PlayerHitFeedback : MonoBehaviour
 
     private SpriteRenderer spriteRenderer;
     private Color originalColor;
+    private bool hasOriginalColor;
     private Coroutine flashRoutine;
     private Coroutine blinkRoutine;
 
+    private void Awake()
+    {
+        ResolveTargetRenderer();
+    }
+
     private void Start()
     {
-        // PlayerVisualAnim.Awake 会创建子物体并禁用根 SpriteRenderer，
-        // 所以在 Start 中查找当前启用的 SpriteRenderer（子物体上的）
-        foreach (var sr in GetComponentsInChildren<SpriteRenderer>(true))
-        {
-            if (sr.enabled)
-            {
-                spriteRenderer = sr;
-                break;
-            }
-        }
-        if (spriteRenderer != null)
-            originalColor = spriteRenderer.color;
+        ResolveTargetRenderer();
     }
 
     /// <summary>
-    /// 受击时调用：闪白一下
+    /// Call on hit: quick color flash.
     /// </summary>
     public void PlayHitFlash()
     {
-        if (spriteRenderer == null) return;
+        ResolveTargetRenderer();
+        if (spriteRenderer == null)
+            return;
 
         if (flashRoutine != null)
+        {
             StopCoroutine(flashRoutine);
+            flashRoutine = null;
+            // Ensure interrupted flash does not leave renderer tinted.
+            spriteRenderer.color = originalColor;
+        }
         flashRoutine = StartCoroutine(FlashRoutine());
     }
 
     /// <summary>
-    /// 无敌时间开始：开始闪烁
+    /// Start blinking for invulnerability window.
     /// </summary>
     public void StartBlink()
     {
-        if (spriteRenderer == null) return;
+        ResolveTargetRenderer();
+        if (spriteRenderer == null)
+            return;
 
         StopBlinkInternal();
         blinkRoutine = StartCoroutine(BlinkRoutine());
     }
 
     /// <summary>
-    /// 无敌时间结束：停止闪烁，恢复可见
+    /// Stop blinking and restore visibility.
     /// </summary>
     public void StopBlink()
     {
@@ -74,15 +81,22 @@ public class PlayerHitFeedback : MonoBehaviour
 
     private IEnumerator FlashRoutine()
     {
+        if (spriteRenderer == null)
+        {
+            flashRoutine = null;
+            yield break;
+        }
+
         spriteRenderer.color = flashColor;
         yield return new WaitForSecondsRealtime(flashDuration);
-        spriteRenderer.color = originalColor;
+        if (spriteRenderer != null)
+            spriteRenderer.color = originalColor;
         flashRoutine = null;
     }
 
     private IEnumerator BlinkRoutine()
     {
-        while (true)
+        while (spriteRenderer != null)
         {
             spriteRenderer.enabled = !spriteRenderer.enabled;
             yield return new WaitForSecondsRealtime(blinkInterval);
@@ -105,12 +119,85 @@ public class PlayerHitFeedback : MonoBehaviour
             StopCoroutine(flashRoutine);
             flashRoutine = null;
         }
+
         StopBlinkInternal();
 
         if (spriteRenderer != null)
         {
             spriteRenderer.color = originalColor;
             spriteRenderer.enabled = true;
+        }
+    }
+
+    private void ResolveTargetRenderer()
+    {
+        if (targetRenderer != null)
+        {
+            if (spriteRenderer != targetRenderer)
+            {
+                spriteRenderer = targetRenderer;
+                originalColor = spriteRenderer.color;
+                hasOriginalColor = true;
+            }
+            else if (!hasOriginalColor)
+            {
+                originalColor = spriteRenderer.color;
+                hasOriginalColor = true;
+            }
+            return;
+        }
+
+        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        SpriteRenderer best = null;
+        int bestScore = int.MinValue;
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer sr = renderers[i];
+            if (sr == null)
+                continue;
+
+            int score = 0;
+            string n = sr.gameObject.name;
+            bool isShadow = !string.IsNullOrEmpty(n) && n.ToLowerInvariant().Contains("shadow");
+
+            if (isShadow)
+                score -= 2000;
+            else
+                score += 600;
+
+            if (sr.enabled && sr.gameObject.activeInHierarchy)
+                score += 1000;
+
+            // Prefer child visual renderer over disabled root renderer.
+            if (sr.transform == transform)
+                score -= 150;
+
+            score += sr.sortingOrder * 10;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = sr;
+            }
+        }
+
+        if (best != null)
+        {
+            if (spriteRenderer != best)
+            {
+                spriteRenderer = best;
+                originalColor = best.color;
+                hasOriginalColor = true;
+            }
+            else if (!hasOriginalColor)
+            {
+                originalColor = best.color;
+                hasOriginalColor = true;
+            }
         }
     }
 }

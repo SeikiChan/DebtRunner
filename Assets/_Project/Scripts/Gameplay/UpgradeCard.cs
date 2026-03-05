@@ -15,6 +15,12 @@ public class UpgradeCard : MonoBehaviour
     private WeaponUpgrade upgradeData;
     private System.Action<WeaponUpgrade> onSelected;
     private bool interactable = true;
+    private UpgradeCardHoverLight hoverLight;
+
+    private void Awake()
+    {
+        hoverLight = GetComponent<UpgradeCardHoverLight>();
+    }
 
     private void Start()
     {
@@ -28,14 +34,20 @@ public class UpgradeCard : MonoBehaviour
         onSelected = onSelect;
         SetInteractable(true);
 
+        if (hoverLight == null)
+            hoverLight = GetComponent<UpgradeCardHoverLight>();
+
+        if (hoverLight != null)
+            hoverLight.SetRarity(upgrade != null ? upgrade.rarity : UpgradeRarity.Common);
+
         if (titleText != null)
-            titleText.text = upgrade.title;
+            titleText.text = upgrade != null ? upgrade.title : string.Empty;
 
         if (descriptionText != null)
-            descriptionText.text = upgrade.description;
+            descriptionText.text = upgrade != null ? upgrade.description : string.Empty;
 
-        if (cardImage != null && upgrade.icon != null)
-            cardImage.sprite = upgrade.icon;
+        if (cardImage != null)
+            cardImage.sprite = upgrade != null ? upgrade.icon : null;
     }
 
     private void OnCardSelected()

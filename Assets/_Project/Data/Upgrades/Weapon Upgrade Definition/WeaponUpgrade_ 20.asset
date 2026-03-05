@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,17 +13,17 @@ MonoBehaviour:
   m_Name: WeaponUpgrade_ 20
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
   upgradeTitle: Overclock
-  description: 
+  description: +1 damage, +7% attack speed, +18% projectile speed
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4
   effects:
   - effectType: 1
     intValue: 0
-    floatValue: 0.025
+    floatValue: 0.016
   - effectType: 2
-    intValue: 4
-    floatValue: 0
+    intValue: 0
+    floatValue: 2.2
   - effectType: 0
     intValue: 1
-    floatValue: 0
+    floatValue: 0.0

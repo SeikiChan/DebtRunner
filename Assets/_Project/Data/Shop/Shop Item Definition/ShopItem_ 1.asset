@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 1
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Add  sheild
-  description: Add 1 sheild
+  itemTitle: Emergency Shield
+  description: +1 Shield Charge
   icon: {fileID: 0}
   price: 120
   rarity: 0
-  weightPercent: 10
+  weightPercent: 11
   effects:
   - effectType: 4
     intValue: 1
-    floatValue: 0
+    floatValue: 0.0

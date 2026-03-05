@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 4
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Booster+
-  description: 'Fire Rate Add
+  upgradeTitle: Booster Plus
+  description: +5% attack speed, +10% projectile speed
 
     Projectile Speed Add'
   icon: {fileID: 0}
@@ -22,7 +22,7 @@ MonoBehaviour:
   effects:
   - effectType: 1
     intValue: 0
-    floatValue: 0.01
+    floatValue: 0.012
   - effectType: 2
     intValue: 0
-    floatValue: 1.5
+    floatValue: 1.2

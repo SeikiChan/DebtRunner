@@ -70,6 +70,9 @@ public class SFXManager : MonoBehaviour
             instance = null;
     }
 
+    public void SetMasterVolume(float v) { masterVolume = Mathf.Clamp01(v); }
+    public float GetMasterVolume() => masterVolume;
+
     public void Play(AudioClip clip, float volumeScale = 1f)
     {
         EnsureSourceReady();

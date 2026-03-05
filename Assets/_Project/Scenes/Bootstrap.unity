@@ -2060,7 +2060,7 @@ MonoBehaviour:
   motor: {fileID: 1032491600}
   projectilePrefab: {fileID: 944865971747887105, guid: 418c6665038eaa14ba349e18664bee53, type: 3}
   projectilesRoot: {fileID: 499288855}
-  fireInterval: 0.25
+  fireInterval: 0.3
   projectileSpeed: 12
   damage: 1
   muzzle: {fileID: 0}

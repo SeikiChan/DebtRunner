@@ -26,6 +26,9 @@ public class LevelUpPanel : MonoBehaviour
     private CanvasGroup canvasGroup;
     private Coroutine fadeCo;
     private bool selectionLocked;
+    private bool isShowing;
+
+    public bool IsShowing => isShowing;
 
     private void Awake()
     {
@@ -66,6 +69,7 @@ public class LevelUpPanel : MonoBehaviour
         SetVisible(false);
         SetInputEnabled(false);
         SetCardsInteractable(false);
+        isShowing = false;
     }
 
     public void ShowUpgradePanel(WeaponUpgrade[] upgrades, Action<WeaponUpgrade> onSelected)
@@ -75,6 +79,9 @@ public class LevelUpPanel : MonoBehaviour
             StopCoroutine(fadeCo);
             fadeCo = null;
         }
+
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
 
         if (upgrades == null || upgrades.Length < cardSlots.Length)
         {
@@ -90,6 +97,7 @@ public class LevelUpPanel : MonoBehaviour
 
         SetVisible(true);
         SetInputEnabled(true);
+        isShowing = true;
 
         for (int i = 0; i < cardSlots.Length; i++)
         {
@@ -105,6 +113,7 @@ public class LevelUpPanel : MonoBehaviour
 
     public void HideUpgradePanel()
     {
+        isShowing = false;
         SetInputEnabled(false);
         SetCardsInteractable(false);
 
@@ -215,6 +224,8 @@ public class LevelUpPanel : MonoBehaviour
 
         canvasGroup.interactable = enabled;
         canvasGroup.blocksRaycasts = enabled;
+        if (!enabled)
+            isShowing = false;
     }
 
     private void SetCardsInteractable(bool enabled)
