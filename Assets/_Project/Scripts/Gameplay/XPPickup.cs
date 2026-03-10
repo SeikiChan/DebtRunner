@@ -39,7 +39,6 @@ public class XPPickup : MonoBehaviour
         Vector2 toPlayer = (Vector2)player.position - (Vector2)transform.position;
         float sqrDist = toPlayer.sqrMagnitude;
 
-        // 加上商店道具的磁吸半径加成
         float effectiveRadius = magnetRadius;
         if (GameFlowController.Instance != null)
             effectiveRadius += GameFlowController.Instance.BonusXPMagnetRadius;
@@ -56,7 +55,8 @@ public class XPPickup : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!other.CompareTag("Player")) return;
+        if (!other.CompareTag("Player"))
+            return;
 
         Collect();
     }
@@ -98,6 +98,7 @@ public class XPPickup : MonoBehaviour
 
     private void RebuildCachedValues()
     {
+        amount = Mathf.Max(1, amount);
         magnetRadius = Mathf.Max(0f, magnetRadius);
         magnetSpeed = Mathf.Max(0f, magnetSpeed);
         autoCollectDistance = Mathf.Max(0f, autoCollectDistance);

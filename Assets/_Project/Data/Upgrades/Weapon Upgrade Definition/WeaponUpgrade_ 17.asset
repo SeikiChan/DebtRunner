@@ -12,18 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 17
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Orbit Bloom
-  description: +1 orbit card, +9% orbit radius, +17% orbit speed
+  upgradeTitle: Foreclosure Sweep
+  description: Throw a harder warning wave when the pack starts to close in.
   icon: {fileID: 0}
-  rarity: 2
-  weightPercent: 6
+  rarity: 3
+  weightPercent: 4
   effects:
-  - effectType: 9
-    intValue: 1
+  - effectType: 12
+    intValue: 8
     floatValue: 0.0
-  - effectType: 10
+  - effectType: 1
     intValue: 0
-    floatValue: 0.15
-  - effectType: 11
-    intValue: 0
-    floatValue: 24.0
+    floatValue: 0.012

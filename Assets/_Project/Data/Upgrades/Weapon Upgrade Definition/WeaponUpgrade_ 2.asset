@@ -12,12 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 2
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Muzzle Speed I
-  description: +13% projectile speed
+  upgradeTitle: Double Entry
+  description: Turn each filing into a wider front of fire.
   icon: {fileID: 0}
   rarity: 0
-  weightPercent: 11
+  weightPercent: 6
   effects:
-  - effectType: 2
+  - effectType: 3
+    intValue: 1
+    floatValue: 0.0
+  - effectType: 4
     intValue: 0
-    floatValue: 1.5
+    floatValue: 4.0

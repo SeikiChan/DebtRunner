@@ -12,18 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 18
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Tri Shot
-  description: +1 projectile, +8 deg spread, +5% attack speed
+  upgradeTitle: Audit Barrage
+  description: Flood the front with enough paperwork to bury a lane.
   icon: {fileID: 0}
   rarity: 3
-  weightPercent: 5
+  weightPercent: 4
   effects:
   - effectType: 3
     intValue: 1
     floatValue: 0.0
   - effectType: 4
     intValue: 0
-    floatValue: 8.0
+    floatValue: 4.0
   - effectType: 1
     intValue: 0
-    floatValue: 0.012
+    floatValue: 0.015

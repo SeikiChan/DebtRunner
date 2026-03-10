@@ -16,13 +16,13 @@ MonoBehaviour:
   - rarity: 0
     weightPercent: 1
   - rarity: 1
-    weightPercent: 0.55
+    weightPercent: 0.24
   - rarity: 2
-    weightPercent: 0.28
+    weightPercent: 0.06
   - rarity: 3
-    weightPercent: 0.12
+    weightPercent: 0.015
   - rarity: 4
-    weightPercent: 0.05
+    weightPercent: 0.003
   entries:
   - {fileID: 11400000, guid: ddce6eaa25cbfec41b9cadf69e6dc3ba, type: 2}
   - {fileID: 11400000, guid: 0a4457f0d2d16584e8434a794e80099d, type: 2}

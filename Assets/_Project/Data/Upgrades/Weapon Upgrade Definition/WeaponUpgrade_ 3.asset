@@ -12,12 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 3
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Impact I
-  description: +12% knockback
+  upgradeTitle: Fine Print
+  description: Hits shed smaller slips that chase work into the crowd.
   icon: {fileID: 0}
-  rarity: 0
-  weightPercent: 10
+  rarity: 1
+  weightPercent: 8
   effects:
-  - effectType: 6
+  - effectType: 7
+    intValue: 1
+    floatValue: 0.0
+  - effectType: 8
     intValue: 0
-    floatValue: 0.12
+    floatValue: 10.0

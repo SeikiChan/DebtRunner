@@ -3,6 +3,7 @@ using TMPro;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class GameFlowController : MonoBehaviour
@@ -11,6 +12,17 @@ public class GameFlowController : MonoBehaviour
 
     public enum GameState { Title, Gameplay, Settlement, Shop, GameOver, Victory }
     public enum DeathType { KilledByMonster, FailedDebt }
+
+    [System.Serializable]
+    private class StoryComicPage
+    {
+        [SerializeField] private Sprite pageSprite;
+        [SerializeField, Range(2, 4)] private int clicksToAdvance = 2;
+
+        public Sprite PageSprite => pageSprite;
+        public int ClicksToAdvance => Mathf.Clamp(clicksToAdvance, 2, 4);
+    }
+
     public bool IsInGameplayState => state == GameState.Gameplay;
     public bool IsInShopState => state == GameState.Shop;
 
@@ -26,6 +38,20 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelPauseMenu;
     [SerializeField] private GameObject panelSettingsPlaceholder;
     [SerializeField] private SettingsMenuController pauseSettingsMenu;
+
+    [Header("Story Intro / 开场漫画")]
+    [SerializeField] private bool enableStoryComicIntro = true;
+    [SerializeField] private bool lockStorySkipOnFirstPlay = true;
+    [SerializeField] private string storyPlayedFlagKey = "DebtRunner.StoryComicPlayed";
+    [SerializeField] private List<StoryComicPage> storyComicPages = new List<StoryComicPage>();
+    [SerializeField] private CanvasGroup storyIntroOverlay;
+    [SerializeField] private Image storyIntroBackground;
+    [SerializeField] private Image storyIntroPageImage;
+    [SerializeField] private TMP_Text storyIntroHintText;
+    [SerializeField] private Button storyIntroSkipButton;
+    [SerializeField] private TMP_Text storyIntroSkipButtonText;
+    [SerializeField] private string storyIntroHintTemplate = "Click to continue";
+    [SerializeField] private string storyIntroSkipButtonLabel = "Skip Story";
 
     [SerializeField] private Transform enemiesRoot;
     [SerializeField] private Transform projectilesRoot;
@@ -80,6 +106,10 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private AudioClip sfxUIButtonClick;
     [SerializeField] private AudioClip sfxUIButtonHover;
     [SerializeField, Min(0f)] private float uiButtonHoverSfxMinInterval = 0.03f;
+    [SerializeField] private bool enableKeyboardUINavigation = true;
+    [SerializeField] private bool useWASDForUINavigation = true;
+    [SerializeField] private bool useSpaceForUIConfirm = true;
+    [SerializeField] private bool keyboardTabCyclesSelection = true;
 
     [SerializeField] private TMP_Text textDue;
     [SerializeField] private TMP_Text textPaid;
@@ -110,6 +140,11 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.35f);
     [SerializeField, Min(0.01f)] private float enemyHpMinGrowthPerRound = 0.08f;
     [SerializeField, Min(0.01f)] private float enemySpeedMinGrowthPerRound = 0.03f;
+    [SerializeField, Range(0.5f, 1f)] private float enemyDifficultyScaleAtRound1 = 0.9f;
+    [SerializeField, Range(0.5f, 1.2f)] private float enemyDifficultyScaleAtBoss = 1f;
+    [SerializeField] private AnimationCurve enemyDifficultyRamp = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    [SerializeField, Min(1f)] private float maxNextRoundEnemyHpBuffMultiplier = 1.75f;
+    [SerializeField, Min(1f)] private float maxNextRoundEnemySpeedBuffMultiplier = 1.4f;
 
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
@@ -117,12 +152,32 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(2)] private int xpCurveMaxLevel = 25;
     [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 5f);
     [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.12f;
+    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtLevel1 = 1.25f;
+    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtHighLevel = 1.65f;
+
+    [Header("Weapon Upgrade Curve")]
+    [SerializeField] private bool gateWeaponUpgradeRarityByRound = true;
+    [SerializeField, Min(1)] private int uncommonUpgradeUnlockRound = 2;
+    [SerializeField, Min(1)] private int rareUpgradeUnlockRound = 4;
+    [SerializeField, Min(1)] private int epicUpgradeUnlockRound = 6;
+    [SerializeField, Min(1)] private int legendaryUpgradeUnlockRound = 8;
+
+    [Header("Enemy Pressure")]
+    [SerializeField, Min(1f)] private float enemyHpPressureAtRound1 = 1.05f;
+    [SerializeField, Min(1f)] private float enemyHpPressureAtBoss = 1.25f;
+    [SerializeField, Min(1f)] private float enemySpeedPressureAtRound1 = 1.0f;
+    [SerializeField, Min(1f)] private float enemySpeedPressureAtBoss = 1.08f;
 
     [SerializeField] private WeaponUpgradePoolAsset weaponUpgradePoolAsset;
 
     [SerializeField] private EnemySpawner enemySpawner;
     [SerializeField] private PlayerShooter playerShooter;
     [SerializeField] private ShopSystem shopSystem;
+
+    [SerializeField] private RunSummaryPanel runSummaryPanel;
+
+    [Header("Studio Splash")]
+    [SerializeField] private StudioSplashScreen studioSplash;
 
     [SerializeField] private Animator failAnimator;
     [SerializeField] private string failTriggerName = "Fail";
@@ -154,9 +209,15 @@ public class GameFlowController : MonoBehaviour
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // 褰撳墠鍥炲悎鍓╀綑鏃堕棿
     private float lastUIButtonHoverSfxTime = -10f;
+    private GameObject keyboardNavigationRoot;
     private float nextBossDefeatCheckTime = -10f;
     private bool bossSeenInCurrentBossRound;
     private int trackedBossRoundIndex = -1;
+    private bool storyIntroActive;
+    private bool storySkipRequested;
+    private bool storyAdvanceRequested;
+    private Coroutine storyIntroCo;
+    private bool startRunQueuedAfterStory;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
     private DeathType currentDeathType = DeathType.KilledByMonster;
@@ -175,6 +236,20 @@ public class GameFlowController : MonoBehaviour
 
     public int BonusXPPerKill => bonusXPPerKill;
     public float BonusXPMagnetRadius => bonusXPMagnetRadius;
+
+    // ====== 局内统计（每局重置） ======
+    private int runTotalKills;
+    private int runTotalCashEarned;
+    private int runTotalXPEarned;
+    private int runHighestRound;
+
+    public int RunTotalKills => runTotalKills;
+    public int RunTotalCashEarned => runTotalCashEarned;
+    public int RunTotalXPEarned => runTotalXPEarned;
+    public int RunHighestRound => runHighestRound;
+
+    /// <summary>敌人被击杀时调用（EnemyController.Die）</summary>
+    public void NotifyEnemyKilled() { runTotalKills++; }
 
     private void Awake()
     {
@@ -203,6 +278,7 @@ public class GameFlowController : MonoBehaviour
 
         PrepareInitialMenuSafetyState();
         EnsureCountdownMaterialIsolated();
+        EnsureUIEventSystem();
 
         if (enemySpawner == null)
             enemySpawner = FindObjectOfType<EnemySpawner>();
@@ -264,9 +340,20 @@ public class GameFlowController : MonoBehaviour
         RunLogger.Event($"GameFlow ready: rounds={totalRounds}, round1Due={CalcDue(1)}, dueStep={stepDue}, roundDuration={roundDurationSeconds:F1}s");
 
         // 鍒濆鐣岄潰锛氬彧鏄剧ずTitle
-        SwitchState(GameState.Title);
+        // If splash screen exists, hide everything until splash finishes.
+        if (studioSplash != null)
+        {
+            // Hide all panels so nothing flickers before splash.
+            if (panelTitle != null) panelTitle.SetActive(false);
+            if (panelHUD != null) panelHUD.SetActive(false);
+        }
+        else
+        {
+            SwitchState(GameState.Title);
+        }
         ForceClosePauseMenu(false);
         BindHoverSfxToSceneButtons();
+        BindKeyboardFocusIndicatorsToSceneSelectables();
         RefreshHUD();
     }
 
@@ -279,17 +366,34 @@ public class GameFlowController : MonoBehaviour
         if (bgm != null)
             bgm.OnGameStateChanged(state);
 
+        // Play studio splash before title screen if assigned.
+        if (studioSplash != null)
+        {
+            bool splashDone = false;
+            studioSplash.Play(() => splashDone = true);
+
+            while (!splashDone)
+                yield return null;
+
+            // Splash done — now show title.
+            SwitchState(GameState.Title);
+        }
+
         // Some UI buttons are instantiated/enabled in Start of other scripts.
         yield return null;
         BindHoverSfxToSceneButtons();
+        BindKeyboardFocusIndicatorsToSceneSelectables();
 
         // One extra frame makes title-menu first-open binding stable.
         yield return null;
         BindHoverSfxToSceneButtons();
+        BindKeyboardFocusIndicatorsToSceneSelectables();
     }
 
     private void OnDestroy()
     {
+        StopStoryIntroPresentation(true);
+
         if (countdownRuntimeMaterial != null)
         {
             Destroy(countdownRuntimeMaterial);
@@ -310,6 +414,7 @@ public class GameFlowController : MonoBehaviour
         if (panelCredits != null) panelCredits.SetActive(false);
         if (panelPauseMenu != null) panelPauseMenu.SetActive(false);
         if (panelSettingsPlaceholder != null) panelSettingsPlaceholder.SetActive(false);
+        if (storyIntroOverlay != null) storyIntroOverlay.gameObject.SetActive(false);
         creditsOpen = false;
         EnsureCreditsButtonsBound();
     }
@@ -426,6 +531,14 @@ public class GameFlowController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F5)) SwitchState(GameState.GameOver);
         if (enableDebugHotkeys && Input.GetKeyDown(debugJumpBossRoundKey)) DebugJumpToBossRound(debugResetStatsBeforeBoss);
 
+        if (storyIntroActive)
+        {
+            HandleStoryIntroInput();
+            return;
+        }
+
+        HandleKeyboardUINavigation();
+
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (creditsOpen)
@@ -466,6 +579,7 @@ public class GameFlowController : MonoBehaviour
             v = Mathf.Max(v, Mathf.RoundToInt(v * (1f + cashBonusPercent / 100f)));
 
         cash += v;
+        runTotalCashEarned += v;
         RunLogger.Event($"Cash +{v}, total={cash}");
         RefreshHUD();
         if (shopSystem != null) shopSystem.RefreshShopUI();
@@ -478,6 +592,7 @@ public class GameFlowController : MonoBehaviour
         if (v == 0) return;
 
         xp += v;
+        runTotalXPEarned += v;
         RunLogger.Event($"XP +{v}, current={xp}/{xpToNext}, level={level}");
         
         // 妫€鏌ユ槸鍚﹀崌绾?
@@ -581,13 +696,29 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (weaponUpgradePoolAsset == null || weaponUpgradePoolAsset.Entries == null || weaponUpgradePoolAsset.Entries.Count == 0)
             return SelectFallbackRandomUpgrades(count);
 
+        List<WeaponUpgradeDefinition> eligibleEntries = new List<WeaponUpgradeDefinition>();
+        for (int i = 0; i < weaponUpgradePoolAsset.Entries.Count; i++)
+        {
+            WeaponUpgradeDefinition entry = weaponUpgradePoolAsset.Entries[i];
+            if (entry == null)
+                continue;
+            if (!IsUpgradeRarityUnlocked(entry.Rarity))
+                continue;
+
+            eligibleEntries.Add(entry);
+        }
+
+        IReadOnlyList<WeaponUpgradeDefinition> sourceEntries = eligibleEntries.Count >= count
+            ? eligibleEntries
+            : weaponUpgradePoolAsset.Entries;
+
         System.Collections.Generic.List<WeaponUpgradeDefinition> pickedDefinitions =
-            WeightedPickerUtility.PickUnique(weaponUpgradePoolAsset.Entries, count, weaponUpgradePoolAsset.GetEffectiveWeight);
+            WeightedPickerUtility.PickUnique(sourceEntries, count, weaponUpgradePoolAsset.GetEffectiveWeight);
 
         while (pickedDefinitions.Count < count)
         {
             System.Collections.Generic.List<WeaponUpgradeDefinition> oneMore =
-                WeightedPickerUtility.PickUnique(weaponUpgradePoolAsset.Entries, 1, weaponUpgradePoolAsset.GetEffectiveWeight);
+                WeightedPickerUtility.PickUnique(sourceEntries, 1, weaponUpgradePoolAsset.GetEffectiveWeight);
             if (oneMore.Count == 0 || oneMore[0] == null)
                 break;
             pickedDefinitions.Add(oneMore[0]);
@@ -601,6 +732,32 @@ private void TryShowDeferredLevelUpRewardIfReady()
             selected[i] = pickedDefinitions[i] != null ? pickedDefinitions[i].CreateRuntimeUpgrade() : null;
 
         return selected;
+    }
+
+    private bool IsUpgradeRarityUnlocked(UpgradeRarity rarity)
+    {
+        if (!gateWeaponUpgradeRarityByRound)
+            return true;
+
+        int unlockRound = GetUpgradeRarityUnlockRound(rarity);
+        return roundIndex >= unlockRound;
+    }
+
+    private int GetUpgradeRarityUnlockRound(UpgradeRarity rarity)
+    {
+        switch (rarity)
+        {
+            case UpgradeRarity.Uncommon:
+                return Mathf.Max(1, uncommonUpgradeUnlockRound);
+            case UpgradeRarity.Rare:
+                return Mathf.Max(1, rareUpgradeUnlockRound);
+            case UpgradeRarity.Epic:
+                return Mathf.Max(1, epicUpgradeUnlockRound);
+            case UpgradeRarity.Legendary:
+                return Mathf.Max(1, legendaryUpgradeUnlockRound);
+            default:
+                return 1;
+        }
     }
 
     private WeaponUpgrade[] SelectFallbackRandomUpgrades(int count)
@@ -682,7 +839,14 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void StartRun()
     {
         PlayUIButtonClickSfx();
+        if (TryPlayStoryIntroBeforeRun())
+            return;
 
+        StartRunGameplayFlow();
+    }
+
+    private void StartRunGameplayFlow()
+    {
         // 鎭㈠娓告垙鏃堕棿锛堜互闃茶繕鍦ㄦ殏鍋滅姸鎬侊級
         StopRoundClearTransition(false);
         Time.timeScale = 1f;
@@ -723,10 +887,17 @@ private void TryShowDeferredLevelUpRewardIfReady()
         bonusXPMagnetRadius = 0f;
         cashBonusPercent = 0f;
 
+        // 重置局内统计
+        runTotalKills = 0;
+        runTotalCashEarned = 0;
+        runTotalXPEarned = 0;
+        runHighestRound = 1;
+
         // 闅愯棌鍗囩骇闈㈡澘骞堕噸缃鍣?
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
         HideAllDeathPanels();
+        HideRunSummary();
 
         SwitchState(GameState.Gameplay);
         ShowRoundIntro();
@@ -882,15 +1053,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (IsCurrentRoundBoss())
         {
             RunLogger.Event($"Boss defeated! Showing victory screen.");
-            
-            if (victoryPanel != null)
-            {
-                victoryPanel.ShowVictoryPanel(roundIndex, cash, level);
-            }
-            
-            // 鏆傚仠娓告垙
+
+            ShowRunSummary(RunSummaryPanel.EndingType.Victory);
+
             Time.timeScale = 0f;
-            
             SwitchState(GameState.Victory);
             return;
         }
@@ -965,6 +1131,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         Time.timeScale = 1f;
 
         roundIndex += 1;
+        runHighestRound = Mathf.Max(runHighestRound, roundIndex);
         int bossRound = GetBossRoundIndex();
         if (roundIndex > bossRound)
         {
@@ -1025,11 +1192,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopRoundTimer();
 
         // 鏄剧ず瀵瑰簲姝诲洜鐨勬浜￠潰鏉匡紙骞舵殏鍋滀笘鐣岋級
-        DeathPanel targetPanel = GetDeathPanelForType(deathType);
-        if (targetPanel != null)
-            targetPanel.ShowDeathPanel();
-        else
-            RunLogger.Warning($"No death panel assigned for deathType={deathType}.");
+        RunSummaryPanel.EndingType ending = deathType == DeathType.FailedDebt
+            ? RunSummaryPanel.EndingType.FailedDebt
+            : RunSummaryPanel.EndingType.KilledByMonster;
+        ShowRunSummary(ending);
 
         // 鏆傚仠娓告垙涓栫晫锛屽喕缁撲竴鍒囧姩浣?
         Time.timeScale = 0f;
@@ -1043,15 +1209,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
         currentDeathType = deathType;
         RunLogger.Warning($"Game over with death panel. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
         
-        // 鏄剧ず瀵瑰簲姝诲洜鐨勬浜￠潰鏉?
-        DeathPanel targetPanel = GetDeathPanelForType(deathType);
-        if (targetPanel != null)
-            targetPanel.ShowDeathPanel();
-        else
-            RunLogger.Warning($"No death panel assigned for deathType={deathType}.");
+        RunSummaryPanel.EndingType ending = deathType == DeathType.FailedDebt
+            ? RunSummaryPanel.EndingType.FailedDebt
+            : RunSummaryPanel.EndingType.KilledByMonster;
+        ShowRunSummary(ending);
 
         Time.timeScale = 0f;
-        
+
         SwitchState(GameState.GameOver);
     }
 
@@ -1071,10 +1235,24 @@ private void TryShowDeferredLevelUpRewardIfReady()
             debtFailurePanel.HideDeathPanel();
     }
 
+    private void ShowRunSummary(RunSummaryPanel.EndingType ending)
+    {
+        if (runSummaryPanel != null)
+            runSummaryPanel.ShowPanel(ending, runTotalKills, runTotalCashEarned, runTotalXPEarned, runHighestRound, level);
+    }
+
+    private void HideRunSummary()
+    {
+        if (runSummaryPanel != null)
+            runSummaryPanel.HidePanel();
+    }
+
     // UI Button: Main Menu
     public void BackToMenu()
     {
         PlayUIButtonClickSfx();
+        StopStoryIntroPresentation(true);
+        HideRunSummary();
 
         // 纭繚娓告垙鏃堕棿鎭㈠
         StopRoundClearTransition(false);
@@ -1320,9 +1498,19 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void AddEnemyBuffToNextRound(float hpMultiplier, float speedMultiplier)
     {
         runProgression.AddEnemyBuffToNextRound(hpMultiplier, speedMultiplier);
+        runProgression.ClampNextRoundEnemyBuff(maxNextRoundEnemyHpBuffMultiplier, maxNextRoundEnemySpeedBuffMultiplier);
         RunLogger.Warning($"Next round enemy buff queued. hpX={runProgression.NextRoundEnemyHpMultiplier:F2}, speedX={runProgression.NextRoundEnemySpeedMultiplier:F2}");
         if (shopSystem != null) shopSystem.RefreshShopUI();
     }
+
+    public void AddRewardBuffToNextRound(float rewardMultiplier)
+    {
+        runProgression.AddRewardBuffToNextRound(rewardMultiplier);
+        RunLogger.Event($"Next round reward buff queued. rewardX={runProgression.NextRoundRewardMultiplier:F2}");
+        if (shopSystem != null) shopSystem.RefreshShopUI();
+    }
+
+    public float CurrentRewardMultiplier => runProgression != null ? runProgression.CurrentRoundRewardMultiplier : 1f;
 
     public void GetCurrentEnemyMultipliers(out float hpMultiplier, out float speedMultiplier)
     {
@@ -1382,10 +1570,384 @@ private void TryShowDeferredLevelUpRewardIfReady()
         return true;
     }
 
+    private bool TryPlayStoryIntroBeforeRun()
+    {
+        if (!enableStoryComicIntro || state != GameState.Title)
+            return false;
+
+        if (storyIntroActive)
+            return true;
+
+        List<StoryComicPage> validPages = GetValidStoryComicPages();
+        if (validPages.Count <= 0)
+            return false;
+
+        if (!EnsureStoryIntroOverlayBound())
+        {
+            RunLogger.Warning("Story intro overlay missing. Start run directly.");
+            return false;
+        }
+
+        bool allowSkip = IsStoryIntroAlreadyPlayed() || !lockStorySkipOnFirstPlay;
+        StartStoryIntroPresentation(validPages, allowSkip);
+        return true;
+    }
+
+    private void StartStoryIntroPresentation(List<StoryComicPage> pages, bool allowSkip)
+    {
+        StopStoryIntroPresentation(true);
+
+        startRunQueuedAfterStory = true;
+        storyIntroActive = true;
+        storySkipRequested = false;
+        storyAdvanceRequested = false;
+
+        if (storyIntroOverlay != null)
+        {
+            storyIntroOverlay.alpha = 1f;
+            storyIntroOverlay.gameObject.SetActive(true);
+            storyIntroOverlay.transform.SetAsLastSibling();
+            storyIntroOverlay.interactable = true;
+            storyIntroOverlay.blocksRaycasts = true;
+        }
+
+        if (storyIntroSkipButtonText != null)
+            storyIntroSkipButtonText.text = string.IsNullOrWhiteSpace(storyIntroSkipButtonLabel) ? "Skip Story" : storyIntroSkipButtonLabel;
+
+        if (storyIntroSkipButton != null)
+        {
+            storyIntroSkipButton.onClick.RemoveListener(OnStorySkipButtonClicked);
+            storyIntroSkipButton.gameObject.SetActive(allowSkip);
+            if (allowSkip)
+                storyIntroSkipButton.onClick.AddListener(OnStorySkipButtonClicked);
+        }
+
+        RefreshTitleAndCreditsPanels();
+        storyIntroCo = StartCoroutine(PlayStoryIntroRoutine(pages, allowSkip));
+        RunLogger.Event($"Story intro started. pages={pages.Count}, allowSkip={allowSkip}");
+    }
+
+    private void StopStoryIntroPresentation(bool clearQueuedRun)
+    {
+        if (storyIntroCo != null)
+        {
+            StopCoroutine(storyIntroCo);
+            storyIntroCo = null;
+        }
+
+        storyIntroActive = false;
+        storySkipRequested = false;
+        storyAdvanceRequested = false;
+        if (clearQueuedRun)
+            startRunQueuedAfterStory = false;
+
+        if (storyIntroSkipButton != null)
+            storyIntroSkipButton.onClick.RemoveListener(OnStorySkipButtonClicked);
+
+        if (storyIntroOverlay != null)
+        {
+            storyIntroOverlay.interactable = false;
+            storyIntroOverlay.blocksRaycasts = false;
+            storyIntroOverlay.gameObject.SetActive(false);
+        }
+
+        RefreshTitleAndCreditsPanels();
+    }
+
+    private IEnumerator PlayStoryIntroRoutine(List<StoryComicPage> pages, bool allowSkip)
+    {
+        int totalSteps = 0;
+        for (int i = 0; i < pages.Count; i++)
+            totalSteps += pages[i].ClicksToAdvance;
+        totalSteps = Mathf.Max(1, totalSteps);
+
+        int currentStep = 0;
+        yield return null; // Avoid consuming the same click used to start run.
+
+        for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
+        {
+            StoryComicPage page = pages[pageIndex];
+            int pageSteps = page.ClicksToAdvance;
+
+            for (int step = 1; step <= pageSteps; step++)
+            {
+                currentStep += 1;
+                ApplyStoryComicVisual(page, pageIndex + 1, pages.Count, step, pageSteps, currentStep, totalSteps, allowSkip);
+
+                storyAdvanceRequested = false;
+                while (!storyAdvanceRequested && !storySkipRequested)
+                    yield return null;
+
+                if (storySkipRequested && allowSkip)
+                {
+                    MarkStoryIntroPlayed();
+                    FinishStoryIntroAndStartRun();
+                    yield break;
+                }
+
+                storyAdvanceRequested = false;
+            }
+        }
+
+        MarkStoryIntroPlayed();
+        FinishStoryIntroAndStartRun();
+    }
+
+    private void FinishStoryIntroAndStartRun()
+    {
+        bool shouldStart = startRunQueuedAfterStory;
+        StopStoryIntroPresentation(true);
+        if (shouldStart)
+            StartRunGameplayFlow();
+    }
+
+    private void ApplyStoryComicVisual(
+        StoryComicPage page,
+        int pageIndex,
+        int pageCount,
+        int step,
+        int stepCount,
+        int currentStep,
+        int totalSteps,
+        bool allowSkip)
+    {
+        if (storyIntroPageImage != null)
+        {
+            storyIntroPageImage.sprite = page.PageSprite;
+            storyIntroPageImage.preserveAspect = true;
+
+            float reveal = stepCount <= 1 ? 1f : Mathf.Lerp(0.35f, 1f, step / (float)stepCount);
+            Color c = storyIntroPageImage.color;
+            c.a = reveal;
+            storyIntroPageImage.color = c;
+        }
+
+        if (storyIntroHintText != null)
+        {
+            string template = string.IsNullOrWhiteSpace(storyIntroHintTemplate)
+                ? "Click to continue"
+                : storyIntroHintTemplate;
+
+            // Keep hint clean by default: no panel counter and no skip-key prompt.
+            if (template.Contains("{0}") || template.Contains("{1}"))
+                storyIntroHintText.text = string.Format(template, pageIndex, pageCount);
+            else
+                storyIntroHintText.text = template;
+        }
+    }
+
+    private void HandleStoryIntroInput()
+    {
+        if (!storyIntroActive)
+            return;
+
+        bool allowSkip = storyIntroSkipButton != null && storyIntroSkipButton.gameObject.activeInHierarchy;
+        if (allowSkip && Input.GetKeyDown(KeyCode.Escape))
+        {
+            storySkipRequested = true;
+            return;
+        }
+
+        if (IsStoryAdvanceInputDown())
+            storyAdvanceRequested = true;
+    }
+
+    private bool IsStoryAdvanceInputDown()
+    {
+        if (Input.GetMouseButtonDown(0))
+            return true;
+        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            return true;
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+            if (touch.phase == TouchPhase.Began)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void OnStorySkipButtonClicked()
+    {
+        if (!storyIntroActive)
+            return;
+
+        storySkipRequested = true;
+    }
+
+    private List<StoryComicPage> GetValidStoryComicPages()
+    {
+        List<StoryComicPage> validPages = new List<StoryComicPage>();
+        if (storyComicPages == null || storyComicPages.Count <= 0)
+            return validPages;
+
+        for (int i = 0; i < storyComicPages.Count; i++)
+        {
+            StoryComicPage page = storyComicPages[i];
+            if (page == null || page.PageSprite == null)
+                continue;
+
+            validPages.Add(page);
+        }
+
+        return validPages;
+    }
+
+    private bool IsStoryIntroAlreadyPlayed()
+    {
+        if (string.IsNullOrWhiteSpace(storyPlayedFlagKey))
+            return false;
+        return PlayerPrefs.GetInt(storyPlayedFlagKey, 0) == 1;
+    }
+
+    private void MarkStoryIntroPlayed()
+    {
+        if (string.IsNullOrWhiteSpace(storyPlayedFlagKey))
+            return;
+
+        PlayerPrefs.SetInt(storyPlayedFlagKey, 1);
+        PlayerPrefs.Save();
+    }
+
+    private void TryBindStoryIntroOverlayChildren()
+    {
+        if (storyIntroOverlay == null)
+            return;
+
+        Transform root = storyIntroOverlay.transform;
+
+        if (storyIntroBackground == null)
+        {
+            Transform bg = root.Find("Background");
+            if (bg != null)
+                storyIntroBackground = bg.GetComponent<Image>();
+        }
+
+        if (storyIntroPageImage == null)
+        {
+            Transform page = root.Find("PageImage");
+            if (page != null)
+                storyIntroPageImage = page.GetComponent<Image>();
+        }
+
+        if (storyIntroHintText == null)
+        {
+            Transform hint = root.Find("StoryHintText");
+            if (hint != null)
+                storyIntroHintText = hint.GetComponent<TMP_Text>();
+        }
+
+        if (storyIntroSkipButton == null)
+        {
+            Transform skip = root.Find("Btn_StorySkip");
+            if (skip != null)
+                storyIntroSkipButton = skip.GetComponent<Button>();
+        }
+
+        if (storyIntroSkipButtonText == null && storyIntroSkipButton != null)
+        {
+            Transform textTf = storyIntroSkipButton.transform.Find("Text");
+            if (textTf != null)
+                storyIntroSkipButtonText = textTf.GetComponent<TMP_Text>();
+        }
+    }
+
+    private bool EnsureStoryIntroOverlayBound()
+    {
+        TryBindStoryIntroOverlayChildren();
+        if (storyIntroOverlay != null && storyIntroPageImage != null && storyIntroHintText != null)
+            return true;
+
+        if (storyIntroOverlay != null)
+        {
+            RunLogger.Warning("Story intro overlay is assigned but missing required child refs. Please bind PageImage and StoryHintText.");
+            return false;
+        }
+
+        Canvas canvas = panelTitle != null ? panelTitle.GetComponentInParent<Canvas>() : null;
+        if (canvas == null)
+            return false;
+
+        GameObject overlayRoot = new GameObject("StoryIntroOverlayAuto", typeof(RectTransform), typeof(CanvasGroup));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(canvas.transform, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        storyIntroOverlay = overlayRoot.GetComponent<CanvasGroup>();
+        storyIntroOverlay.alpha = 0f;
+        storyIntroOverlay.interactable = false;
+        storyIntroOverlay.blocksRaycasts = false;
+
+        GameObject bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
+        RectTransform bgRect = bgGo.GetComponent<RectTransform>();
+        bgRect.SetParent(overlayRect, false);
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+        storyIntroBackground = bgGo.GetComponent<Image>();
+        storyIntroBackground.color = new Color(0f, 0f, 0f, 0.9f);
+
+        GameObject pageGo = new GameObject("PageImage", typeof(RectTransform), typeof(Image));
+        RectTransform pageRect = pageGo.GetComponent<RectTransform>();
+        pageRect.SetParent(overlayRect, false);
+        pageRect.anchorMin = Vector2.zero;
+        pageRect.anchorMax = Vector2.one;
+        pageRect.offsetMin = new Vector2(32f, 128f);
+        pageRect.offsetMax = new Vector2(-32f, -96f);
+        storyIntroPageImage = pageGo.GetComponent<Image>();
+        storyIntroPageImage.preserveAspect = true;
+        storyIntroPageImage.color = Color.white;
+
+        storyIntroHintText = CreateIntroText(
+            overlayRect,
+            "StoryHintText",
+            new Vector2(0f, -492f),
+            new Vector2(1400f, 120f),
+            34f,
+            Color.white);
+        storyIntroHintText.fontStyle = FontStyles.Normal;
+        storyIntroHintText.enableWordWrapping = true;
+
+        GameObject skipBtnGo = new GameObject("Btn_StorySkip", typeof(RectTransform), typeof(Image), typeof(Button));
+        RectTransform skipBtnRect = skipBtnGo.GetComponent<RectTransform>();
+        skipBtnRect.SetParent(overlayRect, false);
+        skipBtnRect.anchorMin = new Vector2(1f, 1f);
+        skipBtnRect.anchorMax = new Vector2(1f, 1f);
+        skipBtnRect.pivot = new Vector2(1f, 1f);
+        skipBtnRect.sizeDelta = new Vector2(220f, 66f);
+        skipBtnRect.anchoredPosition = new Vector2(-44f, -38f);
+
+        Image skipBtnImage = skipBtnGo.GetComponent<Image>();
+        skipBtnImage.color = new Color(0f, 0f, 0f, 0.72f);
+        storyIntroSkipButton = skipBtnGo.GetComponent<Button>();
+        storyIntroSkipButton.targetGraphic = skipBtnImage;
+
+        storyIntroSkipButtonText = CreateIntroText(
+            skipBtnRect,
+            "Text",
+            Vector2.zero,
+            new Vector2(220f, 66f),
+            30f,
+            Color.white);
+        storyIntroSkipButtonText.fontStyle = FontStyles.Normal;
+        storyIntroSkipButtonText.text = string.IsNullOrWhiteSpace(storyIntroSkipButtonLabel) ? "Skip Story" : storyIntroSkipButtonLabel;
+
+        storyIntroOverlay.gameObject.SetActive(false);
+        return true;
+    }
+
     // ====== Internal ======
 
     private void SwitchState(GameState next)
 {
+    if (next != GameState.Title && storyIntroActive)
+        StopStoryIntroPresentation(false);
+
     ForceClosePauseMenu(true);
 
     GameState previous = state;
@@ -1400,7 +1962,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         creditsOpen = false;
 
     RefreshTitleAndCreditsPanels();
-    if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement || state == GameState.Shop);
+    if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement);
     if (levelUpPanel != null)
         levelUpPanel.ForceHideImmediate();
     else if (panelLevelUp != null)
@@ -1442,6 +2004,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         BGMManager.Instance.OnGameStateChanged(state);
 
     BindHoverSfxToSceneButtons();
+    BindKeyboardFocusIndicatorsToSceneSelectables();
 }
 
 private void RefreshTitleAndCreditsPanels()
@@ -1465,7 +2028,7 @@ private void RefreshTitleAndCreditsPanels()
     }
 
     bool showCredits = inTitle && creditsOpen && hasCreditsPanel;
-    bool showTitle = inTitle && !showCredits;
+    bool showTitle = inTitle && !showCredits && !storyIntroActive;
 
     if (panelTitle != null)
         panelTitle.SetActive(showTitle);
@@ -2034,6 +2597,292 @@ private void SetPauseMenuVisible(bool visible)
             RunLogger.Event($"UI hover SFX emitter attached to {attachedCount} button(s).");
     }
 
+    private void BindKeyboardFocusIndicatorsToSceneSelectables()
+    {
+        if (!enableKeyboardUINavigation)
+            return;
+
+        Selectable[] selectables = Resources.FindObjectsOfTypeAll<Selectable>();
+        int attachedCount = 0;
+
+        for (int i = 0; i < selectables.Length; i++)
+        {
+            Selectable selectable = selectables[i];
+            if (selectable == null)
+                continue;
+            if (!selectable.gameObject.scene.IsValid() || !selectable.gameObject.scene.isLoaded)
+                continue;
+            if (selectable.GetComponent<UIKeyboardFocusIndicator>() != null)
+                continue;
+
+            selectable.gameObject.AddComponent<UIKeyboardFocusIndicator>();
+            attachedCount++;
+        }
+
+        if (attachedCount > 0)
+            RunLogger.Event($"Keyboard focus indicator attached to {attachedCount} selectable(s).");
+    }
+
+    private void EnsureUIEventSystem()
+    {
+        if (!enableKeyboardUINavigation)
+            return;
+
+        if (EventSystem.current != null)
+            return;
+
+        EventSystem existing = FindObjectOfType<EventSystem>();
+        if (existing != null)
+            return;
+
+        GameObject eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+        RunLogger.Event($"EventSystem auto-created for keyboard UI navigation: {eventSystemGo.name}");
+    }
+
+    private void HandleKeyboardUINavigation()
+    {
+        if (!enableKeyboardUINavigation)
+            return;
+
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+        {
+            EnsureUIEventSystem();
+            eventSystem = EventSystem.current;
+            if (eventSystem == null)
+                return;
+        }
+
+        // We drive move/submit explicitly for stable "WASD + Space" behavior.
+        if (eventSystem.sendNavigationEvents)
+            eventSystem.sendNavigationEvents = false;
+
+        GameObject root = ResolveKeyboardNavigationRoot();
+        if (root == null || !root.activeInHierarchy)
+        {
+            keyboardNavigationRoot = null;
+            return;
+        }
+
+        bool rootChanged = keyboardNavigationRoot != root;
+        keyboardNavigationRoot = root;
+        if (rootChanged)
+            BindKeyboardFocusIndicatorsToSceneSelectables();
+
+        if (keyboardTabCyclesSelection && Input.GetKeyDown(KeyCode.Tab))
+        {
+            bool reverse = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            CycleKeyboardSelection(eventSystem, root, reverse);
+            return;
+        }
+
+        GameObject selected = eventSystem.currentSelectedGameObject;
+        bool hasValidSelected = selected != null &&
+                                selected.activeInHierarchy &&
+                                selected.transform.IsChildOf(root.transform);
+        if (!hasValidSelected || rootChanged)
+            SelectFirstKeyboardTarget(eventSystem, root);
+
+        if (useWASDForUINavigation)
+            TryMoveSelectionWithWASD(eventSystem, root);
+
+        if (useSpaceForUIConfirm)
+            TrySubmitSelectionWithSpace(eventSystem, root);
+    }
+
+    private GameObject ResolveKeyboardNavigationRoot()
+    {
+        if (pauseSettingsMenu != null && pauseSettingsMenu.gameObject.activeInHierarchy)
+            return pauseSettingsMenu.gameObject;
+        if (panelSettingsPlaceholder != null && panelSettingsPlaceholder.activeInHierarchy)
+            return panelSettingsPlaceholder;
+        if (pauseMenuOpen && panelPauseMenu != null && panelPauseMenu.activeInHierarchy)
+            return panelPauseMenu;
+        if (storyIntroActive && storyIntroOverlay != null && storyIntroOverlay.gameObject.activeInHierarchy)
+            return storyIntroOverlay.gameObject;
+        if (IsLevelUpPanelOpen())
+        {
+            if (panelLevelUp != null && panelLevelUp.activeInHierarchy)
+                return panelLevelUp;
+            if (levelUpPanel != null && levelUpPanel.gameObject.activeInHierarchy)
+                return levelUpPanel.gameObject;
+        }
+
+        switch (state)
+        {
+            case GameState.Title:
+                if (creditsOpen && panelCredits != null && panelCredits.activeInHierarchy)
+                    return panelCredits;
+                return panelTitle != null && panelTitle.activeInHierarchy ? panelTitle : null;
+
+            case GameState.Settlement:
+                return panelSettlement != null && panelSettlement.activeInHierarchy ? panelSettlement : null;
+
+            case GameState.Shop:
+                return panelShop != null && panelShop.activeInHierarchy ? panelShop : null;
+
+            case GameState.GameOver:
+                if (monsterDeathPanel != null && monsterDeathPanel.gameObject.activeInHierarchy)
+                    return monsterDeathPanel.gameObject;
+                if (debtFailurePanel != null && debtFailurePanel.gameObject.activeInHierarchy)
+                    return debtFailurePanel.gameObject;
+                return null;
+
+            case GameState.Victory:
+                if (victoryPanel != null && victoryPanel.gameObject.activeInHierarchy)
+                    return victoryPanel.gameObject;
+                return null;
+        }
+
+        return null;
+    }
+
+    private void SelectFirstKeyboardTarget(EventSystem eventSystem, GameObject root)
+    {
+        if (eventSystem == null || root == null)
+            return;
+
+        List<Selectable> candidates = GatherKeyboardSelectables(root);
+        if (candidates.Count <= 0)
+            return;
+
+        eventSystem.SetSelectedGameObject(candidates[0].gameObject);
+    }
+
+    private void CycleKeyboardSelection(EventSystem eventSystem, GameObject root, bool reverse)
+    {
+        if (eventSystem == null || root == null)
+            return;
+
+        List<Selectable> candidates = GatherKeyboardSelectables(root);
+        if (candidates.Count <= 0)
+            return;
+
+        GameObject current = eventSystem.currentSelectedGameObject;
+        int currentIndex = -1;
+        if (current != null)
+        {
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                Selectable selectable = candidates[i];
+                if (selectable == null)
+                    continue;
+                if (current == selectable.gameObject || current.transform.IsChildOf(selectable.transform))
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+        }
+
+        int nextIndex;
+        if (currentIndex < 0)
+            nextIndex = reverse ? candidates.Count - 1 : 0;
+        else if (reverse)
+            nextIndex = currentIndex <= 0 ? candidates.Count - 1 : currentIndex - 1;
+        else
+            nextIndex = currentIndex >= candidates.Count - 1 ? 0 : currentIndex + 1;
+
+        eventSystem.SetSelectedGameObject(candidates[nextIndex].gameObject);
+        PlayUIButtonHoverSfx(0.7f);
+    }
+
+    private List<Selectable> GatherKeyboardSelectables(GameObject root)
+    {
+        List<Selectable> result = new List<Selectable>();
+        if (root == null)
+            return result;
+
+        Selectable[] selectables = root.GetComponentsInChildren<Selectable>(true);
+        for (int i = 0; i < selectables.Length; i++)
+        {
+            Selectable selectable = selectables[i];
+            if (selectable == null)
+                continue;
+            if (!selectable.IsActive() || !selectable.IsInteractable())
+                continue;
+            if (!selectable.gameObject.activeInHierarchy)
+                continue;
+
+            result.Add(selectable);
+        }
+
+        return result;
+    }
+
+    private void TryMoveSelectionWithWASD(EventSystem eventSystem, GameObject root)
+    {
+        if (eventSystem == null || root == null)
+            return;
+
+        MoveDirection moveDir = MoveDirection.None;
+        Vector2 moveVector = Vector2.zero;
+
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            moveDir = MoveDirection.Up;
+            moveVector = Vector2.up;
+        }
+        else if (Input.GetKeyDown(KeyCode.S))
+        {
+            moveDir = MoveDirection.Down;
+            moveVector = Vector2.down;
+        }
+        else if (Input.GetKeyDown(KeyCode.A))
+        {
+            moveDir = MoveDirection.Left;
+            moveVector = Vector2.left;
+        }
+        else if (Input.GetKeyDown(KeyCode.D))
+        {
+            moveDir = MoveDirection.Right;
+            moveVector = Vector2.right;
+        }
+
+        if (moveDir == MoveDirection.None)
+            return;
+
+        GameObject selected = eventSystem.currentSelectedGameObject;
+        if (selected == null || !selected.activeInHierarchy || !selected.transform.IsChildOf(root.transform))
+        {
+            SelectFirstKeyboardTarget(eventSystem, root);
+            return;
+        }
+
+        AxisEventData axisEvent = new AxisEventData(eventSystem)
+        {
+            moveDir = moveDir,
+            moveVector = moveVector
+        };
+
+        GameObject before = eventSystem.currentSelectedGameObject;
+        ExecuteEvents.Execute(before, axisEvent, ExecuteEvents.moveHandler);
+        GameObject after = eventSystem.currentSelectedGameObject;
+        if (after != null && after != before)
+            PlayUIButtonHoverSfx(0.7f);
+    }
+
+    private void TrySubmitSelectionWithSpace(EventSystem eventSystem, GameObject root)
+    {
+        if (eventSystem == null || root == null)
+            return;
+        if (!Input.GetKeyDown(KeyCode.Space))
+            return;
+
+        GameObject selected = eventSystem.currentSelectedGameObject;
+        if (selected == null || !selected.activeInHierarchy || !selected.transform.IsChildOf(root.transform))
+        {
+            SelectFirstKeyboardTarget(eventSystem, root);
+            selected = eventSystem.currentSelectedGameObject;
+        }
+
+        if (selected == null)
+            return;
+
+        BaseEventData submitEvent = new BaseEventData(eventSystem);
+        ExecuteEvents.Execute(selected, submitEvent, ExecuteEvents.submitHandler);
+    }
+
     private void ShowRoundClearTransition()
     {
         if (roundClearCo != null || roundClearActive)
@@ -2134,9 +2983,13 @@ private void SetPauseMenuVisible(bool visible)
         HealthPickup[] hpPool = pickupsRoot != null
             ? pickupsRoot.GetComponentsInChildren<HealthPickup>(true)
             : FindObjectsOfType<HealthPickup>();
+        CashPickup[] cashPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<CashPickup>(true)
+            : FindObjectsOfType<CashPickup>();
 
         List<XPPickup> xpTargets = new List<XPPickup>();
         List<HealthPickup> hpTargets = new List<HealthPickup>();
+        List<CashPickup> cashTargets = new List<CashPickup>();
         Vector2 playerPos = playerTransform.position;
 
         for (int i = 0; i < xpPool.Length; i++)
@@ -2159,7 +3012,17 @@ private void SetPauseMenuVisible(bool visible)
                 hpTargets.Add(pickup);
         }
 
-        if (xpTargets.Count == 0 && hpTargets.Count == 0)
+        for (int i = 0; i < cashPool.Length; i++)
+        {
+            CashPickup pickup = cashPool[i];
+            if (pickup == null || !pickup.isActiveAndEnabled)
+                continue;
+
+            if (IsPickupEligibleForRoundClearCollect(pickup.transform.position, playerPos, mainCamera, radiusSqr))
+                cashTargets.Add(pickup);
+        }
+
+        if (xpTargets.Count == 0 && hpTargets.Count == 0 && cashTargets.Count == 0)
             yield break;
 
         if (useOverlay && roundClearOverlay != null)
@@ -2168,8 +3031,9 @@ private void SetPauseMenuVisible(bool visible)
         float timeoutAt = Time.unscaledTime + roundClearAutoCollectMaxWaitSeconds;
         int xpCollected = 0;
         int hpCollected = 0;
+        int cashCollected = 0;
 
-        while (xpTargets.Count > 0 || hpTargets.Count > 0)
+        while (xpTargets.Count > 0 || hpTargets.Count > 0 || cashTargets.Count > 0)
         {
             if (playerTransform == null)
                 break;
@@ -2217,6 +3081,26 @@ private void SetPauseMenuVisible(bool visible)
                 }
             }
 
+            for (int i = cashTargets.Count - 1; i >= 0; i--)
+            {
+                CashPickup pickup = cashTargets[i];
+                if (pickup == null)
+                {
+                    cashTargets.RemoveAt(i);
+                    continue;
+                }
+
+                pickup.transform.position = Vector2.MoveTowards(pickup.transform.position, playerPos, step);
+
+                Vector2 delta = (Vector2)pickup.transform.position - playerPos;
+                if (delta.sqrMagnitude <= collectDistanceSqr)
+                {
+                    if (pickup.ForceCollect())
+                        cashCollected++;
+                    cashTargets.RemoveAt(i);
+                }
+            }
+
             if (roundClearAutoCollectMaxWaitSeconds > 0f && Time.unscaledTime >= timeoutAt)
             {
                 RunLogger.Warning("Round clear auto-collect animation timed out. Forcing remaining pickups.");
@@ -2242,12 +3126,20 @@ private void SetPauseMenuVisible(bool visible)
                 hpCollected++;
         }
 
-        int total = xpCollected + hpCollected;
+        for (int i = 0; i < cashTargets.Count; i++)
+        {
+            CashPickup pickup = cashTargets[i];
+            if (pickup == null) continue;
+            if (pickup.ForceCollect())
+                cashCollected++;
+        }
+
+        int total = xpCollected + hpCollected + cashCollected;
         if (total > 0)
         {
             string collectScope = mainCamera != null ? "screen" : "radius-fallback";
             RunLogger.Event(
-                $"Round clear auto-collect animated: total={total}, xp={xpCollected}, hp={hpCollected}, scope={collectScope}, speed={roundClearAutoCollectMoveSpeed:F1}");
+                $"Round clear auto-collect animated: total={total}, xp={xpCollected}, hp={hpCollected}, cash={cashCollected}, scope={collectScope}, speed={roundClearAutoCollectMoveSpeed:F1}");
         }
 
         if (total > 0 && roundClearCollectDelaySeconds > 0f)
@@ -2537,8 +3429,26 @@ private void SetPauseMenuVisible(bool visible)
     private void GetBaseEnemyMultipliersForRound(int round, out float hpMultiplier, out float speedMultiplier)
     {
         int safeRound = Mathf.Max(1, round);
-        hpMultiplier = EvaluateMonotonicCurve(enemyHpCurve, safeRound, enemyHpMinGrowthPerRound);
-        speedMultiplier = EvaluateMonotonicCurve(enemySpeedCurve, safeRound, enemySpeedMinGrowthPerRound);
+        float hpCurveValue = EvaluateMonotonicCurve(enemyHpCurve, safeRound, enemyHpMinGrowthPerRound);
+        float speedCurveValue = EvaluateMonotonicCurve(enemySpeedCurve, safeRound, enemySpeedMinGrowthPerRound);
+        float difficultyScale = EvaluateEnemyDifficultyScale(safeRound);
+        float roundT = GetRoundCurveT(safeRound);
+        float hpPressure = Mathf.Lerp(enemyHpPressureAtRound1, enemyHpPressureAtBoss, roundT);
+        float speedPressure = Mathf.Lerp(enemySpeedPressureAtRound1, enemySpeedPressureAtBoss, roundT);
+
+        hpMultiplier = Mathf.Max(1f, hpCurveValue * difficultyScale * hpPressure);
+        speedMultiplier = Mathf.Max(1f, speedCurveValue * difficultyScale * speedPressure);
+    }
+
+    private float EvaluateEnemyDifficultyScale(int round)
+    {
+        float t = GetRoundCurveT(round);
+        float rampT = enemyDifficultyRamp != null && enemyDifficultyRamp.length > 0
+            ? Mathf.Clamp01(enemyDifficultyRamp.Evaluate(t))
+            : t;
+        float start = Mathf.Max(0.1f, enemyDifficultyScaleAtRound1);
+        float end = Mathf.Max(0.1f, enemyDifficultyScaleAtBoss);
+        return Mathf.Lerp(start, end, rampT);
     }
 
     private float EvaluateMonotonicCurve(AnimationCurve curve, int targetRound, float minGrowthPerRound)
@@ -2566,7 +3476,12 @@ private void SetPauseMenuVisible(bool visible)
             safeLevel,
             Mathf.Max(2, xpCurveMaxLevel),
             xpMinGrowthPerLevel);
-        int result = Mathf.RoundToInt(baseXpToNext * growth);
+        float levelT = Mathf.Clamp01((safeLevel - 1f) / Mathf.Max(1f, xpCurveMaxLevel - 1f));
+        float requirementMultiplier = Mathf.Lerp(
+            Mathf.Max(1f, xpRequirementMultiplierAtLevel1),
+            Mathf.Max(1f, xpRequirementMultiplierAtHighLevel),
+            levelT);
+        int result = Mathf.RoundToInt(baseXpToNext * growth * requirementMultiplier);
         return Mathf.Max(1, result);
     }
 

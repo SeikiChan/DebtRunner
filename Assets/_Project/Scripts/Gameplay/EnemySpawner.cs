@@ -99,6 +99,8 @@ public class EnemySpawner : MonoBehaviour
     [Header("XP Drop / 经验掉落")]
     [LocalizedLabel("经验掉落预制体")]
     [SerializeField] private XPPickup xpPickupPrefab;
+    [LocalizedLabel("现金掉落预制体")]
+    [SerializeField] private CashPickup cashPickupPrefab;
     [LocalizedLabel("掉落物根节点")]
     [SerializeField] private Transform pickupsRoot;
 
@@ -107,6 +109,8 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private bool spawnBossOnBossRound = true;
     [LocalizedLabel("Boss预制体")]
     [SerializeField] private EnemyController bossPrefab;
+    [LocalizedLabel("Boss回合继续刷普通敌人")]
+    [SerializeField] private bool spawnRegularEnemiesDuringBossRound = true;
 
     private float timer;
     private float safeGapTimer;
@@ -158,10 +162,12 @@ public class EnemySpawner : MonoBehaviour
             RefreshRuntimeEnemyPool(currentRound);
         }
 
-        if (flow != null && flow.IsBossRoundActive())
+        bool isBossRound = flow != null && flow.IsBossRoundActive();
+        if (isBossRound)
         {
             TrySpawnBossForRound();
-            return;
+            if (!spawnRegularEnemiesDuringBossRound)
+                return;
         }
 
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return;
@@ -206,7 +212,7 @@ public class EnemySpawner : MonoBehaviour
 
         var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
 
-        e.Init(player, xpPickupPrefab, pickupsRoot);
+        e.Init(player, xpPickupPrefab, pickupsRoot, cashPickupPrefab);
 
         if (GameFlowController.Instance != null)
         {
@@ -234,10 +240,37 @@ public class EnemySpawner : MonoBehaviour
         if (bossSpawnedThisRound)
             return;
 
+        if (HasAliveBossInScene())
+        {
+            bossSpawnedThisRound = true;
+            RunLogger.Warning($"Boss spawn skipped for round {trackedRound}: alive boss already exists.");
+            return;
+        }
+
         bossSpawnedThisRound = true;
         RefreshRuntimeSpawnSettings();
         SpawnEnemy(bossPrefab);
         RunLogger.Event($"Boss spawned for round {trackedRound}. one-time spawn enforced.");
+    }
+
+    private bool HasAliveBossInScene()
+    {
+        BossAttackController[] bosses = enemiesRoot != null
+            ? enemiesRoot.GetComponentsInChildren<BossAttackController>(true)
+            : FindObjectsOfType<BossAttackController>();
+
+        for (int i = 0; i < bosses.Length; i++)
+        {
+            BossAttackController boss = bosses[i];
+            if (boss == null || !boss.gameObject.activeInHierarchy)
+                continue;
+
+            EnemyController bossEnemy = boss.GetComponent<EnemyController>();
+            if (bossEnemy == null || bossEnemy.CurrentHP > 0f)
+                return true;
+        }
+
+        return false;
     }
 
     private Vector3 ResolveSpawnPosition()

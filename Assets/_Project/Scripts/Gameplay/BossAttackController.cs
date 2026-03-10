@@ -40,6 +40,8 @@ public class BossAttackController : MonoBehaviour
     [SerializeField] private EnemyController debtCollectorPrefab;
     [LocalizedLabel("小怪经验掉落预制体")]
     [SerializeField] private XPPickup addsXpPickupPrefab;
+    [LocalizedLabel("小怪现金掉落预制体")]
+    [SerializeField] private CashPickup addsCashPickupPrefab;
     [LocalizedLabel("子弹根节点")]
     [SerializeField] private Transform projectilesRoot;
     [LocalizedLabel("敌人根节点")]
@@ -515,7 +517,7 @@ public class BossAttackController : MonoBehaviour
         for (int i = 0; i < spawnPoints.Count; i++)
         {
             EnemyController add = Instantiate(debtCollectorPrefab, spawnPoints[i], Quaternion.identity, root);
-            add.Init(player, addsXpPickupPrefab, pickupsRoot);
+            add.Init(player, addsXpPickupPrefab, pickupsRoot, addsCashPickupPrefab);
 
             float hpMul = addHpMultiplier;
             float speedMul = addSpeedMultiplier;

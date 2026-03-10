@@ -12,4 +12,5 @@ public enum WeaponUpgradeEffectType
     OrbitProjectileCountAdd = 9,
     OrbitRadiusAdd = 10,
     OrbitAngularSpeedAdd = 11,
+    NovaProjectileCountAdd = 12,
 }

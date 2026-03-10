@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 11
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Impact II
-  description: +18% knockback
+  upgradeTitle: Doorstep Sweep
+  description: A sweeping notice keeps peeling enemies off your sides.
   icon: {fileID: 0}
-  rarity: 1
-  weightPercent: 9
+  rarity: 3
+  weightPercent: 5
   effects:
-  - effectType: 6
-    intValue: 0
-    floatValue: 0.18
+  - effectType: 12
+    intValue: 6
+    floatValue: 0.0

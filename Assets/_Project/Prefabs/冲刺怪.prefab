@@ -213,13 +213,19 @@ MonoBehaviour:
   maxHP: 5
   cashValue: 20
   xpDrop: 1
-  cashPopupColor: {r: 0.9245283, g: 0.86318535, b: 0.02180491, a: 1}
-  cashPopupFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  cashPopupTextSize: 10
-  cashPopupTextScale: 1
-  cashPopupRiseSpeed: 1.5
-  cashPopupLifetime: 0.9
-  cashPopupFadeOutDuration: 0.35
+  cashPickupPrefab: {fileID: -2223663088653925849, guid: 579e178f9139359488de49e6b4271060, type: 3}
+  pickupDropScatterRadius: 0.7
+  pickupDropInnerRadiusRatio: 0.35
+  pickupDropVerticalOffset: 0.2
+  pickupDropMinSeparation: 0.28
+  pickupDropPositionAttempts: 12
+  damagePopupColor: {r: 1, g: 0.11792451, b: 0.11792451, a: 1}
+  damagePopupFont: {fileID: 0}
+  damagePopupTextSize: 10
+  damagePopupTextScale: 1
+  damagePopupRiseSpeed: 1.5
+  damagePopupLifetime: 0.9
+  damagePopupFadeOutDuration: 0.35
   hpDropChance: 0.12
   hpHealAmount: 1
   hpPickupPrefab: {fileID: 0}

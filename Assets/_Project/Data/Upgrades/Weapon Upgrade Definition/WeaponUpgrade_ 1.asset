@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 1
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Booster I
-  description: +5% attack speed
+  upgradeTitle: Quick Stamp
+  description: Tighten your cadence and keep the pressure on.
   icon: {fileID: 0}
   rarity: 0
-  weightPercent: 12
+  weightPercent: 7
   effects:
   - effectType: 1
     intValue: 0
-    floatValue: 0.012
+    floatValue: 0.018

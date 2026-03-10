@@ -12,18 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 21
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Apex Deck
-  description: +2 damage, +9% attack speed, +1 pierce
+  upgradeTitle: Debt Hurricane
+  description: Your whole collection routine starts running on its own.
   icon: {fileID: 0}
   rarity: 4
-  weightPercent: 3
+  weightPercent: 2
   effects:
-  - effectType: 0
-    intValue: 2
+  - effectType: 9
+    intValue: 1
+    floatValue: 0.0
+  - effectType: 12
+    intValue: 8
+    floatValue: 0.0
+  - effectType: 7
+    intValue: 1
     floatValue: 0.0
   - effectType: 1
     intValue: 0
-    floatValue: 0.02
-  - effectType: 5
-    intValue: 1
-    floatValue: 0.0
+    floatValue: 0.015

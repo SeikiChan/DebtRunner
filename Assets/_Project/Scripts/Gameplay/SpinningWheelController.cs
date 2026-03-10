@@ -24,10 +24,10 @@ public class SpinningWheelController : MonoBehaviour
     [Serializable]
     private class OutcomeWeightProfile
     {
-        [Min(0f)] public float thankYou = 2f;
+        [Min(0f)] public float thankYou = 0f;
         [Min(0f)] public float debtUp = 1f;
-        [Min(0f)] public float freeItem = 2f;
-        [Min(0f)] public float cash = 2f;
+        [Min(0f)] public float freeItem = 1f;
+        [Min(0f)] public float cash = 1f;
         [Min(0f)] public float enemyStronger = 1f;
 
         public float Get(PrizeOutcomeType type)
@@ -79,19 +79,23 @@ public class SpinningWheelController : MonoBehaviour
     [SerializeField] private OutcomeWeightProfile baseWeights = new OutcomeWeightProfile();
     [SerializeField] private OutcomeWeightProfile boostWeights = new OutcomeWeightProfile();
     [SerializeField, Min(0f)] private float negativeOutcomeMinWeight = 2f;
+    [SerializeField] private bool enforceNegativeExpectedValue = true;
+    [SerializeField, Range(0f, 1f)] private float positiveOutcomeChance = 0.62f;
 
     [Header("Reward Values / 奖励数值")]
     [SerializeField] private Vector2Int cashRewardRange = new Vector2Int(120, 260);
     [SerializeField] private Vector2Int debtPenaltyRange = new Vector2Int(150, 400);
     [SerializeField, Min(1f)] private float enemyHpBuffMultiplier = 1.35f;
     [SerializeField, Min(1f)] private float enemySpeedBuffMultiplier = 1.15f;
+    [SerializeField, Min(1f)] private float enemyRewardBuffMultiplier = 1.5f;
+    [SerializeField] private bool cashOutcomeRefundsDrawCost = false;
 
     [Header("Outcome Labels / 结果标签")]
     [SerializeField] private string labelThankYou = "THANKS";
     [SerializeField] private string labelDebtUp = "DEBT+";
     [SerializeField] private string labelFreeItem = "FREE";
     [SerializeField] private string labelCash = "CASH";
-    [SerializeField] private string labelEnemyStronger = "ENEMY+";
+    [SerializeField] private string labelEnemyStronger = "RISK!";
 
     private readonly List<PrizeOutcomeType> recentOutcomes = new List<PrizeOutcomeType>(2);
 
@@ -153,12 +157,20 @@ public class SpinningWheelController : MonoBehaviour
         RefreshDrawLabel();
     }
 
-    public void SetRewardConfig(int cashMin, int cashMax, int debtMin, int debtMax, float hpBuff, float speedBuff)
+    public void SetRewardConfig(int cashMin, int cashMax, int debtMin, int debtMax, float hpBuff, float speedBuff, float rewardBuff = 1.5f)
     {
         cashRewardRange = new Vector2Int(Mathf.Min(cashMin, cashMax), Mathf.Max(cashMin, cashMax));
         debtPenaltyRange = new Vector2Int(Mathf.Min(debtMin, debtMax), Mathf.Max(debtMin, debtMax));
         enemyHpBuffMultiplier = Mathf.Max(1f, hpBuff);
         enemySpeedBuffMultiplier = Mathf.Max(1f, speedBuff);
+        enemyRewardBuffMultiplier = Mathf.Max(1f, rewardBuff);
+    }
+
+    public void SetRiskModel(bool enforceRiskModel, float positiveChance, bool cashRefundByCost)
+    {
+        enforceNegativeExpectedValue = enforceRiskModel;
+        positiveOutcomeChance = Mathf.Clamp01(positiveChance);
+        cashOutcomeRefundsDrawCost = cashRefundByCost;
     }
 
     public void CancelAndReset(bool settlePendingResult)
@@ -252,6 +264,7 @@ public class SpinningWheelController : MonoBehaviour
         cashRewardRange = new Vector2Int(Mathf.Min(cashRewardRange.x, cashRewardRange.y), Mathf.Max(cashRewardRange.x, cashRewardRange.y));
         debtPenaltyRange = new Vector2Int(Mathf.Min(debtPenaltyRange.x, debtPenaltyRange.y), Mathf.Max(debtPenaltyRange.x, debtPenaltyRange.y));
         negativeOutcomeMinWeight = Mathf.Max(0f, negativeOutcomeMinWeight);
+        positiveOutcomeChance = Mathf.Clamp01(positiveOutcomeChance);
     }
 
     private void RefreshSegmentVisuals()
@@ -274,7 +287,7 @@ public class SpinningWheelController : MonoBehaviour
     private void RefreshDrawLabel()
     {
         if (textDrawLabel != null)
-            textDrawLabel.text = $"DRAW\n${drawCost}";
+            textDrawLabel.text = $"ROLL\n${drawCost}";
     }
 
     private void OnDrawClicked()
@@ -290,7 +303,7 @@ public class SpinningWheelController : MonoBehaviour
 
         if (!gameFlow.TrySpendCash(drawCost))
         {
-            PushInfo("Not enough cash to draw.");
+            PushInfo("Not enough cash to roll.");
             return;
         }
 
@@ -317,6 +330,13 @@ public class SpinningWheelController : MonoBehaviour
         BuildEffectiveWeights(useBoost, out thankW, out debtW, out freeW, out cashW, out enemyW);
         ApplyNegativeStreakProtection(ref debtW, ref enemyW, ref cashW, ref freeW);
 
+        if (enforceNegativeExpectedValue)
+        {
+            PrizeOutcomeType forcedResult = RollHalfWinHalfRisk(debtW, freeW, cashW, enemyW);
+            PushOutcomeHistory(forcedResult);
+            return forcedResult;
+        }
+
         float total = Mathf.Max(0f, thankW) + Mathf.Max(0f, debtW) +
                       Mathf.Max(0f, freeW) + Mathf.Max(0f, cashW) + Mathf.Max(0f, enemyW);
 
@@ -333,6 +353,56 @@ public class SpinningWheelController : MonoBehaviour
 
         PushOutcomeHistory(result);
         return result;
+    }
+
+    private PrizeOutcomeType RollHalfWinHalfRisk(float debtW, float freeW, float cashW, float enemyW)
+    {
+        float positiveWeight = Mathf.Max(0f, freeW) + Mathf.Max(0f, cashW);
+        float negativeWeight = Mathf.Max(0f, debtW) + Mathf.Max(0f, enemyW);
+
+        if (positiveWeight <= 0f && negativeWeight <= 0f)
+            return PrizeOutcomeType.ThankYou;
+
+        if (positiveWeight <= 0f)
+        {
+            return RollFromTwo(
+                PrizeOutcomeType.DebtUp, debtW,
+                PrizeOutcomeType.EnemyStronger, enemyW);
+        }
+
+        if (negativeWeight <= 0f)
+        {
+            return RollFromTwo(
+                PrizeOutcomeType.Cash, cashW,
+                PrizeOutcomeType.FreeItem, freeW);
+        }
+
+        bool pickPositive = UnityEngine.Random.value < positiveOutcomeChance;
+        if (pickPositive)
+        {
+            return RollFromTwo(
+                PrizeOutcomeType.Cash, cashW,
+                PrizeOutcomeType.FreeItem, freeW);
+        }
+
+        return RollFromTwo(
+            PrizeOutcomeType.DebtUp, debtW,
+            PrizeOutcomeType.EnemyStronger, enemyW);
+    }
+
+    private PrizeOutcomeType RollFromTwo(
+        PrizeOutcomeType firstOutcome, float firstWeight,
+        PrizeOutcomeType secondOutcome, float secondWeight)
+    {
+        float safeFirst = Mathf.Max(0f, firstWeight);
+        float safeSecond = Mathf.Max(0f, secondWeight);
+        float total = safeFirst + safeSecond;
+
+        if (total <= 0f)
+            return firstOutcome;
+
+        float r = UnityEngine.Random.Range(0f, total);
+        return r < safeFirst ? firstOutcome : secondOutcome;
     }
 
     private void BuildEffectiveWeights(bool useBoost, out float thankW, out float debtW, out float freeW, out float cashW, out float enemyW)
@@ -400,30 +470,37 @@ public class SpinningWheelController : MonoBehaviour
         {
             case PrizeOutcomeType.Cash:
             {
-                int reward = UnityEngine.Random.Range(cashRewardRange.x, cashRewardRange.y + 1);
+                int reward = cashOutcomeRefundsDrawCost
+                    ? Mathf.Max(0, drawCost)
+                    : UnityEngine.Random.Range(cashRewardRange.x, cashRewardRange.y + 1);
                 gameFlow?.AddCash(reward);
-                PushInfo($"Draw result: CASH +${reward}.");
+                if (cashOutcomeRefundsDrawCost)
+                    PushInfo($"JACKPOT! CASH +${reward} (refund).");
+                else
+                    PushInfo($"JACKPOT! CASH +${reward}!");
                 break;
             }
             case PrizeOutcomeType.FreeItem:
             {
                 int total = shopSystem != null ? shopSystem.AddFreeItemCharges(1) : 1;
-                PushInfo($"Draw result: FREE ITEM. Free charges: {total}.");
+                PushInfo($"FREE ITEM! Next purchase is on the house. Charges: {total}.");
                 break;
             }
             case PrizeOutcomeType.DebtUp:
             {
                 int penalty = UnityEngine.Random.Range(debtPenaltyRange.x, debtPenaltyRange.y + 1);
                 gameFlow?.AddDebtPenaltyToNextRound(penalty);
-                PushInfo($"Draw result: DEBT UP +${penalty} next round.");
+                PushInfo($"Bad luck... Debt +${penalty} next round.");
                 break;
             }
             case PrizeOutcomeType.EnemyStronger:
                 gameFlow?.AddEnemyBuffToNextRound(enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
-                PushInfo($"Draw result: ENEMY STRONGER (HP x{enemyHpBuffMultiplier:F2}, Speed x{enemySpeedBuffMultiplier:F2}).");
+                gameFlow?.AddRewardBuffToNextRound(enemyRewardBuffMultiplier);
+                int rewardPercent = Mathf.RoundToInt((enemyRewardBuffMultiplier - 1f) * 100f);
+                PushInfo($"RISK & REWARD! Enemies stronger next round, but drops +{rewardPercent}% cash & XP!");
                 break;
             default:
-                PushInfo("Draw result: Thank you for participating.");
+                PushInfo("Better luck next time!");
                 break;
         }
 

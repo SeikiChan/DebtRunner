@@ -14,10 +14,14 @@ public class PlayerVisualAnim : MonoBehaviour
     [SerializeField, Min(0f)] private float idleBreathSpeed = 2f;
 
     [Header("Move")]
-    [SerializeField, Min(0f)] private float moveBobAmplitude = 0.04f;
-    [SerializeField, Min(0f)] private float moveBobFrequency = 10f;
-    [SerializeField, Min(0f)] private float moveLeanAngle = 3f;
+    [SerializeField, Min(0f)] private float moveBobAmplitude = 0.07f;
+    [SerializeField, Min(0f)] private float moveBobFrequency = 12f;
+    [SerializeField, Min(0f)] private float moveLeanAngle = 6f;
     [SerializeField, Min(0.01f)] private float leanLerpSpeed = 10f;
+    [SerializeField, Min(0f)] private float moveLagOffset = 0.075f;
+    [SerializeField, Min(0f)] private float moveStrafeSwing = 0.03f;
+    [SerializeField, Min(0.01f)] private float moveOffsetLerpSpeed = 12f;
+    [SerializeField, Min(0f)] private float moveSquashAmplitude = 0.03f;
     [SerializeField] private bool flipSpriteByMoveX = true;
 
     private Vector3 baseLocalPosition;
@@ -26,6 +30,7 @@ public class PlayerVisualAnim : MonoBehaviour
     private float breathTimer;
     private float bobTimer;
     private float currentLean;
+    private Vector2 currentMoveOffset;
 
     private void Reset()
     {
@@ -78,16 +83,26 @@ public class PlayerVisualAnim : MonoBehaviour
         float lerpT = 1f - Mathf.Exp(-leanLerpSpeed * Time.deltaTime);
         currentLean = Mathf.Lerp(currentLean, targetLean, lerpT);
 
+        Vector2 targetOffset = Vector2.zero;
+        if (moving)
+        {
+            Vector2 lag = -move * moveLagOffset;
+            Vector2 swing = new Vector2(Mathf.Sin(bobTimer) * moveStrafeSwing, 0f);
+            targetOffset = lag + swing;
+        }
+        float offsetLerpT = 1f - Mathf.Exp(-moveOffsetLerpSpeed * Time.deltaTime);
+        currentMoveOffset = Vector2.Lerp(currentMoveOffset, targetOffset, offsetLerpT);
+
         float scaleX = 1f - (breath * 0.35f);
         float scaleY = 1f + breath;
         if (moving)
         {
-            float squash = Mathf.Abs(Mathf.Sin(bobTimer)) * 0.015f;
+            float squash = Mathf.Abs(Mathf.Sin(bobTimer)) * moveSquashAmplitude;
             scaleX += squash;
             scaleY -= squash;
         }
 
-        visualTarget.localPosition = baseLocalPosition + new Vector3(0f, bob, 0f);
+        visualTarget.localPosition = baseLocalPosition + new Vector3(currentMoveOffset.x, bob + currentMoveOffset.y, 0f);
         visualTarget.localRotation = baseLocalRotation * Quaternion.Euler(0f, 0f, currentLean);
         visualTarget.localScale = new Vector3(
             baseLocalScale.x * scaleX,
@@ -162,5 +177,6 @@ public class PlayerVisualAnim : MonoBehaviour
         visualTarget.localPosition = baseLocalPosition;
         visualTarget.localScale = baseLocalScale;
         visualTarget.localRotation = baseLocalRotation;
+        currentMoveOffset = Vector2.zero;
     }
 }

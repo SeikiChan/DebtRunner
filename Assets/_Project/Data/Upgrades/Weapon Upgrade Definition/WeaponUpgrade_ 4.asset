@@ -12,17 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 4
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Booster Plus
-  description: +5% attack speed, +10% projectile speed
-
-    Projectile Speed Add'
+  upgradeTitle: Hard Copy
+  description: Give your paperwork enough bite to punch through the front line.
   icon: {fileID: 0}
-  rarity: 1
-  weightPercent: 9
+  rarity: 0
+  weightPercent: 7
   effects:
-  - effectType: 1
-    intValue: 0
-    floatValue: 0.012
-  - effectType: 2
-    intValue: 0
-    floatValue: 1.2
+  - effectType: 5
+    intValue: 1
+    floatValue: 0.0

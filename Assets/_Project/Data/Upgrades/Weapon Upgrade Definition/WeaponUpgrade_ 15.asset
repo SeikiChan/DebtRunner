@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 15
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Piercing Tip II
-  description: +1 pierce, +12% knockback
+  upgradeTitle: Encircling Debt
+  description: Your collector ring widens and turns the space around you hostile.
   icon: {fileID: 0}
-  rarity: 2
-  weightPercent: 7
+  rarity: 3
+  weightPercent: 4
   effects:
-  - effectType: 5
+  - effectType: 9
     intValue: 1
     floatValue: 0.0
-  - effectType: 6
+  - effectType: 10
     intValue: 0
-    floatValue: 0.12
+    floatValue: 0.2

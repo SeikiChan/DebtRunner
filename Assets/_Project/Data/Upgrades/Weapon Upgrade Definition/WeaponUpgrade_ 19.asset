@@ -12,18 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 19
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Orbit Storm
-  description: +1 orbit card, +8% orbit radius, +21% orbit speed
+  upgradeTitle: Collections Bloom
+  description: Piercing hits keep the bloom moving deeper into the crowd.
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4
   effects:
-  - effectType: 9
+  - effectType: 7
     intValue: 1
     floatValue: 0.0
-  - effectType: 10
+  - effectType: 5
+    intValue: 1
+    floatValue: 0.0
+  - effectType: 8
     intValue: 0
-    floatValue: 0.12
-  - effectType: 11
-    intValue: 0
-    floatValue: 30.0
+    floatValue: 14.0

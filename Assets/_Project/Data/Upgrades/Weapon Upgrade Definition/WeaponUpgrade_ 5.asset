@@ -12,17 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 5
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Heavy Card II
-  description: +1 damage, +8% knockback
-
-    Knockback Multiplier Add'
+  upgradeTitle: Collection Ring
+  description: Set collector cards circling close to your body.
   icon: {fileID: 0}
-  rarity: 1
-  weightPercent: 10
+  rarity: 2
+  weightPercent: 7
   effects:
-  - effectType: 0
+  - effectType: 9
     intValue: 1
     floatValue: 0.0
-  - effectType: 6
+  - effectType: 11
     intValue: 0
-    floatValue: 0.08
+    floatValue: 18.0

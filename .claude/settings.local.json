@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd -l 2 -s 0 \"Assets/_Project/Scripts/Gameplay/GameFlowController.cs\")"
+    ]
+  }
+}

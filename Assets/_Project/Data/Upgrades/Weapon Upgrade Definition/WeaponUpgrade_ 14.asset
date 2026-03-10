@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 14
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Twin Shot
-  description: +1 projectile, +6 deg spread
+  upgradeTitle: Clause Cascade
+  description: A clean hit opens into a fuller paper bloom.
   icon: {fileID: 0}
   rarity: 2
-  weightPercent: 7
+  weightPercent: 6
   effects:
-  - effectType: 3
+  - effectType: 7
     intValue: 1
     floatValue: 0.0
-  - effectType: 4
+  - effectType: 8
     intValue: 0
-    floatValue: 6.0
+    floatValue: 12.0

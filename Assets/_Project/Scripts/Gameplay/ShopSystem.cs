@@ -48,17 +48,27 @@ public class ShopSystem : MonoBehaviour
 
     [Header("Costs / 费用")]
     [LocalizedLabel("Gamble Cost / 抽奖费用")]
-    [SerializeField] private int gambleCost = 120;
-    [LocalizedLabel("Refresh Cost / 刷新费用")]
-    [SerializeField] private int refreshCost = 80;
+    [SerializeField] private int gambleCost = 90;
+    [LocalizedLabel("Refresh Base Cost / 刷新基础费用")]
+    [SerializeField] private int refreshCost = 50;
+    [LocalizedLabel("Refresh Cost Increment / 每次刷新涨价")]
+    [SerializeField] private int refreshCostIncrement = 30;
 
     [Header("Gamble Rewards / 赌博奖励")]
-    [SerializeField] private int cashRewardMin = 120;
-    [SerializeField] private int cashRewardMax = 260;
-    [SerializeField] private int debtPenaltyMin = 150;
-    [SerializeField] private int debtPenaltyMax = 400;
-    [SerializeField] private float enemyHpBuffMultiplier = 1.35f;
-    [SerializeField] private float enemySpeedBuffMultiplier = 1.15f;
+    [SerializeField] private int cashRewardMin = 180;
+    [SerializeField] private int cashRewardMax = 360;
+    [SerializeField] private int debtPenaltyMin = 100;
+    [SerializeField] private int debtPenaltyMax = 260;
+    [SerializeField] private float enemyHpBuffMultiplier = 1.22f;
+    [SerializeField] private float enemySpeedBuffMultiplier = 1.08f;
+    [SerializeField] private float enemyRewardBuffMultiplier = 1.5f;
+    [SerializeField] private bool useDynamicGambleCost = true;
+    [SerializeField, Range(0.35f, 0.95f)] private float gambleCostToOfferPriceRatio = 0.42f;
+    [SerializeField, Min(1)] private int gambleCostMin = 35;
+    [SerializeField, Min(1)] private int gambleCostMax = 120;
+    [SerializeField] private bool enforceWheelRiskModel = true;
+    [SerializeField, Range(0f, 1f)] private float wheelPositiveOutcomeChance = 0.68f;
+    [SerializeField] private bool wheelCashRefundByCost = false;
 
     [Header("Shop Item Pool / 商品池")]
     [LocalizedLabel("Shop Item Pool Asset / 商品池资源")]
@@ -88,6 +98,8 @@ public class ShopSystem : MonoBehaviour
     private bool uiReady;
     private bool eventsBound;
     private int pendingFreeItemCharges;
+    private int runtimeGambleCost;
+    private int refreshTimesThisVisit;
 
     public void Bind(GameFlowController flow, RunProgressionState progression)
     {
@@ -105,10 +117,11 @@ public class ShopSystem : MonoBehaviour
         EnsureUI();
         BindUiEvents();
         pendingFreeItemCharges = 0;
+        refreshTimesThisVisit = 0;
         GenerateOffers();
         BindSpinningWheel();
         spinningWheel?.OnShopOpened();
-        SetInfo("Spend cash to upgrade. Draw can help or hurt the next round.");
+        SetInfo($"Spend cash to upgrade. Roll costs ${ResolveRuntimeGambleCost()} — big rewards await!");
         RefreshShopUI();
     }
 
@@ -162,15 +175,22 @@ public class ShopSystem : MonoBehaviour
                 textCash.text = $"Cash: ${gameFlow.GetCashAmount()}";
         }
 
-        if (textRefreshLabel != null) textRefreshLabel.text = $"Refresh ${refreshCost}";
+        if (textRefreshLabel != null) textRefreshLabel.text = $"Refresh ${GetCurrentRefreshCost()}";
+
+        runtimeGambleCost = ResolveRuntimeGambleCost();
 
         if (spinningWheel != null)
         {
-            spinningWheel.SetDrawCost(gambleCost);
+            spinningWheel.SetDrawCost(runtimeGambleCost);
             spinningWheel.SetRewardConfig(
                 cashRewardMin, cashRewardMax,
                 debtPenaltyMin, debtPenaltyMax,
-                enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
+                enemyHpBuffMultiplier, enemySpeedBuffMultiplier,
+                enemyRewardBuffMultiplier);
+            spinningWheel.SetRiskModel(
+                enforceWheelRiskModel,
+                wheelPositiveOutcomeChance,
+                wheelCashRefundByCost);
         }
 
         for (int i = 0; i < currentOffers.Length; i++)
@@ -240,18 +260,25 @@ public class ShopSystem : MonoBehaviour
         eventsBound = true;
     }
 
+    private int GetCurrentRefreshCost()
+    {
+        return refreshCost + refreshCostIncrement * refreshTimesThisVisit;
+    }
+
     private void RefreshOffers()
     {
         MarkOtherShopInteraction();
         if (gameFlow == null) return;
-        if (!gameFlow.TrySpendCash(refreshCost))
+        int cost = GetCurrentRefreshCost();
+        if (!gameFlow.TrySpendCash(cost))
         {
             SetInfo("Not enough cash to refresh.");
             return;
         }
 
+        refreshTimesThisVisit++;
         GenerateOffers();
-        SetInfo("Shop refreshed.");
+        SetInfo($"Shop refreshed. Next refresh: ${GetCurrentRefreshCost()}");
     }
 
     private void BuyOffer(int index)
@@ -341,12 +368,46 @@ public class ShopSystem : MonoBehaviour
         if (spinningWheel == null)
             return;
 
+        runtimeGambleCost = ResolveRuntimeGambleCost();
         spinningWheel.Bind(gameFlow, this);
-        spinningWheel.SetDrawCost(gambleCost);
+        spinningWheel.SetDrawCost(runtimeGambleCost);
         spinningWheel.SetRewardConfig(
             cashRewardMin, cashRewardMax,
             debtPenaltyMin, debtPenaltyMax,
-            enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
+            enemyHpBuffMultiplier, enemySpeedBuffMultiplier,
+            enemyRewardBuffMultiplier);
+        spinningWheel.SetRiskModel(
+            enforceWheelRiskModel,
+            wheelPositiveOutcomeChance,
+            wheelCashRefundByCost);
+    }
+
+    private int ResolveRuntimeGambleCost()
+    {
+        int baseCost = Mathf.Max(0, gambleCost);
+        if (!useDynamicGambleCost)
+            return baseCost;
+
+        int sum = 0;
+        int count = 0;
+        for (int i = 0; i < currentOffers.Length; i++)
+        {
+            ShopOffer offer = currentOffers[i];
+            if (offer == null || offer.definition == null)
+                continue;
+
+            sum += Mathf.Max(0, offer.definition.Price);
+            count++;
+        }
+
+        int floor = Mathf.Max(1, gambleCostMin);
+        int ceiling = Mathf.Max(floor, gambleCostMax);
+        if (count <= 0)
+            return Mathf.Clamp(baseCost, floor, ceiling);
+
+        float avgPrice = sum / (float)count;
+        int scaledCost = Mathf.RoundToInt(avgPrice * Mathf.Clamp(gambleCostToOfferPriceRatio, 0.1f, 2f));
+        return Mathf.Clamp(scaledCost, floor, ceiling);
     }
 
     private void EnsureUI()

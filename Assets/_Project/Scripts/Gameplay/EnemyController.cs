@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 using TMPro;
+using UnityEngine.Serialization;
 
 public class EnemyController : MonoBehaviour
 {
@@ -22,13 +24,26 @@ public class EnemyController : MonoBehaviour
 
     [SerializeField] private int cashValue = 20;
     [SerializeField] private int xpDrop = 1;
-    [SerializeField] private Color cashPopupColor = new Color(0.64f, 1f, 0.64f, 1f);
-    [SerializeField] private TMP_FontAsset cashPopupFont;
-    [SerializeField, Min(0.1f)] private float cashPopupTextSize = 6f;
-    [SerializeField, Min(0.01f)] private float cashPopupTextScale = 0.12f;
-    [SerializeField, Min(0f)] private float cashPopupRiseSpeed = 1.5f;
-    [SerializeField, Min(0.05f)] private float cashPopupLifetime = 0.9f;
-    [SerializeField, Min(0.01f)] private float cashPopupFadeOutDuration = 0.35f;
+    [SerializeField] private CashPickup cashPickupPrefab;
+    [SerializeField, Min(0f)] private float pickupDropScatterRadius = 0.26f;
+    [SerializeField, Range(0f, 0.95f)] private float pickupDropInnerRadiusRatio = 0.35f;
+    [SerializeField, Min(0f)] private float pickupDropVerticalOffset = 0.05f;
+    [SerializeField, Min(0f)] private float pickupDropMinSeparation = 0.28f;
+    [SerializeField, Min(1)] private int pickupDropPositionAttempts = 12;
+    [FormerlySerializedAs("cashPopupColor")]
+    [SerializeField] private Color damagePopupColor = new Color(1f, 0.92f, 0.62f, 1f);
+    [FormerlySerializedAs("cashPopupFont")]
+    [SerializeField] private TMP_FontAsset damagePopupFont;
+    [FormerlySerializedAs("cashPopupTextSize")]
+    [SerializeField, Min(0.1f)] private float damagePopupTextSize = 6f;
+    [FormerlySerializedAs("cashPopupTextScale")]
+    [SerializeField, Min(0.01f)] private float damagePopupTextScale = 0.12f;
+    [FormerlySerializedAs("cashPopupRiseSpeed")]
+    [SerializeField, Min(0f)] private float damagePopupRiseSpeed = 1.5f;
+    [FormerlySerializedAs("cashPopupLifetime")]
+    [SerializeField, Min(0.05f)] private float damagePopupLifetime = 0.9f;
+    [FormerlySerializedAs("cashPopupFadeOutDuration")]
+    [SerializeField, Min(0.01f)] private float damagePopupFadeOutDuration = 0.35f;
     [SerializeField, Range(0f, 1f)] private float hpDropChance = 0.12f;
     [SerializeField] private int hpHealAmount = 1;
     [SerializeField] private HealthPickup hpPickupPrefab;
@@ -42,8 +57,10 @@ public class EnemyController : MonoBehaviour
     private EnemyHitFeedback hitFeedback;
 
     private XPPickup xpPrefab;
+    private CashPickup cashPrefab;
     private Transform pickupsRoot;
     private Collider2D[] separationHits;
+    private static bool missingCashPickupWarned;
 
     public float CurrentHP => Mathf.Max(0f, hp);
     public float MaxHP => Mathf.Max(1f, runtimeMaxHP);
@@ -69,10 +86,11 @@ public class EnemyController : MonoBehaviour
         separationHits = new Collider2D[Mathf.Max(1, separationBufferSize)];
     }
 
-    public void Init(Transform playerTf, XPPickup xpPickupPrefab, Transform pickupsParent)
+    public void Init(Transform playerTf, XPPickup xpPickupPrefab, Transform pickupsParent, CashPickup cashPickupTemplate = null)
     {
         player = playerTf;
         xpPrefab = xpPickupPrefab;
+        cashPrefab = cashPickupTemplate != null ? cashPickupTemplate : cashPickupPrefab;
         pickupsRoot = pickupsParent;
 
         var shooter = GetComponent<EnemyShooter>();
@@ -217,7 +235,9 @@ public class EnemyController : MonoBehaviour
     {
         if (hp <= 0f) return; // 宸叉浜″拷鐣?
 
-        hp -= Mathf.Max(0, dmg);
+        int damageValue = Mathf.Max(0, dmg);
+        hp -= damageValue;
+        SpawnDamagePopup(damageValue);
         if (hitKnockback != null)
             hitKnockback.ApplyHit(hitDirection, knockbackForceMultiplier);
 
@@ -243,23 +263,29 @@ public class EnemyController : MonoBehaviour
     {
         RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
 
-        bool isBossEnemy = GetComponent<BossAttackController>() != null;
-
         if (GameFlowController.Instance != null)
-            GameFlowController.Instance.AddCash(cashValue);
+            GameFlowController.Instance.NotifyEnemyKilled();
 
-        SpawnCashPopup();
+        // Apply reward multiplier from wheel "Risk & Reward" outcome
+        float rewardMul = GameFlowController.Instance != null ? GameFlowController.Instance.CurrentRewardMultiplier : 1f;
+        int effectiveCash = Mathf.RoundToInt(cashValue * rewardMul);
+        int effectiveXP = Mathf.RoundToInt(xpDrop * rewardMul);
+
+        bool isBossEnemy = GetComponent<BossAttackController>() != null;
+        List<Vector2> reservedDropOffsets = new List<Vector2>(3);
+
+        SpawnCashPickup(ResolvePickupDropPosition(reservedDropOffsets), effectiveCash);
 
         if (xpPrefab != null)
         {
-            int totalXP = xpDrop;
+            int totalXP = effectiveXP;
             if (GameFlowController.Instance != null)
                 totalXP += GameFlowController.Instance.BonusXPPerKill;
-            var p = Instantiate(xpPrefab, transform.position, Quaternion.identity, pickupsRoot);
+            var p = Instantiate(xpPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
             p.SetAmount(totalXP);
         }
 
-        TryDropHealthPickup();
+        TryDropHealthPickup(reservedDropOffsets);
         LateBossDefeatNotify(isBossEnemy);
 
         var col = GetComponent<Collider2D>();
@@ -276,25 +302,140 @@ public class EnemyController : MonoBehaviour
             Destroy(gameObject);
     }
 
-    private void SpawnCashPopup()
+    private void SpawnDamagePopup(int damageValue)
     {
-        if (cashValue <= 0)
+        if (damageValue <= 0)
             return;
 
-        Vector3 popupPos = transform.position + Vector3.up * 0.85f + Vector3.right * Random.Range(-0.16f, 0.16f);
+        Vector3 popupPos = transform.position + Vector3.up * 0.82f + Vector3.right * Random.Range(-0.14f, 0.14f);
         WorldPopupText.Spawn(
-            $"+${cashValue}",
+            damageValue.ToString(),
             popupPos,
-            cashPopupColor,
-            cashPopupFont,
-            cashPopupTextSize,
-            cashPopupTextScale,
-            cashPopupRiseSpeed,
-            cashPopupLifetime,
-            cashPopupFadeOutDuration);
+            damagePopupColor,
+            damagePopupFont,
+            damagePopupTextSize,
+            damagePopupTextScale,
+            damagePopupRiseSpeed,
+            damagePopupLifetime,
+            damagePopupFadeOutDuration);
     }
 
-    private void TryDropHealthPickup()
+    private void SpawnCashPickup(Vector3 dropPos, int amount)
+    {
+        if (amount <= 0)
+            return;
+
+        CashPickup pickup = null;
+
+        if (cashPrefab != null)
+        {
+            pickup = Instantiate(cashPrefab, dropPos, Quaternion.identity, pickupsRoot);
+        }
+        else if (cashPickupPrefab != null)
+        {
+            pickup = Instantiate(cashPickupPrefab, dropPos, Quaternion.identity, pickupsRoot);
+        }
+
+        if (pickup == null)
+        {
+            if (!missingCashPickupWarned)
+            {
+                missingCashPickupWarned = true;
+                RunLogger.Warning("Cash pickup prefab missing. Falling back to direct AddCash until a CashPickup prefab is assigned.");
+            }
+
+            if (GameFlowController.Instance != null)
+                GameFlowController.Instance.AddCash(amount);
+            return;
+        }
+
+        pickup.SetAmount(amount);
+    }
+
+    private Vector3 ResolvePickupDropPosition(List<Vector2> reservedOffsets)
+    {
+        float radius = Mathf.Max(0f, pickupDropScatterRadius);
+        float yOffset = Mathf.Max(0f, pickupDropVerticalOffset);
+        if (radius <= 0f)
+            return transform.position + new Vector3(0f, yOffset, 0f);
+
+        Vector2 chosenOffset = RandomDropOffset(radius);
+        bool hasReserved = reservedOffsets != null && reservedOffsets.Count > 0;
+        float minSeparation = Mathf.Max(0f, pickupDropMinSeparation);
+        float maxPossibleSeparation = radius * 2f;
+        if (hasReserved && minSeparation > maxPossibleSeparation)
+            minSeparation = maxPossibleSeparation;
+        float minSepSqr = minSeparation * minSeparation;
+        int attempts = Mathf.Max(1, pickupDropPositionAttempts);
+
+        if (hasReserved && minSeparation > 0f)
+        {
+            bool found = false;
+            Vector2 bestCandidate = chosenOffset;
+            float bestCandidateMinDistSqr = -1f;
+            for (int i = 0; i < attempts; i++)
+            {
+                Vector2 candidate = RandomDropOffset(radius);
+                bool tooClose = false;
+                float candidateMinDistSqr = float.MaxValue;
+                for (int j = 0; j < reservedOffsets.Count; j++)
+                {
+                    Vector2 reserved = reservedOffsets[j];
+                    float distSqr = (candidate - reserved).sqrMagnitude;
+                    if (distSqr < candidateMinDistSqr)
+                        candidateMinDistSqr = distSqr;
+
+                    if (distSqr < minSepSqr)
+                    {
+                        tooClose = true;
+                    }
+                }
+
+                if (candidateMinDistSqr > bestCandidateMinDistSqr)
+                {
+                    bestCandidate = candidate;
+                    bestCandidateMinDistSqr = candidateMinDistSqr;
+                }
+
+                if (!tooClose)
+                {
+                    chosenOffset = candidate;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+                chosenOffset = bestCandidate;
+        }
+
+        if (reservedOffsets != null)
+            reservedOffsets.Add(chosenOffset);
+
+        return transform.position + new Vector3(chosenOffset.x, chosenOffset.y + yOffset, 0f);
+    }
+
+    private Vector2 RandomDropOffset(float radius)
+    {
+        float clampedRadius = Mathf.Max(0f, radius);
+        if (clampedRadius <= 0f)
+            return Vector2.zero;
+
+        float innerRatio = Mathf.Clamp01(pickupDropInnerRadiusRatio);
+        float innerRadius = clampedRadius * innerRatio;
+
+        Vector2 dir = Random.insideUnitCircle;
+        if (dir.sqrMagnitude <= 0.0001f)
+            dir = Vector2.right;
+        dir.Normalize();
+
+        float dist = innerRadius < clampedRadius
+            ? Random.Range(innerRadius, clampedRadius)
+            : clampedRadius;
+        return dir * dist;
+    }
+
+    private void TryDropHealthPickup(List<Vector2> reservedDropOffsets)
     {
         if (hpDropChance <= 0f || Random.value > hpDropChance)
             return;
@@ -303,11 +444,11 @@ public class EnemyController : MonoBehaviour
 
         if (hpPickupPrefab != null)
         {
-            pickup = Instantiate(hpPickupPrefab, transform.position, Quaternion.identity, pickupsRoot);
+            pickup = Instantiate(hpPickupPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
         }
         else if (xpPrefab != null)
         {
-            XPPickup fallback = Instantiate(xpPrefab, transform.position, Quaternion.identity, pickupsRoot);
+            XPPickup fallback = Instantiate(xpPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
             fallback.enabled = false;
             fallback.name = "HPPickup_Fallback";
 

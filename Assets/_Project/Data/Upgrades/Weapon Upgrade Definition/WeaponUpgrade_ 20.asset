@@ -12,18 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 20
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Overclock
-  description: +1 damage, +7% attack speed, +18% projectile speed
+  upgradeTitle: Lockdown Ring
+  description: The ring tightens into a brutal no-entry zone.
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4
   effects:
-  - effectType: 1
-    intValue: 0
-    floatValue: 0.016
-  - effectType: 2
-    intValue: 0
-    floatValue: 2.2
-  - effectType: 0
+  - effectType: 9
     intValue: 1
     floatValue: 0.0
+  - effectType: 11
+    intValue: 0
+    floatValue: 36.0
+  - effectType: 10
+    intValue: 0
+    floatValue: 0.15

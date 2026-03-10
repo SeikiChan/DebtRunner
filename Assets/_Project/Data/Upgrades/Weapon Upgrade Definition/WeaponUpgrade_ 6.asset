@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 6
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Booster II
-  description: +8% attack speed
+  upgradeTitle: Final Notice
+  description: Every so often, blast the whole area with a warning wave.
   icon: {fileID: 0}
-  rarity: 1
-  weightPercent: 10
+  rarity: 2
+  weightPercent: 7
   effects:
-  - effectType: 1
-    intValue: 0
-    floatValue: 0.018
+  - effectType: 12
+    intValue: 6
+    floatValue: 0.0

@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 7
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Muzzle Speed II
-  description: +21% projectile speed
+  upgradeTitle: Quick Stamp II
+  description: Your hand moves faster, leaving less room to breathe.
   icon: {fileID: 0}
   rarity: 1
-  weightPercent: 9
+  weightPercent: 7
   effects:
-  - effectType: 2
+  - effectType: 1
     intValue: 0
-    floatValue: 2.5
+    floatValue: 0.028

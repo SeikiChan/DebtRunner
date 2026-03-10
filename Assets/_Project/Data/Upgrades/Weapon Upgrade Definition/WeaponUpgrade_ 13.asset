@@ -12,12 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 13
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Booster III
-  description: +11% attack speed
+  upgradeTitle: Broad Audit
+  description: Spread your pressure across a much wider lane.
   icon: {fileID: 0}
   rarity: 2
-  weightPercent: 8
+  weightPercent: 6
   effects:
-  - effectType: 1
+  - effectType: 3
+    intValue: 1
+    floatValue: 0.0
+  - effectType: 4
     intValue: 0
-    floatValue: 0.024
+    floatValue: 5.0

@@ -10,6 +10,9 @@ public class RunProgressionState
     public float NextRoundEnemyHpMultiplier { get; private set; } = 1f;
     public float NextRoundEnemySpeedMultiplier { get; private set; } = 1f;
 
+    public float CurrentRoundRewardMultiplier { get; private set; } = 1f;
+    public float NextRoundRewardMultiplier { get; private set; } = 1f;
+
     public void Reset()
     {
         CurrentRoundDebtIncrease = 0;
@@ -18,6 +21,8 @@ public class RunProgressionState
         CurrentRoundEnemySpeedMultiplier = 1f;
         NextRoundEnemyHpMultiplier = 1f;
         NextRoundEnemySpeedMultiplier = 1f;
+        CurrentRoundRewardMultiplier = 1f;
+        NextRoundRewardMultiplier = 1f;
     }
 
     public void BeginRound()
@@ -29,6 +34,9 @@ public class RunProgressionState
         CurrentRoundEnemySpeedMultiplier = Mathf.Max(1f, NextRoundEnemySpeedMultiplier);
         NextRoundEnemyHpMultiplier = 1f;
         NextRoundEnemySpeedMultiplier = 1f;
+
+        CurrentRoundRewardMultiplier = Mathf.Max(1f, NextRoundRewardMultiplier);
+        NextRoundRewardMultiplier = 1f;
     }
 
     public void AddDebtIncreaseToNextRound(int amount)
@@ -40,5 +48,16 @@ public class RunProgressionState
     {
         NextRoundEnemyHpMultiplier *= Mathf.Max(1f, hpMultiplier);
         NextRoundEnemySpeedMultiplier *= Mathf.Max(1f, speedMultiplier);
+    }
+
+    public void AddRewardBuffToNextRound(float rewardMultiplier)
+    {
+        NextRoundRewardMultiplier *= Mathf.Max(1f, rewardMultiplier);
+    }
+
+    public void ClampNextRoundEnemyBuff(float maxHpMultiplier, float maxSpeedMultiplier)
+    {
+        NextRoundEnemyHpMultiplier = Mathf.Clamp(NextRoundEnemyHpMultiplier, 1f, Mathf.Max(1f, maxHpMultiplier));
+        NextRoundEnemySpeedMultiplier = Mathf.Clamp(NextRoundEnemySpeedMultiplier, 1f, Mathf.Max(1f, maxSpeedMultiplier));
     }
 }

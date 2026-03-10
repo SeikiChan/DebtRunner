@@ -4,6 +4,8 @@ using UnityEngine;
 public class Projectile : MonoBehaviour
 {
     [SerializeField] private float lifeSeconds = 2f;
+    [SerializeField] private float scatterSeekRadius = 4.5f;
+    [SerializeField] private float scatterDamageScale = 0.7f;
 
     private Rigidbody2D rb;
     private int damage;
@@ -72,7 +74,7 @@ public class Projectile : MonoBehaviour
         enemy.TakeDamage(damage, hitDirection, knockbackMultiplier);
 
         if (!scatterTriggered && onHitScatterCount > 0)
-            SpawnHitScatter(hitDirection);
+            SpawnHitScatter(hitDirection, enemy);
 
         if (pierceRemaining > 0)
         {
@@ -83,31 +85,69 @@ public class Projectile : MonoBehaviour
         Destroy(gameObject);
     }
 
-    private void SpawnHitScatter(Vector2 baseDirection)
+    private void SpawnHitScatter(Vector2 baseDirection, EnemyController initialTarget)
     {
         scatterTriggered = true;
         int count = Mathf.Max(0, onHitScatterCount);
         if (count == 0) return;
 
         float speed = rb != null ? rb.linearVelocity.magnitude : 8f;
+        int splitDamage = Mathf.Max(1, Mathf.RoundToInt(damage * scatterDamageScale));
+        int spawned = 0;
+        Collider2D[] nearbyHits = Physics2D.OverlapCircleAll(transform.position, Mathf.Max(0.5f, scatterSeekRadius));
+        List<EnemyController> candidates = new List<EnemyController>();
+        HashSet<int> seenIds = new HashSet<int>();
+
+        for (int i = 0; i < nearbyHits.Length; i++)
+        {
+            EnemyController enemy = nearbyHits[i].GetComponent<EnemyController>();
+            if (enemy == null || enemy == initialTarget || !enemy.isActiveAndEnabled)
+                continue;
+            if (!seenIds.Add(enemy.GetInstanceID()))
+                continue;
+
+            candidates.Add(enemy);
+        }
+
+        candidates.Sort((a, b) =>
+        {
+            float distA = (a.transform.position - transform.position).sqrMagnitude;
+            float distB = (b.transform.position - transform.position).sqrMagnitude;
+            return distA.CompareTo(distB);
+        });
+
+        for (int i = 0; i < candidates.Count && spawned < count; i++)
+        {
+            Vector2 dirToEnemy = (candidates[i].transform.position - transform.position);
+            if (dirToEnemy.sqrMagnitude <= 0.0001f)
+                continue;
+
+            SpawnScatterProjectile(dirToEnemy.normalized, speed, splitDamage);
+            spawned++;
+        }
+
         float totalSpread = onHitScatterAngle * Mathf.Max(0, count - 1);
         float startAngle = -totalSpread * 0.5f;
 
-        for (int i = 0; i < count; i++)
+        for (int i = spawned; i < count; i++)
         {
             float angle = count == 1 ? 0f : startAngle + onHitScatterAngle * i;
             Vector2 dir = Rotate(baseDirection, angle);
-
-            Projectile split = Instantiate(this, transform.position, Quaternion.identity, transform.parent);
-            split.Fire(
-                dir,
-                speed,
-                damage,
-                0,
-                knockbackMultiplier * 0.8f,
-                0,
-                onHitScatterAngle);
+            SpawnScatterProjectile(dir, speed, splitDamage);
         }
+    }
+
+    private void SpawnScatterProjectile(Vector2 dir, float speed, int splitDamage)
+    {
+        Projectile split = Instantiate(this, transform.position, Quaternion.identity, transform.parent);
+        split.Fire(
+            dir,
+            speed,
+            splitDamage,
+            0,
+            knockbackMultiplier * 0.8f,
+            0,
+            onHitScatterAngle);
     }
 
     private Vector2 Rotate(Vector2 value, float angleDegrees)
