@@ -14,12 +14,14 @@ public class BGMManager : MonoBehaviour
     [SerializeField] private AudioClip bgmShop;
     [SerializeField] private AudioClip bgmVictory;
     [SerializeField] private AudioClip bgmBoss;
+    [SerializeField] private AudioClip bgmStoryIntro;
     [SerializeField] private AudioClip bgmLevelUp;
     [SerializeField] private AudioClip bgmGameOver;
 
     [SerializeField, Range(0f, 1f)] private float volume = 0.5f;
     [SerializeField, Min(0f)] private float fadeDuration = 0.8f;
     [SerializeField] private bool loop = true;
+    [SerializeField] private bool storyIntroLoop = true;
     [SerializeField] private bool levelUpLoop = false;
     [SerializeField] private bool gameOverLoop = false;
 
@@ -103,6 +105,20 @@ public class BGMManager : MonoBehaviour
             return;
 
         CrossFadeTo(bgmLevelUp);
+    }
+
+    public void PlayStoryIntroBGM()
+    {
+        if (bgmStoryIntro == null)
+            return;
+
+        EnsureSourcesReady();
+
+        AudioSource current = usingA ? sourceA : sourceB;
+        if (current != null && current.clip == bgmStoryIntro && current.isPlaying)
+            return;
+
+        CrossFadeTo(bgmStoryIntro);
     }
 
     public void PlayVictoryBGM()
@@ -238,6 +254,9 @@ public class BGMManager : MonoBehaviour
 
         if (clip == bgmLevelUp)
             return levelUpLoop;
+
+        if (clip == bgmStoryIntro)
+            return storyIntroLoop;
 
         if (clip == bgmGameOver)
             return gameOverLoop;

@@ -27,17 +27,20 @@ public class ShopSystem : MonoBehaviour
         public Image iconImage;
     }
 
+    [Serializable]
+    private class ShopRarityStyle
+    {
+        public UpgradeRarity rarity = UpgradeRarity.Common;
+        [Min(0.01f)] public float priceMultiplier = 1f;
+        public Color titleColor = Color.white;
+        public Color priceColor = Color.white;
+    }
+
     private class ShopOffer
     {
         public ShopItemDefinition definition;
         public bool purchased;
         public bool isFree;
-
-        public int GetPrice()
-        {
-            if (definition == null) return 0;
-            return isFree ? 0 : definition.Price;
-        }
     }
 
     [Header("SFX / 音效")]
@@ -74,6 +77,49 @@ public class ShopSystem : MonoBehaviour
     [LocalizedLabel("Shop Item Pool Asset / 商品池资源")]
     [SerializeField] private ShopItemPoolAsset shopItemPoolAsset;
 
+    [Header("Price Scaling / Price Curve")]
+    [SerializeField, Min(0.01f)] private float itemBasePriceMultiplier = 1f;
+    [SerializeField, Min(0f)] private float itemRoundStepPercent = 0f;
+    [SerializeField, Min(0f)] private float refreshRoundStepPercent = 0f;
+    [SerializeField] private List<ShopRarityStyle> rarityStyles = new List<ShopRarityStyle>
+    {
+        new ShopRarityStyle
+        {
+            rarity = UpgradeRarity.Common,
+            priceMultiplier = 1.00f,
+            titleColor = new Color(0.93f, 0.93f, 0.93f, 1f),
+            priceColor = new Color(0.93f, 0.93f, 0.93f, 1f),
+        },
+        new ShopRarityStyle
+        {
+            rarity = UpgradeRarity.Uncommon,
+            priceMultiplier = 1.00f,
+            titleColor = new Color(0.64f, 1.00f, 0.74f, 1f),
+            priceColor = new Color(0.64f, 1.00f, 0.74f, 1f),
+        },
+        new ShopRarityStyle
+        {
+            rarity = UpgradeRarity.Rare,
+            priceMultiplier = 1.00f,
+            titleColor = new Color(0.52f, 0.83f, 1.00f, 1f),
+            priceColor = new Color(0.52f, 0.83f, 1.00f, 1f),
+        },
+        new ShopRarityStyle
+        {
+            rarity = UpgradeRarity.Epic,
+            priceMultiplier = 1.00f,
+            titleColor = new Color(1.00f, 0.63f, 0.97f, 1f),
+            priceColor = new Color(1.00f, 0.63f, 0.97f, 1f),
+        },
+        new ShopRarityStyle
+        {
+            rarity = UpgradeRarity.Legendary,
+            priceMultiplier = 1.00f,
+            titleColor = new Color(1.00f, 0.84f, 0.43f, 1f),
+            priceColor = new Color(1.00f, 0.84f, 0.43f, 1f),
+        },
+    };
+
     [Header("UI Binding / UI绑定")]
     [LocalizedLabel("Round Info Text / 轮次信息文本")]
     [SerializeField] private TMP_Text textRoundInfo;
@@ -100,6 +146,8 @@ public class ShopSystem : MonoBehaviour
     private int pendingFreeItemCharges;
     private int runtimeGambleCost;
     private int refreshTimesThisVisit;
+    private Color[] defaultTitleColors;
+    private Color[] defaultPriceColors;
 
     public void Bind(GameFlowController flow, RunProgressionState progression)
     {
@@ -201,6 +249,7 @@ public class ShopSystem : MonoBehaviour
             ShopItemUIRefs ui = itemUIs[i];
             if (offer == null || offer.definition == null)
             {
+                ResetOfferColors(i, ui);
                 if (ui.titleText != null) ui.titleText.text = "-";
                 if (ui.descText != null) ui.descText.text = "No item";
                 if (ui.priceText != null) ui.priceText.text = "";
@@ -214,6 +263,7 @@ public class ShopSystem : MonoBehaviour
                 continue;
             }
 
+            ApplyOfferColors(i, ui, offer.definition.Rarity, offer.purchased);
             if (ui.titleText != null) ui.titleText.text = offer.definition.ItemTitle;
             if (ui.descText != null) ui.descText.text = offer.definition.Description;
             if (ui.iconImage != null)
@@ -230,7 +280,7 @@ public class ShopSystem : MonoBehaviour
                 continue;
             }
 
-            int price = offer.GetPrice();
+            int price = GetOfferPrice(offer);
             bool freeByCharge = pendingFreeItemCharges > 0 && price > 0;
             if (freeByCharge) price = 0;
 
@@ -262,7 +312,9 @@ public class ShopSystem : MonoBehaviour
 
     private int GetCurrentRefreshCost()
     {
-        return refreshCost + refreshCostIncrement * refreshTimesThisVisit;
+        int baseCost = refreshCost + refreshCostIncrement * refreshTimesThisVisit;
+        float scaledCost = baseCost * GetRefreshRoundMultiplier();
+        return Mathf.Max(0, Mathf.RoundToInt(scaledCost));
     }
 
     private void RefreshOffers()
@@ -290,7 +342,7 @@ public class ShopSystem : MonoBehaviour
         ShopOffer offer = currentOffers[index];
         if (offer == null || offer.definition == null || offer.purchased) return;
 
-        int cost = offer.GetPrice();
+        int cost = GetOfferPrice(offer);
         bool consumeFreeCharge = pendingFreeItemCharges > 0 && cost > 0;
         int finalCost = consumeFreeCharge ? 0 : cost;
         if (!gameFlow.TrySpendCash(finalCost))
@@ -384,9 +436,12 @@ public class ShopSystem : MonoBehaviour
 
     private int ResolveRuntimeGambleCost()
     {
-        int baseCost = Mathf.Max(0, gambleCost);
+        float itemScale = GetItemPriceScaleForCurrentRound();
+        int floor = Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(1, gambleCostMin) * itemScale));
+        int ceiling = Mathf.Max(floor, Mathf.RoundToInt(Mathf.Max(gambleCostMin, gambleCostMax) * itemScale));
+        int baseCost = Mathf.Max(0, Mathf.RoundToInt(Mathf.Max(0, gambleCost) * itemScale));
         if (!useDynamicGambleCost)
-            return baseCost;
+            return Mathf.Clamp(baseCost, floor, ceiling);
 
         int sum = 0;
         int count = 0;
@@ -396,12 +451,10 @@ public class ShopSystem : MonoBehaviour
             if (offer == null || offer.definition == null)
                 continue;
 
-            sum += Mathf.Max(0, offer.definition.Price);
+            sum += Mathf.Max(0, GetOfferPrice(offer));
             count++;
         }
 
-        int floor = Mathf.Max(1, gambleCostMin);
-        int ceiling = Mathf.Max(floor, gambleCostMax);
         if (count <= 0)
             return Mathf.Clamp(baseCost, floor, ceiling);
 
@@ -427,7 +480,96 @@ public class ShopSystem : MonoBehaviour
             return;
         }
 
+        CacheDefaultItemColors();
         uiReady = true;
+    }
+
+    private int GetOfferPrice(ShopOffer offer)
+    {
+        if (offer == null || offer.definition == null)
+            return 0;
+        if (offer.isFree)
+            return 0;
+
+        ShopRarityStyle style = ResolveRarityStyle(offer.definition.Rarity);
+        float scaledPrice = Mathf.Max(0, offer.definition.Price) * GetItemPriceScaleForCurrentRound() * style.priceMultiplier;
+        return Mathf.Max(0, Mathf.RoundToInt(scaledPrice));
+    }
+
+    private float GetItemPriceScaleForCurrentRound()
+    {
+        int currentRound = gameFlow != null ? Mathf.Max(1, gameFlow.GetCurrentRound()) : 1;
+        return Mathf.Max(0.01f, itemBasePriceMultiplier) * (1f + Mathf.Max(0f, itemRoundStepPercent) * (currentRound - 1));
+    }
+
+    private float GetRefreshRoundMultiplier()
+    {
+        int currentRound = gameFlow != null ? Mathf.Max(1, gameFlow.GetCurrentRound()) : 1;
+        return 1f + Mathf.Max(0f, refreshRoundStepPercent) * (currentRound - 1);
+    }
+
+    private ShopRarityStyle ResolveRarityStyle(UpgradeRarity rarity)
+    {
+        if (rarityStyles != null)
+        {
+            for (int i = 0; i < rarityStyles.Count; i++)
+            {
+                ShopRarityStyle style = rarityStyles[i];
+                if (style != null && style.rarity == rarity)
+                    return style;
+            }
+        }
+
+        return new ShopRarityStyle
+        {
+            rarity = rarity,
+            priceMultiplier = 1f,
+            titleColor = Color.white,
+            priceColor = Color.white,
+        };
+    }
+
+    private void CacheDefaultItemColors()
+    {
+        int count = itemUIs != null ? itemUIs.Length : 0;
+        defaultTitleColors = new Color[count];
+        defaultPriceColors = new Color[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            ShopItemUIRefs ui = itemUIs[i];
+            defaultTitleColors[i] = ui != null && ui.titleText != null ? ui.titleText.color : Color.white;
+            defaultPriceColors[i] = ui != null && ui.priceText != null ? ui.priceText.color : Color.white;
+        }
+    }
+
+    private void ResetOfferColors(int index, ShopItemUIRefs ui)
+    {
+        if (ui == null)
+            return;
+
+        if (ui.titleText != null && defaultTitleColors != null && index >= 0 && index < defaultTitleColors.Length)
+            ui.titleText.color = defaultTitleColors[index];
+        if (ui.priceText != null && defaultPriceColors != null && index >= 0 && index < defaultPriceColors.Length)
+            ui.priceText.color = defaultPriceColors[index];
+    }
+
+    private void ApplyOfferColors(int index, ShopItemUIRefs ui, UpgradeRarity rarity, bool purchased)
+    {
+        if (ui == null)
+            return;
+
+        ShopRarityStyle style = ResolveRarityStyle(rarity);
+        if (ui.titleText != null)
+            ui.titleText.color = style.titleColor;
+
+        if (ui.priceText != null)
+        {
+            Color priceColor = style.priceColor;
+            if (purchased)
+                priceColor = Color.Lerp(priceColor, Color.gray, 0.45f);
+            ui.priceText.color = priceColor;
+        }
     }
 
     private void SetInfo(string message)

@@ -38,10 +38,6 @@ public class RunSummaryPanel : MonoBehaviour
     [SerializeField] private Color menuHighlightColor = new Color(0.7f, 0.7f, 0.75f, 1f);
 
     private CanvasGroup canvasGroup;
-    private Color restartNormalColor;
-    private Color menuNormalColor;
-    private Image restartImage;
-    private Image menuImage;
 
     private void Awake()
     {
@@ -49,25 +45,18 @@ public class RunSummaryPanel : MonoBehaviour
         if (canvasGroup == null)
             canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
-        // Cache button images and normal colors for manual highlight (timeScale=0 safe)
         if (restartButton != null)
         {
-            restartImage = restartButton.GetComponent<Image>();
-            if (restartImage != null)
-                restartNormalColor = restartImage.color;
-
             restartButton.onClick.RemoveAllListeners();
             restartButton.onClick.AddListener(OnRestartClicked);
+            ApplyButtonHighlightColors(restartButton, restartHighlightColor);
         }
 
         if (mainMenuButton != null)
         {
-            menuImage = mainMenuButton.GetComponent<Image>();
-            if (menuImage != null)
-                menuNormalColor = menuImage.color;
-
             mainMenuButton.onClick.RemoveAllListeners();
             mainMenuButton.onClick.AddListener(OnMainMenuClicked);
+            ApplyButtonHighlightColors(mainMenuButton, menuHighlightColor);
         }
 
         SetupNavigation();
@@ -112,21 +101,15 @@ public class RunSummaryPanel : MonoBehaviour
         mainMenuButton.navigation = menuNav;
     }
 
-    private void Update()
+    private void ApplyButtonHighlightColors(Button button, Color highlightColor)
     {
-        // Manual highlight since Button ColorTween freezes at timeScale=0
-        UpdateButtonHighlight(restartButton, restartImage, restartNormalColor, restartHighlightColor);
-        UpdateButtonHighlight(mainMenuButton, menuImage, menuNormalColor, menuHighlightColor);
-    }
-
-    private void UpdateButtonHighlight(Button btn, Image img, Color normalColor, Color highlightColor)
-    {
-        if (btn == null || img == null)
+        if (button == null)
             return;
 
-        EventSystem es = EventSystem.current;
-        bool isSelected = es != null && es.currentSelectedGameObject == btn.gameObject;
-        img.color = isSelected ? highlightColor : normalColor;
+        ColorBlock colors = button.colors;
+        colors.highlightedColor = highlightColor;
+        colors.selectedColor = highlightColor;
+        button.colors = colors;
     }
 
     public void ShowPanel(EndingType ending, int kills, int cashEarned, int xpEarned, int roundReached, int finalLevel)
@@ -190,7 +173,10 @@ public class RunSummaryPanel : MonoBehaviour
         {
             EventSystem es = EventSystem.current;
             if (es != null)
+            {
+                es.SetSelectedGameObject(null);
                 es.SetSelectedGameObject(restartButton.gameObject);
+            }
         }
     }
 

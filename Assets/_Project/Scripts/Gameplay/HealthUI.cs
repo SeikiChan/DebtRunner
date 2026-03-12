@@ -10,6 +10,8 @@ public class HealthUI : MonoBehaviour
     [SerializeField] private Image shieldIconTemplate;
     [SerializeField] private Sprite shieldIconSprite;
     [SerializeField] private float spacing = 10f;
+    [SerializeField, Min(1)] private int maxIconsPerRow = 5;
+    [SerializeField, Min(0f)] private float rowSpacing = 18f;
     [SerializeField] private Color activeColor = Color.white;
     [SerializeField] private Color inactiveColor = new Color(0.3f, 0.3f, 0.3f, 0.5f);
     [SerializeField] private Color shieldActiveColor = new Color(0.35f, 0.75f, 1f, 0.95f);
@@ -26,6 +28,7 @@ public class HealthUI : MonoBehaviour
     private int lastHP = -1;
     private int lastMaxHP = -1;
     private int lastShieldCharges = -1;
+    private Coroutine shopRevealCo;
 
     public void ResetHealthUI()
     {
@@ -48,6 +51,17 @@ public class HealthUI : MonoBehaviour
         gameObject.SetActive(shouldBeActive);
         if (shouldBeActive)
             ResetHealthUI();
+    }
+
+    public void RevealForShopFeedback(float seconds)
+    {
+        if (!hideInShopState || seconds <= 0f)
+            return;
+
+        if (shopRevealCo != null)
+            StopCoroutine(shopRevealCo);
+
+        shopRevealCo = StartCoroutine(RevealForShopFeedbackRoutine(seconds));
     }
 
     private void Start()
@@ -102,11 +116,13 @@ public class HealthUI : MonoBehaviour
             newIcon.name = $"HealthIcon_{i + 1}";
 
             RectTransform rectTransform = newIcon.GetComponent<RectTransform>();
-            rectTransform.anchoredPosition = new Vector2(i * (rectTransform.rect.width + spacing), 0f);
+            PositionIcon(rectTransform, i);
 
             healthIcons[i] = newIcon;
             shieldIcons[i] = CreateShieldOverlay(newIcon, i);
         }
+
+        ResizeContainer(maxHP);
     }
 
     private void Update()
@@ -234,6 +250,37 @@ public class HealthUI : MonoBehaviour
         return overlay;
     }
 
+    private void PositionIcon(RectTransform rectTransform, int index)
+    {
+        if (rectTransform == null)
+            return;
+
+        int iconsPerRow = Mathf.Max(1, maxIconsPerRow);
+        int column = index % iconsPerRow;
+        int row = index / iconsPerRow;
+        float width = rectTransform.rect.width;
+        float height = rectTransform.rect.height;
+        float stepX = width + spacing;
+        float stepY = height + rowSpacing;
+        rectTransform.anchoredPosition = new Vector2(column * stepX, row * -stepY);
+    }
+
+    private void ResizeContainer(int iconCount)
+    {
+        RectTransform container = transform as RectTransform;
+        if (container == null || healthIconTemplate == null)
+            return;
+
+        int iconsPerRow = Mathf.Max(1, maxIconsPerRow);
+        int rows = Mathf.Max(1, Mathf.CeilToInt(iconCount / (float)iconsPerRow));
+        float iconWidth = healthIconTemplate.rectTransform.rect.width;
+        float iconHeight = healthIconTemplate.rectTransform.rect.height;
+        float width = (Mathf.Min(iconCount, iconsPerRow) * iconWidth) + (Mathf.Max(0, Mathf.Min(iconCount, iconsPerRow) - 1) * spacing);
+        float height = (rows * iconHeight) + (Mathf.Max(0, rows - 1) * rowSpacing);
+        container.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+        container.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+    }
+
     private Sprite ResolveShieldSprite(Image parentIcon)
     {
         if (shieldIconSprite != null)
@@ -276,5 +323,20 @@ public class HealthUI : MonoBehaviour
 
         if (icon != null)
             icon.color = targetColor;
+    }
+
+    private System.Collections.IEnumerator RevealForShopFeedbackRoutine(float seconds)
+    {
+        bool shouldHideAgain = GameFlowController.Instance != null && GameFlowController.Instance.IsInShopState;
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+
+        ResetHealthUI();
+        yield return new WaitForSecondsRealtime(seconds);
+
+        if (shouldHideAgain && GameFlowController.Instance != null && GameFlowController.Instance.IsInShopState)
+            gameObject.SetActive(false);
+
+        shopRevealCo = null;
     }
 }

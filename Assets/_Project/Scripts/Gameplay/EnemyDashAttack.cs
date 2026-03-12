@@ -12,27 +12,27 @@ public class EnemyDashAttack : MonoBehaviour
 
     [Header("Timing / 时间")]
     [LocalizedLabel("普通追踪间隔")]
-    [SerializeField, Min(0.5f)] private float normalDuration = 3.0f;
+    [SerializeField, Min(0.5f)] private float normalDuration = 5.0f;
     [LocalizedLabel("追踪间隔随机偏移")]
     [SerializeField, Min(0f)] private float normalDurationJitter = 0.8f;
     [LocalizedLabel("预警持续时间")]
-    [SerializeField, Min(0.1f)] private float telegraphDuration = 0.5f;
+    [SerializeField, Min(0.1f)] private float telegraphDuration = 0.75f;
     [LocalizedLabel("冲刺持续时间")]
-    [SerializeField, Min(0.05f)] private float dashDuration = 0.3f;
+    [SerializeField, Min(0.05f)] private float dashDuration = 0.28f;
     [LocalizedLabel("冲刺后冷却")]
-    [SerializeField, Min(0.05f)] private float cooldownDuration = 0.4f;
+    [SerializeField, Min(0.05f)] private float cooldownDuration = 1.0f;
 
     [Header("Dash / 冲刺")]
     [LocalizedLabel("冲刺速度")]
-    [SerializeField, Min(1f)] private float dashSpeed = 16f;
+    [SerializeField, Min(1f)] private float dashSpeed = 14f;
 
     [Header("Telegraph Visual / 预警表现")]
     [LocalizedLabel("预警颜色")]
-    [SerializeField] private Color telegraphColor = new Color(1f, 0.2f, 0.15f, 0.85f);
+    [SerializeField] private Color telegraphColor = new Color(1f, 0.2f, 0.15f, 0.80f);
     [LocalizedLabel("预警线宽")]
-    [SerializeField, Min(0.01f)] private float telegraphWidth = 0.08f;
+    [SerializeField, Min(0.01f)] private float telegraphWidth = 0.16f;
     [LocalizedLabel("预警线长")]
-    [SerializeField, Min(1f)] private float telegraphLength = 10f;
+    [SerializeField, Min(1f)] private float telegraphLength = 8f;
     [LocalizedLabel("预警排序层级")]
     [SerializeField] private int telegraphSortingOrder = 240;
 
@@ -48,13 +48,20 @@ public class EnemyDashAttack : MonoBehaviour
 
     private void Awake()
     {
+        SanitizeValues();
         enemyController = GetComponent<EnemyController>();
         rb = GetComponent<Rigidbody2D>();
     }
 
     private void OnEnable()
     {
+        SanitizeValues();
         EnterState(DashState.Normal);
+    }
+
+    private void OnValidate()
+    {
+        SanitizeValues();
     }
 
     private void OnDisable()
@@ -215,5 +222,18 @@ public class EnemyDashAttack : MonoBehaviour
             Destroy(telegraphLine);
             telegraphLine = null;
         }
+    }
+
+    private void SanitizeValues()
+    {
+        normalDuration = Mathf.Max(0.5f, normalDuration);
+        normalDurationJitter = Mathf.Clamp(normalDurationJitter, 0f, Mathf.Max(0f, normalDuration - 0.1f));
+        telegraphDuration = Mathf.Clamp(telegraphDuration, 0.1f, 2f);
+        dashDuration = Mathf.Clamp(dashDuration, 0.05f, 1f);
+        cooldownDuration = Mathf.Clamp(cooldownDuration, 0.05f, 3f);
+        dashSpeed = Mathf.Clamp(dashSpeed, 1f, 24f);
+        telegraphWidth = Mathf.Clamp(telegraphWidth, 0.02f, 0.35f);
+        telegraphLength = Mathf.Clamp(telegraphLength, 1f, 12f);
+        telegraphColor.a = Mathf.Clamp(telegraphColor.a, 0.15f, 1f);
     }
 }

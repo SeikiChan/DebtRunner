@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: WeaponUpgrade_ 15
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
   upgradeTitle: Encircling Debt
-  description: Your collector ring widens and turns the space around you hostile.
+  description: Your collector ring reaches farther out and punishes anything trying to close in.
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4
@@ -23,4 +23,7 @@ MonoBehaviour:
     floatValue: 0.0
   - effectType: 10
     intValue: 0
-    floatValue: 0.2
+    floatValue: 0.3
+  - effectType: 11
+    intValue: 0
+    floatValue: 18.0

@@ -2,11 +2,36 @@ using UnityEngine;
 
 public class EnemyProjectile : MonoBehaviour
 {
-    [SerializeField] private float lifeSeconds = 3f;
+    [SerializeField] private float lifeSeconds = 12f;
     private Rigidbody2D rb;
     private int damage = 1;
 
     private void Awake() => rb = GetComponent<Rigidbody2D>();
+
+    private void OnDisable()
+    {
+        CancelInvoke();
+        if (rb != null)
+            rb.linearVelocity = Vector2.zero;
+    }
+
+    private void FixedUpdate()
+    {
+        if (CircleBoundary.Instance == null)
+            return;
+
+        Vector2 pos = rb != null ? rb.position : (Vector2)transform.position;
+        Vector2 center = CircleBoundary.Instance.Center;
+        float rx = CircleBoundary.Instance.RadiusX;
+        float ry = CircleBoundary.Instance.RadiusY;
+        Vector2 offset = pos - center;
+        float nx = offset.x / rx;
+        float ny = offset.y / ry;
+
+        // Treat the circle boundary as the invisible wall for enemy shots.
+        if (nx * nx + ny * ny > 1f)
+            Expire();
+    }
 
     public void Fire(Vector2 dir, float speed, int dmg)
     {

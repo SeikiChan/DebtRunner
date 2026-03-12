@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: ShopItem_ 1
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
   itemTitle: Emergency Shield
-  description: +1 Shield Charge
-  icon: {fileID: 0}
+  description: Every 25s Got a shield
+  icon: {fileID: 7294035110781882441, guid: c1bf643d66c90aa40b2f4a77a834a7dd, type: 3}
   price: 120
   rarity: 0
   weightPercent: 11
   effects:
-  - effectType: 4
-    intValue: 1
-    floatValue: 0.0
+  - effectType: 9
+    intValue: 0
+    floatValue: 3

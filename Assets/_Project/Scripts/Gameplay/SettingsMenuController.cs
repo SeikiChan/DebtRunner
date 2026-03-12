@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class SettingsMenuController : MonoBehaviour
@@ -10,6 +12,7 @@ public class SettingsMenuController : MonoBehaviour
     private const string KeySFXVolume = "settings.sfx_volume";
     private const string KeyResolutionWidth = "settings.resolution_width";
     private const string KeyResolutionHeight = "settings.resolution_height";
+    private const string KeyFullscreen = "settings.fullscreen";
 
     [Header("Flow")]
     [SerializeField] private GameFlowController gameFlow;
@@ -33,7 +36,9 @@ public class SettingsMenuController : MonoBehaviour
     [SerializeField] private TMP_Dropdown resolutionTMPDropdown;
     [SerializeField] private Dropdown resolutionLegacyDropdown;
     [SerializeField] private TMP_Text resolutionHintText;
-    [SerializeField] private bool forceWindowedOnResolutionChange = true;
+    [SerializeField] private Toggle fullscreenToggle;
+    [SerializeField] private bool defaultFullscreen = true;
+    [SerializeField] private FullScreenMode fullscreenMode = FullScreenMode.FullScreenWindow;
 
     [Header("Buttons")]
     [SerializeField] private Button backButton;
@@ -44,6 +49,16 @@ public class SettingsMenuController : MonoBehaviour
     private bool listenersBound;
     private bool suppressCallbacks;
     private bool referenceWarningLogged;
+    private Coroutine pendingDisplayApplyCo;
+
+    public static void ApplyStartupDisplaySettings()
+    {
+        Resolution current = Screen.currentResolution;
+        int savedWidth = PlayerPrefs.GetInt(KeyResolutionWidth, current.width);
+        int savedHeight = PlayerPrefs.GetInt(KeyResolutionHeight, current.height);
+        bool fullscreen = GetSavedFullscreen(true);
+        ApplyDisplay(savedWidth, savedHeight, fullscreen, FullScreenMode.FullScreenWindow);
+    }
 
     public void Bind(GameFlowController flowController)
     {
@@ -58,6 +73,7 @@ public class SettingsMenuController : MonoBehaviour
         transform.SetAsLastSibling();
         EnsureInitialized();
         RefreshUIFromCurrent();
+        QueueRestoreSelection();
     }
 
     public void HideMenu()
@@ -77,6 +93,7 @@ public class SettingsMenuController : MonoBehaviour
     {
         EnsureInitialized();
         RefreshUIFromCurrent();
+        QueueRestoreSelection();
     }
 
     private void EnsureInitialized()
@@ -85,7 +102,9 @@ public class SettingsMenuController : MonoBehaviour
             return;
 
         BuildResolutionList();
+        EnsureFullscreenToggleExists();
         BindEvents();
+        ConfigureKeyboardNavigation();
         initialized = true;
     }
 
@@ -109,6 +128,9 @@ public class SettingsMenuController : MonoBehaviour
         if (resolutionLegacyDropdown != null)
             resolutionLegacyDropdown.onValueChanged.AddListener(OnResolutionChanged);
 
+        if (fullscreenToggle != null)
+            fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
+
         if (backButton != null)
             backButton.onClick.AddListener(OnBackClicked);
 
@@ -127,10 +149,13 @@ public class SettingsMenuController : MonoBehaviour
         ApplySFXVolume(savedSFX, save: false);
 
         BuildResolutionList();
-        int savedWidth = PlayerPrefs.GetInt(KeyResolutionWidth, Screen.width);
-        int savedHeight = PlayerPrefs.GetInt(KeyResolutionHeight, Screen.height);
+        Resolution current = Screen.currentResolution;
+        int savedWidth = PlayerPrefs.GetInt(KeyResolutionWidth, current.width);
+        int savedHeight = PlayerPrefs.GetInt(KeyResolutionHeight, current.height);
+        bool savedFullscreen = GetSavedFullscreen(defaultFullscreen);
         int savedIndex = FindClosestResolutionIndex(savedWidth, savedHeight);
-        ApplyResolutionByIndex(savedIndex, save: false);
+        ApplyResolutionByIndex(savedIndex, save: false, overrideFullscreen: savedFullscreen);
+        ApplyFullscreen(savedFullscreen, save: false);
     }
 
     private void RefreshUIFromCurrent()
@@ -165,10 +190,73 @@ public class SettingsMenuController : MonoBehaviour
             resolutionTMPDropdown.SetValueWithoutNotify(currentIndex);
         if (resolutionLegacyDropdown != null)
             resolutionLegacyDropdown.SetValueWithoutNotify(currentIndex);
+        if (fullscreenToggle != null)
+            fullscreenToggle.SetIsOnWithoutNotify(Screen.fullScreen);
 
         UpdateResolutionText(currentIndex, applied: false);
+        ConfigureKeyboardNavigation();
 
         suppressCallbacks = false;
+    }
+
+    public bool TryHandleKeyboardMove(MoveDirection moveDir, GameObject selected)
+    {
+        if (selected == null)
+            return false;
+
+        bool horizontal = moveDir == MoveDirection.Left || moveDir == MoveDirection.Right;
+        if (!horizontal)
+            return false;
+
+        int direction = moveDir == MoveDirection.Left ? -1 : 1;
+
+        if (resolutionTMPDropdown != null && selected == resolutionTMPDropdown.gameObject)
+        {
+            StepResolution(direction);
+            return true;
+        }
+
+        if (resolutionLegacyDropdown != null && selected == resolutionLegacyDropdown.gameObject)
+        {
+            StepResolution(direction);
+            return true;
+        }
+
+        if (fullscreenToggle != null && selected == fullscreenToggle.gameObject)
+        {
+            fullscreenToggle.isOn = !fullscreenToggle.isOn;
+            RestoreSelection(fullscreenToggle);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryHandleKeyboardSubmit(GameObject selected)
+    {
+        if (selected == null)
+            return false;
+
+        if (resolutionTMPDropdown != null && selected == resolutionTMPDropdown.gameObject)
+        {
+            StepResolution(1);
+            return true;
+        }
+
+        if (resolutionLegacyDropdown != null && selected == resolutionLegacyDropdown.gameObject)
+        {
+            StepResolution(1);
+            return true;
+        }
+
+        if (fullscreenToggle != null && selected == fullscreenToggle.gameObject)
+        {
+            fullscreenToggle.isOn = !fullscreenToggle.isOn;
+            RestoreSelection(fullscreenToggle);
+            return true;
+        }
+
+        return false;
     }
 
     private void EnsureReferenceWarnings()
@@ -178,15 +266,16 @@ public class SettingsMenuController : MonoBehaviour
 
         bool missingVolume = volumeSlider == null;
         bool missingResolution = resolutionTMPDropdown == null && resolutionLegacyDropdown == null;
+        bool missingFullscreen = fullscreenToggle == null;
         bool missingBack = backButton == null;
 
-        if (!missingVolume && !missingResolution && !missingBack)
+        if (!missingVolume && !missingResolution && !missingFullscreen && !missingBack)
             return;
 
         referenceWarningLogged = true;
         RunLogger.Warning(
             "SettingsMenuController missing UI refs. " +
-            $"volumeSliderMissing={missingVolume}, resolutionDropdownMissing={missingResolution}, backButtonMissing={missingBack}");
+            $"volumeSliderMissing={missingVolume}, resolutionDropdownMissing={missingResolution}, fullscreenToggleMissing={missingFullscreen}, backButtonMissing={missingBack}");
     }
 
     private void BuildResolutionList()
@@ -287,7 +376,13 @@ public class SettingsMenuController : MonoBehaviour
     private void OnResolutionChanged(int index)
     {
         if (suppressCallbacks) return;
-        ApplyResolutionByIndex(index, save: true);
+        QueueResolutionApply(index, save: true);
+    }
+
+    private void OnFullscreenChanged(bool value)
+    {
+        if (suppressCallbacks) return;
+        QueueFullscreenApply(value, save: true);
     }
 
     // ====== Apply ======
@@ -327,7 +422,7 @@ public class SettingsMenuController : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    private void ApplyResolutionByIndex(int index, bool save)
+    private void ApplyResolutionByIndex(int index, bool save, bool? overrideFullscreen = null)
     {
         if (availableResolutions.Count == 0)
             return;
@@ -335,9 +430,8 @@ public class SettingsMenuController : MonoBehaviour
         int safeIndex = Mathf.Clamp(index, 0, availableResolutions.Count - 1);
         Vector2Int target = availableResolutions[safeIndex];
 
-        bool fullscreen = forceWindowedOnResolutionChange ? false : Screen.fullScreen;
-        if (Screen.width != target.x || Screen.height != target.y || Screen.fullScreen != fullscreen)
-            Screen.SetResolution(target.x, target.y, fullscreen);
+        bool fullscreen = overrideFullscreen ?? Screen.fullScreen;
+        ApplyDisplay(target.x, target.y, fullscreen, fullscreenMode);
 
         UpdateResolutionText(safeIndex, applied: true);
 
@@ -345,6 +439,87 @@ public class SettingsMenuController : MonoBehaviour
         PlayerPrefs.SetInt(KeyResolutionWidth, target.x);
         PlayerPrefs.SetInt(KeyResolutionHeight, target.y);
         PlayerPrefs.Save();
+    }
+
+    private void ApplyFullscreen(bool value, bool save)
+    {
+        ApplyDisplay(Screen.width, Screen.height, value, fullscreenMode);
+
+        if (!save) return;
+        PlayerPrefs.SetInt(KeyFullscreen, value ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    private void QueueResolutionApply(int index, bool save)
+    {
+        if (availableResolutions.Count == 0)
+            return;
+
+        int safeIndex = Mathf.Clamp(index, 0, availableResolutions.Count - 1);
+        Vector2Int target = availableResolutions[safeIndex];
+        bool fullscreen = Screen.fullScreen;
+
+        if (save)
+        {
+            PlayerPrefs.SetInt(KeyResolutionWidth, target.x);
+            PlayerPrefs.SetInt(KeyResolutionHeight, target.y);
+            PlayerPrefs.Save();
+        }
+
+        QueueDisplayApply(target.x, target.y, fullscreen, GetPreferredResolutionSelectable());
+    }
+
+    private void StepResolution(int direction)
+    {
+        if (availableResolutions.Count == 0)
+            return;
+
+        int currentIndex = FindClosestResolutionIndex(Screen.width, Screen.height);
+        int nextIndex = Mathf.Clamp(currentIndex + direction, 0, availableResolutions.Count - 1);
+        if (nextIndex == currentIndex)
+        {
+            RestoreSelection(GetPreferredResolutionSelectable());
+            return;
+        }
+
+        if (resolutionTMPDropdown != null)
+            resolutionTMPDropdown.SetValueWithoutNotify(nextIndex);
+        if (resolutionLegacyDropdown != null)
+            resolutionLegacyDropdown.SetValueWithoutNotify(nextIndex);
+
+        QueueResolutionApply(nextIndex, save: true);
+    }
+
+    private void QueueFullscreenApply(bool value, bool save)
+    {
+        if (save)
+        {
+            PlayerPrefs.SetInt(KeyFullscreen, value ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        QueueDisplayApply(Screen.width, Screen.height, value, GetPreferredFullscreenSelectable());
+    }
+
+    private void QueueDisplayApply(int width, int height, bool fullscreen, Selectable preferredSelection)
+    {
+        if (pendingDisplayApplyCo != null)
+            StopCoroutine(pendingDisplayApplyCo);
+
+        pendingDisplayApplyCo = StartCoroutine(ApplyDisplayDeferred(width, height, fullscreen, preferredSelection));
+    }
+
+    private IEnumerator ApplyDisplayDeferred(int width, int height, bool fullscreen, Selectable preferredSelection)
+    {
+        HideResolutionPopups();
+        yield return null;
+
+        ApplyDisplay(width, height, fullscreen, fullscreenMode);
+        yield return null;
+
+        RefreshUIFromCurrent();
+        RestoreSelection(preferredSelection);
+        pendingDisplayApplyCo = null;
     }
 
     // ====== Resolution Helpers ======
@@ -403,12 +578,217 @@ public class SettingsMenuController : MonoBehaviour
         Vector2Int res = availableResolutions[safeIndex];
 
 #if UNITY_EDITOR
-        resolutionHintText.text = "Selected: " + res.x + " x " + res.y + " (Editor may not resize Game view)";
+        resolutionHintText.text = "Selected: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed") + " (Editor may not resize Game view)";
 #else
         resolutionHintText.text = applied
-            ? "Applied: " + res.x + " x " + res.y
-            : "Current: " + res.x + " x " + res.y;
+            ? "Applied: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed")
+            : "Current: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed");
 #endif
+    }
+
+    private void EnsureFullscreenToggleExists()
+    {
+        if (fullscreenToggle != null)
+            return;
+
+        Transform content = transform.Find("Content");
+        if (content == null)
+            return;
+
+        RectTransform contentRect = content as RectTransform;
+        if (contentRect != null)
+            contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, Mathf.Max(contentRect.sizeDelta.y, 560f));
+
+        GameObject labelObject = new GameObject("Label_Fullscreen", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(content, false);
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.sizeDelta = new Vector2(200f, 30f);
+        labelRect.anchoredPosition = new Vector2(-130f, -120f);
+
+        TextMeshProUGUI labelText = labelObject.GetComponent<TextMeshProUGUI>();
+        labelText.text = "Fullscreen";
+        labelText.fontSize = 22f;
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.color = new Color(0.9f, 0.9f, 0.9f);
+        labelText.raycastTarget = false;
+
+        GameObject toggleObject = new GameObject("Toggle_Fullscreen", typeof(RectTransform), typeof(Image), typeof(Toggle));
+        RectTransform toggleRect = toggleObject.GetComponent<RectTransform>();
+        toggleRect.SetParent(content, false);
+        toggleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        toggleRect.sizeDelta = new Vector2(220f, 36f);
+        toggleRect.anchoredPosition = new Vector2(80f, -120f);
+
+        Image toggleBackground = toggleObject.GetComponent<Image>();
+        toggleBackground.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+
+        GameObject checkmarkObject = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+        RectTransform checkmarkRect = checkmarkObject.GetComponent<RectTransform>();
+        checkmarkRect.SetParent(toggleRect, false);
+        checkmarkRect.anchorMin = new Vector2(0f, 0.5f);
+        checkmarkRect.anchorMax = new Vector2(0f, 0.5f);
+        checkmarkRect.sizeDelta = new Vector2(24f, 24f);
+        checkmarkRect.anchoredPosition = new Vector2(18f, 0f);
+
+        Image checkmarkImage = checkmarkObject.GetComponent<Image>();
+        checkmarkImage.color = new Color(0.3f, 0.7f, 1f, 1f);
+
+        GameObject toggleLabelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform toggleLabelRect = toggleLabelObject.GetComponent<RectTransform>();
+        toggleLabelRect.SetParent(toggleRect, false);
+        toggleLabelRect.anchorMin = Vector2.zero;
+        toggleLabelRect.anchorMax = Vector2.one;
+        toggleLabelRect.offsetMin = new Vector2(44f, 0f);
+        toggleLabelRect.offsetMax = new Vector2(-8f, 0f);
+
+        TextMeshProUGUI toggleLabel = toggleLabelObject.GetComponent<TextMeshProUGUI>();
+        toggleLabel.text = "Use Fullscreen";
+        toggleLabel.fontSize = 20f;
+        toggleLabel.alignment = TextAlignmentOptions.Left;
+        toggleLabel.color = Color.white;
+        toggleLabel.raycastTarget = false;
+
+        fullscreenToggle = toggleObject.GetComponent<Toggle>();
+        fullscreenToggle.targetGraphic = toggleBackground;
+        fullscreenToggle.graphic = checkmarkImage;
+        fullscreenToggle.isOn = GetSavedFullscreen(defaultFullscreen);
+
+        RepositionOptionalChild(content, "ResolutionHint", new Vector2(0f, -155f));
+        if (backButton != null)
+            ((RectTransform)backButton.transform).anchoredPosition = new Vector2(0f, -220f);
+    }
+
+    private static void RepositionOptionalChild(Transform parent, string childName, Vector2 anchoredPosition)
+    {
+        if (parent == null)
+            return;
+
+        Transform child = parent.Find(childName);
+        if (child == null)
+            return;
+
+        RectTransform rect = child as RectTransform;
+        if (rect == null)
+            return;
+
+        rect.anchoredPosition = anchoredPosition;
+    }
+
+    private static bool GetSavedFullscreen(bool fallback)
+    {
+        if (!PlayerPrefs.HasKey(KeyFullscreen))
+            return fallback;
+
+        return PlayerPrefs.GetInt(KeyFullscreen, fallback ? 1 : 0) != 0;
+    }
+
+    private static void ApplyDisplay(int width, int height, bool fullscreen, FullScreenMode preferredMode)
+    {
+        int safeWidth = Mathf.Max(640, width);
+        int safeHeight = Mathf.Max(360, height);
+        FullScreenMode mode = fullscreen ? preferredMode : FullScreenMode.Windowed;
+
+        if (Screen.width == safeWidth &&
+            Screen.height == safeHeight &&
+            Screen.fullScreen == fullscreen &&
+            Screen.fullScreenMode == mode)
+        {
+            return;
+        }
+
+        Screen.SetResolution(safeWidth, safeHeight, mode);
+    }
+
+    private void HideResolutionPopups()
+    {
+        if (resolutionTMPDropdown != null)
+            resolutionTMPDropdown.Hide();
+        if (resolutionLegacyDropdown != null)
+            resolutionLegacyDropdown.Hide();
+    }
+
+    private Selectable GetPreferredResolutionSelectable()
+    {
+        if (resolutionTMPDropdown != null)
+            return resolutionTMPDropdown;
+        if (resolutionLegacyDropdown != null)
+            return resolutionLegacyDropdown;
+        if (fullscreenToggle != null)
+            return fullscreenToggle;
+        return backButton;
+    }
+
+    private Selectable GetPreferredFullscreenSelectable()
+    {
+        if (fullscreenToggle != null)
+            return fullscreenToggle;
+        return GetPreferredResolutionSelectable();
+    }
+
+    private void QueueRestoreSelection()
+    {
+        StartCoroutine(RestoreSelectionNextFrame());
+    }
+
+    private IEnumerator RestoreSelectionNextFrame()
+    {
+        yield return null;
+        RestoreSelection(GetPreferredResolutionSelectable());
+    }
+
+    private void RestoreSelection(Selectable preferredSelection)
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+            return;
+
+        Selectable target = preferredSelection;
+        if (target == null || !target.IsActive() || !target.IsInteractable())
+            target = backButton;
+        if (target == null || !target.IsActive() || !target.IsInteractable())
+            return;
+
+        eventSystem.SetSelectedGameObject(null);
+        eventSystem.SetSelectedGameObject(target.gameObject);
+    }
+
+    private void ConfigureKeyboardNavigation()
+    {
+        List<Selectable> chain = new List<Selectable>(6);
+        AddSelectable(chain, volumeSlider);
+        AddSelectable(chain, bgmVolumeSlider);
+        AddSelectable(chain, sfxVolumeSlider);
+        AddSelectable(chain, resolutionTMPDropdown);
+        AddSelectable(chain, resolutionLegacyDropdown);
+        AddSelectable(chain, fullscreenToggle);
+        AddSelectable(chain, backButton);
+
+        for (int i = 0; i < chain.Count; i++)
+        {
+            Selectable current = chain[i];
+            if (current == null)
+                continue;
+
+            Navigation nav = current.navigation;
+            nav.mode = Navigation.Mode.Explicit;
+            nav.selectOnUp = i > 0 ? chain[i - 1] : chain[i];
+            nav.selectOnDown = i < chain.Count - 1 ? chain[i + 1] : chain[i];
+            nav.selectOnLeft = current;
+            nav.selectOnRight = current;
+            current.navigation = nav;
+        }
+    }
+
+    private static void AddSelectable(List<Selectable> chain, Selectable selectable)
+    {
+        if (selectable == null)
+            return;
+        if (chain.Contains(selectable))
+            return;
+        chain.Add(selectable);
     }
 
     private void OnBackClicked()

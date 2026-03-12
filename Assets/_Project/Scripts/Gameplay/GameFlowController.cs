@@ -111,6 +111,50 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool useSpaceForUIConfirm = true;
     [SerializeField] private bool keyboardTabCyclesSelection = true;
 
+    [Header("Gameplay Tutorial")]
+    [SerializeField] private bool enableGameplayTutorial = true;
+    [SerializeField] private TMP_FontAsset gameplayTutorialFont;
+    [SerializeField, TextArea(2, 3)] private string gameplayTutorialMoveText = "MOVE WITH WASD";
+    [SerializeField, TextArea(2, 4)] private string gameplayTutorialPickupText = "PICK UP DROPS FROM KILLS\nXP LEVELS YOU UP. CASH PAYS DEBT.";
+    [SerializeField, TextArea(2, 4)] private string gameplayTutorialDebtText = "WORK HARD. PAY BACK.\nTHE COLLECTOR NEVER MISSES A PAYMENT.";
+    [SerializeField] private Color gameplayTutorialTextColor = new Color(0.96f, 0.97f, 0.93f, 1f);
+    [SerializeField] private Color gameplayTutorialCompleteColor = new Color(0.34f, 1f, 0.44f, 1f);
+    [SerializeField] private Vector3 gameplayTutorialMoveOffset = new Vector3(0f, 2.55f, 0f);
+    [SerializeField] private Vector3 gameplayTutorialPickupOffset = new Vector3(0f, 2.35f, 0f);
+    [SerializeField, Min(0.5f)] private float gameplayTutorialMoveLifetime = 5.5f;
+    [SerializeField, Min(0.5f)] private float gameplayTutorialPickupLifetime = 7.5f;
+    [SerializeField, Min(0.1f)] private float gameplayTutorialFontSize = 5.4f;
+    [SerializeField, Min(0.01f)] private float gameplayTutorialTextScale = 0.17f;
+    [SerializeField, Min(0.05f)] private float gameplayTutorialCompleteFadeDuration = 0.7f;
+
+    [Header("Boss Victory Cinematic")]
+    [SerializeField] private bool playBossVictoryCinematic = true;
+    [SerializeField, Min(0f)] private float bossVictoryFreezeLeadSeconds = 0.18f;
+    [SerializeField, Min(0.1f)] private float bossVictoryShakeSeconds = 0.85f;
+    [SerializeField, Min(0f)] private float bossVictoryShakeAmplitude = 0.18f;
+    [SerializeField, Min(0f)] private float bossVictoryShakeFrequency = 42f;
+    [SerializeField, Min(0.1f)] private float bossVictoryDissolveSeconds = 0.7f;
+    [SerializeField, Min(1)] private int bossVictoryShardCount = 6;
+    [SerializeField, Min(0f)] private float bossVictoryShardSpeed = 2.8f;
+    [SerializeField, Min(0f)] private float bossVictoryCameraShakeSeconds = 0.55f;
+    [SerializeField, Min(0f)] private float bossVictoryCameraShakeAmplitude = 0.18f;
+    [SerializeField, Min(0f)] private float bossVictoryCameraShakeFrequency = 34f;
+    [SerializeField] private Color bossVictoryScreenFlashPrimaryColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Color bossVictoryScreenFlashSecondaryColor = new Color(1f, 0.18f, 0.12f, 0.72f);
+    [SerializeField, Min(0.01f)] private float bossVictoryScreenFlashPrimarySeconds = 0.08f;
+    [SerializeField, Min(0.01f)] private float bossVictoryScreenFlashSecondarySeconds = 0.22f;
+    [SerializeField] private Color bossVictoryFlashColor = new Color(1f, 0.93f, 0.72f, 1f);
+    [SerializeField] private Color bossVictoryShardColor = new Color(1f, 0.68f, 0.36f, 0.95f);
+
+    [Header("Victory Presentation")]
+    [SerializeField] private string victoryThanksText = "THANKS FOR PLAYING";
+    [SerializeField] private string victoryThanksSubText = "Debt paid. For now.";
+    [SerializeField, Min(0.1f)] private float victoryThanksSeconds = 2.4f;
+    [SerializeField, Min(0.1f)] private float victoryCreditsSeconds = 5f;
+    [SerializeField, Min(0.05f)] private float victoryPresentationFadeSeconds = 0.35f;
+    [SerializeField] private Color victoryPresentationBackdropColor = new Color(0f, 0f, 0f, 0.82f);
+    [SerializeField] private Color victoryThanksTextColor = new Color(0.98f, 0.96f, 0.91f, 1f);
+
     [SerializeField] private TMP_Text textDue;
     [SerializeField] private TMP_Text textPaid;
     [SerializeField] private TMP_Text textRemainingDebt;
@@ -121,6 +165,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textSettlementRoundsLeft;
 
     [SerializeField] private int totalRounds = 10;
+    [SerializeField] private int firstRoundDue = 100;
     [SerializeField] private int baseDue = 220;
     [SerializeField] private int stepDue = 140;
     [SerializeField] private float roundDurationSeconds = 22f;
@@ -130,11 +175,13 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(1f)] private float countdownUrgentScaleMultiplier = 1.28f;
     [SerializeField, Min(0f)] private float countdownTickPopSeconds = 0.18f;
     [SerializeField, Min(0f)] private float countdownTickPopAmplitude = 0.16f;
-    [SerializeField, Min(1)] private int baseXpToNext = 10;
+    [SerializeField, Min(1)] private int baseXpToNext = 100;
 
     [SerializeField] private bool useDebtCurveMultiplier = true;
     [SerializeField] private AnimationCurve debtCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2f);
     [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
+    [SerializeField] private bool useIncomeScaledDebt = true;
+    [SerializeField, Range(0f, 1f)] private float incomeScaledDebtRatio = 0.45f;
 
     [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.75f);
     [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.35f);
@@ -148,7 +195,7 @@ public class GameFlowController : MonoBehaviour
 
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
-    [SerializeField] private int xpToNext = 10;
+    [SerializeField] private int xpToNext = 100;
     [SerializeField, Min(2)] private int xpCurveMaxLevel = 25;
     [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 5f);
     [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.12f;
@@ -207,12 +254,13 @@ public class GameFlowController : MonoBehaviour
     private bool creditsPanelMissingWarned;
     private bool pauseMenuOpen;
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
-    private float roundTimeRemaining;  // 褰撳墠鍥炲悎鍓╀綑鏃堕棿
+    private float roundTimeRemaining;  // Remaining time in the current round
     private float lastUIButtonHoverSfxTime = -10f;
     private GameObject keyboardNavigationRoot;
     private float nextBossDefeatCheckTime = -10f;
     private bool bossSeenInCurrentBossRound;
     private int trackedBossRoundIndex = -1;
+    private bool bossVictorySequenceActive;
     private bool storyIntroActive;
     private bool storySkipRequested;
     private bool storyAdvanceRequested;
@@ -229,7 +277,7 @@ public class GameFlowController : MonoBehaviour
     private float countdownTickPopEndTime = -1f;
     private Material countdownRuntimeMaterial;
 
-    // 鍟嗗簵閬撳叿鍔犳垚锛堟瘡灞€閲嶇疆锛?
+    // Shop item bonuses, reset every run.
     private int bonusXPPerKill;
     private float bonusXPMagnetRadius;
     private float cashBonusPercent;
@@ -242,6 +290,34 @@ public class GameFlowController : MonoBehaviour
     private int runTotalCashEarned;
     private int runTotalXPEarned;
     private int runHighestRound;
+    private int currentRoundCashEarned;
+    private int previousRoundCashEarned;
+    private Coroutine gameplayTutorialCo;
+    private Coroutine gameplayTutorialDebtFollowupCo;
+    private Coroutine bossVictorySequenceCo;
+    private Coroutine victoryPresentationCo;
+    private WorldInstructionText activeGameplayTutorialHint;
+    private CanvasGroup bossVictoryFlashOverlay;
+    private Image bossVictoryFlashImage;
+    private bool bossVictoryFlashOverlayAutoCreated;
+    private CanvasGroup victoryCreditsCanvasGroup;
+    private CanvasGroup victoryThanksOverlay;
+    private TMP_Text victoryThanksTitleText;
+    private TMP_Text victoryThanksSubtitleText;
+    private bool victoryThanksOverlayAutoCreated;
+    private bool victoryCreditsVisible;
+    private Vector3 gameplayTutorialSpawnPosition;
+    private bool gameplayTutorialFirstKillShown;
+    private bool gameplayTutorialFirstPickupShown;
+    private GameplayTutorialHintType activeGameplayTutorialHintType;
+
+    private enum GameplayTutorialHintType
+    {
+        None,
+        Move,
+        Pickup,
+        Debt
+    }
 
     public int RunTotalKills => runTotalKills;
     public int RunTotalCashEarned => runTotalCashEarned;
@@ -249,11 +325,51 @@ public class GameFlowController : MonoBehaviour
     public int RunHighestRound => runHighestRound;
 
     /// <summary>敌人被击杀时调用（EnemyController.Die）</summary>
-    public void NotifyEnemyKilled() { runTotalKills++; }
+    public void NotifyEnemyKilled(Vector3 worldPosition)
+    {
+        runTotalKills++;
+
+        if (!enableGameplayTutorial || gameplayTutorialFirstKillShown || runTotalKills != 1)
+            return;
+
+        gameplayTutorialFirstKillShown = true;
+        StopGameplayTutorialSequence();
+        ShowGameplayTutorialHint(
+            gameplayTutorialPickupText,
+            worldPosition + gameplayTutorialPickupOffset,
+            gameplayTutorialPickupLifetime,
+            GameplayTutorialHintType.Pickup);
+    }
+
+    public void NotifyGameplayTutorialPickupCollected(Vector3 worldPosition)
+    {
+        if (!enableGameplayTutorial || gameplayTutorialFirstPickupShown || !gameplayTutorialFirstKillShown)
+            return;
+
+        gameplayTutorialFirstPickupShown = true;
+        bool completedPickupHint = TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Pickup);
+
+        if (gameplayTutorialDebtFollowupCo != null)
+            StopCoroutine(gameplayTutorialDebtFollowupCo);
+
+        if (completedPickupHint)
+        {
+            gameplayTutorialDebtFollowupCo = StartCoroutine(ShowDebtTutorialAfterDelay(
+                worldPosition + gameplayTutorialPickupOffset,
+                gameplayTutorialCompleteFadeDuration));
+            return;
+        }
+
+        ShowGameplayTutorialHint(
+            gameplayTutorialDebtText,
+            worldPosition + gameplayTutorialPickupOffset,
+            gameplayTutorialPickupLifetime,
+            GameplayTutorialHintType.Debt);
+    }
 
     private void Awake()
     {
-        // 鍗曚緥
+        // Singleton
         if (Instance != null && Instance != this)
         {
             bool oldInDontDestroy = Instance.gameObject.scene.name == "DontDestroyOnLoad";
@@ -276,6 +392,7 @@ public class GameFlowController : MonoBehaviour
             Instance = this;
         }
 
+        SettingsMenuController.ApplyStartupDisplaySettings();
         PrepareInitialMenuSafetyState();
         EnsureCountdownMaterialIsolated();
         EnsureUIEventSystem();
@@ -343,9 +460,10 @@ public class GameFlowController : MonoBehaviour
         // If splash screen exists, hide everything until splash finishes.
         if (studioSplash != null)
         {
-            // Hide all panels so nothing flickers before splash.
+            // Hide all panels and disable gameplay systems during splash.
             if (panelTitle != null) panelTitle.SetActive(false);
             if (panelHUD != null) panelHUD.SetActive(false);
+            SetGameplaySystemsActive(false);
         }
         else
         {
@@ -416,6 +534,7 @@ public class GameFlowController : MonoBehaviour
         if (panelSettingsPlaceholder != null) panelSettingsPlaceholder.SetActive(false);
         if (storyIntroOverlay != null) storyIntroOverlay.gameObject.SetActive(false);
         creditsOpen = false;
+        ClearGameplayTutorialHint();
         EnsureCreditsButtonsBound();
     }
 
@@ -561,6 +680,7 @@ public class GameFlowController : MonoBehaviour
         }
         
         UpdateCountdownDisplay();
+        UpdateGameplayTutorialProgress();
 
         AutoCompleteBossRoundIfBossDefeated();
         TryShowDeferredLevelUpRewardIfReady();
@@ -579,6 +699,7 @@ public class GameFlowController : MonoBehaviour
             v = Mathf.Max(v, Mathf.RoundToInt(v * (1f + cashBonusPercent / 100f)));
 
         cash += v;
+        currentRoundCashEarned += v;
         runTotalCashEarned += v;
         RunLogger.Event($"Cash +{v}, total={cash}");
         RefreshHUD();
@@ -657,6 +778,9 @@ private bool TryShowLevelUpRewardPanelNow()
         RunLogger.Error("Level up skipped: weapon upgrade pool has no valid entries.");
         return false;
     }
+
+    if (panelHUD != null)
+        panelHUD.SetActive(false);
 
     levelUpPanel.ShowUpgradePanel(selectedUpgrades, OnUpgradeSelected);
     PlayLevelUpPanelBGM();
@@ -801,16 +925,19 @@ private void TryShowDeferredLevelUpRewardIfReady()
         else if (upgrade == null)
             RunLogger.Warning("Upgrade selected callback received null upgrade.");
 
-        if (clearEnemyProjectilesAfterLevelUp)
-            ClearEnemyProjectiles();
+    if (clearEnemyProjectilesAfterLevelUp)
+        ClearEnemyProjectiles();
 
-        // 鎭㈠娓告垙鏃堕棿
-        Time.timeScale = 1f;
+    // 鎭㈠娓告垙鏃堕棿
+    Time.timeScale = 1f;
 
-        if (postLevelUpSafetyInvulnSeconds > 0f)
-        {
-            PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
-            if (playerHealth != null)
+    if (panelHUD != null)
+        panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement);
+
+    if (postLevelUpSafetyInvulnSeconds > 0f)
+    {
+        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth != null)
                 playerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
         }
 
@@ -862,11 +989,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
         bossSeenInCurrentBossRound = false;
         trackedBossRoundIndex = -1;
         nextBossDefeatCheckTime = -10f;
+        currentRoundCashEarned = 0;
+        previousRoundCashEarned = 0;
+        gameplayTutorialFirstKillShown = false;
+        gameplayTutorialFirstPickupShown = false;
         runProgression.Reset();
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
 
         RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
+        Projectile.ResetPool();
 
         // 閲嶇疆鐜╁琛€閲忓拰琛€閲廢I
         var playerHealth = FindObjectOfType<PlayerHealth>();
@@ -877,7 +1009,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         if (playerMotor != null)
-            playerMotor.ResetRuntimeStats();
+            playerMotor.ResetForNewRun();
 
         if (playerShooter != null)
             playerShooter.ResetRuntimeStats();
@@ -892,14 +1024,20 @@ private void TryShowDeferredLevelUpRewardIfReady()
         runTotalCashEarned = 0;
         runTotalXPEarned = 0;
         runHighestRound = 1;
+        gameplayTutorialSpawnPosition = ResolveGameplayTutorialAnchorPosition();
+        ClearGameplayTutorialHint();
+        StopGameplayTutorialSequence();
 
         // 闅愯棌鍗囩骇闈㈡澘骞堕噸缃鍣?
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
         HideAllDeathPanels();
         HideRunSummary();
+        ClearWorld();
 
         SwitchState(GameState.Gameplay);
+        if (cameraFollow != null)
+            cameraFollow.SnapToTarget();
         ShowRoundIntro();
 
         if (healthUI != null)
@@ -910,6 +1048,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         StartRoundTimer();
         RefreshHUD();
+        BeginGameplayTutorialSequence();
     }
 
     [ContextMenu("Debug/Jump To Boss Round")]
@@ -957,6 +1096,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
             cashBonusPercent = 0f;
         }
 
+        currentRoundCashEarned = 0;
+        previousRoundCashEarned = 0;
+        gameplayTutorialFirstKillShown = false;
+        gameplayTutorialFirstPickupShown = false;
+        ClearGameplayTutorialHint();
+        StopGameplayTutorialSequence();
         roundIndex = GetBossRoundIndex();
         MarkBossRoundEntered();
         runProgression.BeginRound();
@@ -980,7 +1125,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         EndRound(false);
     }
 
-    public void NotifyBossDefeated()
+    public void NotifyBossDefeated(EnemyController defeatedBoss = null)
     {
         if (state != GameState.Gameplay)
             return;
@@ -988,13 +1133,39 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (!IsCurrentRoundBoss())
             return;
 
+        if (bossVictorySequenceActive)
+            return;
+
+        if (playBossVictoryCinematic && defeatedBoss != null && TryStartBossVictorySequence(defeatedBoss))
+            return;
+
         RunLogger.Event("Boss defeat notified. Ending boss round.");
         EndRound(false);
+    }
+
+    public bool TryStartBossVictorySequence(EnemyController defeatedBoss)
+    {
+        if (!playBossVictoryCinematic || defeatedBoss == null || bossVictorySequenceActive)
+            return bossVictorySequenceActive;
+
+        if (state != GameState.Gameplay || !IsCurrentRoundBoss())
+            return false;
+
+        bossVictorySequenceActive = true;
+        if (bossVictorySequenceCo != null)
+            StopCoroutine(bossVictorySequenceCo);
+
+        bossVictorySequenceCo = StartCoroutine(BossVictorySequenceRoutine(defeatedBoss));
+        RunLogger.Event("Boss victory cinematic started.");
+        return true;
     }
 
     private void AutoCompleteBossRoundIfBossDefeated()
     {
         if (state != GameState.Gameplay)
+            return;
+
+        if (bossVictorySequenceActive)
             return;
 
         if (!IsCurrentRoundBoss())
@@ -1130,6 +1301,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         Time.timeScale = 1f;
 
+        CommitRoundCashEarnedToHistory();
         roundIndex += 1;
         runHighestRound = Mathf.Max(runHighestRound, roundIndex);
         int bossRound = GetBossRoundIndex();
@@ -1239,6 +1411,499 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (runSummaryPanel != null)
             runSummaryPanel.ShowPanel(ending, runTotalKills, runTotalCashEarned, runTotalXPEarned, runHighestRound, level);
+    }
+
+    private IEnumerator BossVictorySequenceRoutine(EnemyController defeatedBoss)
+    {
+        StopRoundTimer();
+        StopRoundClearTransition(false);
+        pendingDeferredLevelUpChoices = 0;
+        currentDeathType = DeathType.KilledByMonster;
+
+        SetGameplaySystemsActive(false);
+        ForceCollectAllPickupsImmediate();
+        ClearBossVictoryStageExcept(defeatedBoss);
+        Time.timeScale = 0f;
+
+        if (defeatedBoss == null)
+        {
+            FinishBossVictorySequence();
+            yield break;
+        }
+
+        BossAttackController bossAttack = defeatedBoss.GetComponent<BossAttackController>();
+        if (bossAttack != null)
+            bossAttack.enabled = false;
+
+        EnemyHitFeedback hitFeedback = defeatedBoss.GetComponent<EnemyHitFeedback>();
+        if (hitFeedback != null)
+            hitFeedback.enabled = false;
+
+        EnemyVisualWobble wobble = defeatedBoss.GetComponent<EnemyVisualWobble>();
+        if (wobble != null)
+            wobble.enabled = false;
+
+        Rigidbody2D bossRb = defeatedBoss.GetComponent<Rigidbody2D>();
+        if (bossRb != null)
+            bossRb.linearVelocity = Vector2.zero;
+
+        SpriteRenderer[] renderers = defeatedBoss.GetComponentsInChildren<SpriteRenderer>(true);
+        Transform shakeTarget = defeatedBoss.transform;
+        Vector3 baseLocalPosition = shakeTarget.localPosition;
+        Vector3 baseLocalScale = shakeTarget.localScale;
+        Color[] originalColors = CacheSpriteColors(renderers);
+        Camera mainCamera = Camera.main;
+        Transform cameraTransform = mainCamera != null ? mainCamera.transform : null;
+        Vector3 cameraBasePosition = cameraTransform != null ? cameraTransform.position : Vector3.zero;
+
+        StartCoroutine(BossVictoryScreenFlashRoutine());
+
+        if (bossVictoryFreezeLeadSeconds > 0f)
+            yield return new WaitForSecondsRealtime(bossVictoryFreezeLeadSeconds);
+
+        float shakeElapsed = 0f;
+        while (shakeElapsed < bossVictoryShakeSeconds)
+        {
+            shakeElapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(shakeElapsed / Mathf.Max(0.01f, bossVictoryShakeSeconds));
+            float amplitude = bossVictoryShakeAmplitude * Mathf.Lerp(0.35f, 1f, t);
+            Vector2 jitter = Random.insideUnitCircle * amplitude;
+            shakeTarget.localPosition = baseLocalPosition + new Vector3(jitter.x, jitter.y, 0f);
+
+            if (cameraTransform != null)
+                ApplyBossVictoryCameraShake(cameraTransform, cameraBasePosition, shakeElapsed);
+
+            float flashT = 0.5f + (0.5f * Mathf.Sin(shakeElapsed * Mathf.Max(1f, bossVictoryShakeFrequency)));
+            ApplySpriteFlash(renderers, originalColors, bossVictoryFlashColor, flashT * 0.7f);
+            yield return null;
+        }
+
+        shakeTarget.localPosition = baseLocalPosition;
+        if (cameraTransform != null)
+            cameraTransform.position = cameraBasePosition;
+        SpawnBossVictoryShards(renderers);
+
+        float dissolveElapsed = 0f;
+        while (dissolveElapsed < bossVictoryDissolveSeconds)
+        {
+            dissolveElapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(dissolveElapsed / Mathf.Max(0.01f, bossVictoryDissolveSeconds));
+            ApplySpriteFlash(renderers, originalColors, bossVictoryFlashColor, 1f - t);
+            ApplySpriteAlpha(renderers, 1f - t);
+            shakeTarget.localScale = Vector3.Lerp(baseLocalScale, baseLocalScale * 0.72f, t);
+            yield return null;
+        }
+
+        if (defeatedBoss != null)
+            Destroy(defeatedBoss.gameObject);
+
+        FinishBossVictorySequence();
+    }
+
+    private void FinishBossVictorySequence()
+    {
+        bossVictorySequenceActive = false;
+        bossVictorySequenceCo = null;
+
+        if (BGMManager.Instance != null)
+            BGMManager.Instance.PlayVictoryBGM();
+
+        Time.timeScale = 0f;
+        SwitchState(GameState.Victory);
+
+        HideRunSummary();
+        HideVictoryThanksOverlayImmediate();
+
+        if (victoryPresentationCo != null)
+            StopCoroutine(victoryPresentationCo);
+        victoryPresentationCo = StartCoroutine(VictoryPresentationRoutine());
+    }
+
+    private IEnumerator VictoryPresentationRoutine()
+    {
+        yield return ShowVictoryThanksRoutine();
+        yield return ShowVictoryCreditsRoutine();
+
+        HideVictoryThanksOverlayImmediate();
+        SetVictoryCreditsVisible(false);
+        ShowRunSummary(RunSummaryPanel.EndingType.Victory);
+        victoryPresentationCo = null;
+    }
+
+    private IEnumerator ShowVictoryThanksRoutine()
+    {
+        if (!EnsureVictoryThanksOverlay())
+            yield break;
+
+        victoryThanksOverlay.gameObject.SetActive(true);
+        victoryThanksOverlay.alpha = 0f;
+        victoryThanksOverlay.transform.SetAsLastSibling();
+
+        if (victoryThanksTitleText != null)
+            victoryThanksTitleText.text = string.IsNullOrWhiteSpace(victoryThanksText) ? "THANKS FOR PLAYING" : victoryThanksText;
+        if (victoryThanksSubtitleText != null)
+            victoryThanksSubtitleText.text = string.IsNullOrWhiteSpace(victoryThanksSubText) ? string.Empty : victoryThanksSubText;
+
+        float fadeDuration = Mathf.Max(0.01f, victoryPresentationFadeSeconds);
+        yield return FadeCanvasGroupRealtime(victoryThanksOverlay, 0f, 1f, fadeDuration);
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.1f, victoryThanksSeconds));
+        yield return FadeCanvasGroupRealtime(victoryThanksOverlay, 1f, 0f, fadeDuration);
+        victoryThanksOverlay.gameObject.SetActive(false);
+    }
+
+    private IEnumerator ShowVictoryCreditsRoutine()
+    {
+        if (!EnsureCreditsPanelBound())
+            yield break;
+
+        SetVictoryCreditsVisible(true);
+        if (panelCredits != null)
+            panelCredits.transform.SetAsLastSibling();
+
+        CanvasGroup creditsGroup = EnsureVictoryCreditsCanvasGroup();
+        float fadeDuration = Mathf.Max(0.01f, victoryPresentationFadeSeconds);
+        if (creditsGroup != null)
+        {
+            creditsGroup.alpha = 1f;
+            yield return new WaitForSecondsRealtime(Mathf.Max(0.1f, victoryCreditsSeconds));
+            yield return FadeCanvasGroupRealtime(creditsGroup, 1f, 0f, fadeDuration);
+            creditsGroup.alpha = 1f;
+        }
+        else
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(0.1f, victoryCreditsSeconds + fadeDuration));
+        }
+    }
+
+    private IEnumerator FadeCanvasGroupRealtime(CanvasGroup group, float from, float to, float duration)
+    {
+        if (group == null)
+            yield break;
+
+        float elapsed = 0f;
+        group.alpha = from;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            group.alpha = Mathf.Lerp(from, to, t);
+            yield return null;
+        }
+
+        group.alpha = to;
+    }
+
+    private void SetVictoryCreditsVisible(bool visible)
+    {
+        victoryCreditsVisible = visible && EnsureCreditsPanelBound();
+        RefreshTitleAndCreditsPanels();
+
+        if (panelCredits == null)
+            return;
+
+        SetCreditsBackButtonVisible(!victoryCreditsVisible);
+
+        Button[] buttons = panelCredits.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (IsCreditsBackButton(buttons[i]))
+                continue;
+            buttons[i].interactable = !victoryCreditsVisible;
+        }
+    }
+
+    private CanvasGroup EnsureVictoryCreditsCanvasGroup()
+    {
+        if (panelCredits == null && !EnsureCreditsPanelBound())
+            return null;
+
+        if (panelCredits == null)
+            return null;
+
+        if (victoryCreditsCanvasGroup == null)
+            victoryCreditsCanvasGroup = panelCredits.GetComponent<CanvasGroup>();
+        if (victoryCreditsCanvasGroup == null)
+            victoryCreditsCanvasGroup = panelCredits.AddComponent<CanvasGroup>();
+
+        return victoryCreditsCanvasGroup;
+    }
+
+    private void SetCreditsBackButtonVisible(bool visible)
+    {
+        if (panelCredits == null)
+            return;
+
+        Button[] buttons = panelCredits.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (!IsCreditsBackButton(button))
+                continue;
+
+            button.gameObject.SetActive(visible);
+        }
+    }
+
+    private bool IsCreditsBackButton(Button button)
+    {
+        if (button == null)
+            return false;
+
+        string name = button.name;
+        return name == "Btn_Back" || name == "Btn_CreditsBack" || name == "Btn_CloseCredits";
+    }
+
+    private void HideVictoryThanksOverlayImmediate()
+    {
+        if (victoryThanksOverlay == null)
+            return;
+
+        victoryThanksOverlay.alpha = 0f;
+        victoryThanksOverlay.gameObject.SetActive(false);
+    }
+
+    private void ForceCollectAllPickupsImmediate()
+    {
+        XPPickup[] xpPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<XPPickup>(true)
+            : FindObjectsOfType<XPPickup>();
+        HealthPickup[] hpPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<HealthPickup>(true)
+            : FindObjectsOfType<HealthPickup>();
+        CashPickup[] cashPool = pickupsRoot != null
+            ? pickupsRoot.GetComponentsInChildren<CashPickup>(true)
+            : FindObjectsOfType<CashPickup>();
+
+        for (int i = 0; i < xpPool.Length; i++)
+        {
+            if (xpPool[i] != null)
+                xpPool[i].ForceCollect();
+        }
+
+        for (int i = 0; i < hpPool.Length; i++)
+        {
+            if (hpPool[i] != null)
+                hpPool[i].ForceCollect();
+        }
+
+        for (int i = 0; i < cashPool.Length; i++)
+        {
+            if (cashPool[i] != null)
+                cashPool[i].ForceCollect();
+        }
+    }
+
+    private void ClearBossVictoryStageExcept(EnemyController preservedBoss)
+    {
+        if (projectilesRoot != null)
+            ClearChildren(projectilesRoot);
+        if (pickupsRoot != null)
+            ClearChildren(pickupsRoot);
+
+        EnemyController[] enemies = enemiesRoot != null
+            ? enemiesRoot.GetComponentsInChildren<EnemyController>(true)
+            : FindObjectsOfType<EnemyController>();
+        for (int i = 0; i < enemies.Length; i++)
+        {
+            EnemyController enemy = enemies[i];
+            if (enemy == null || enemy == preservedBoss)
+                continue;
+
+            Destroy(enemy.gameObject);
+        }
+
+        WorldPopupText[] popupTexts = FindObjectsOfType<WorldPopupText>();
+        for (int i = 0; i < popupTexts.Length; i++)
+        {
+            if (popupTexts[i] != null)
+                Destroy(popupTexts[i].gameObject);
+        }
+    }
+
+    private Color[] CacheSpriteColors(SpriteRenderer[] renderers)
+    {
+        if (renderers == null)
+            return new Color[0];
+
+        Color[] colors = new Color[renderers.Length];
+        for (int i = 0; i < renderers.Length; i++)
+            colors[i] = renderers[i] != null ? renderers[i].color : Color.white;
+
+        return colors;
+    }
+
+    private void ApplySpriteFlash(SpriteRenderer[] renderers, Color[] originalColors, Color flashColor, float flashWeight)
+    {
+        if (renderers == null || originalColors == null)
+            return;
+
+        float weight = Mathf.Clamp01(flashWeight);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer sr = renderers[i];
+            if (sr == null)
+                continue;
+
+            sr.color = Color.Lerp(originalColors[Mathf.Min(i, originalColors.Length - 1)], flashColor, weight);
+        }
+    }
+
+    private void ApplySpriteAlpha(SpriteRenderer[] renderers, float alphaMultiplier)
+    {
+        if (renderers == null)
+            return;
+
+        float alpha = Mathf.Clamp01(alphaMultiplier);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer sr = renderers[i];
+            if (sr == null)
+                continue;
+
+            Color color = sr.color;
+            color.a *= alpha;
+            sr.color = color;
+        }
+    }
+
+    private void SpawnBossVictoryShards(SpriteRenderer[] renderers)
+    {
+        SpriteRenderer source = ResolveBossShardSource(renderers);
+        if (source == null || source.sprite == null)
+            return;
+
+        int shardCount = Mathf.Max(1, bossVictoryShardCount);
+        for (int i = 0; i < shardCount; i++)
+        {
+            GameObject shard = new GameObject("BossVictoryShard", typeof(SpriteRenderer));
+            SpriteRenderer sr = shard.GetComponent<SpriteRenderer>();
+            sr.sprite = source.sprite;
+            sr.sortingLayerID = source.sortingLayerID;
+            sr.sortingOrder = source.sortingOrder + 1;
+            sr.color = bossVictoryShardColor;
+
+            shard.transform.position = source.bounds.center;
+            shard.transform.rotation = source.transform.rotation;
+            shard.transform.localScale = source.transform.lossyScale * Random.Range(0.26f, 0.46f);
+
+            Vector2 direction = Random.insideUnitCircle.normalized;
+            if (direction.sqrMagnitude <= 0.0001f)
+                direction = Vector2.up;
+
+            StartCoroutine(BossVictoryShardRoutine(
+                shard.transform,
+                sr,
+                direction * Random.Range(bossVictoryShardSpeed * 0.5f, bossVictoryShardSpeed),
+                Random.Range(-180f, 180f)));
+        }
+    }
+
+    private IEnumerator BossVictoryShardRoutine(Transform shardTransform, SpriteRenderer shardRenderer, Vector2 velocity, float angularVelocity)
+    {
+        if (shardTransform == null || shardRenderer == null)
+            yield break;
+
+        Vector3 startScale = shardTransform.localScale;
+        float elapsed = 0f;
+        float duration = Mathf.Max(0.1f, bossVictoryDissolveSeconds * 0.9f);
+
+        while (elapsed < duration && shardTransform != null && shardRenderer != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            shardTransform.position += (Vector3)(velocity * Time.unscaledDeltaTime);
+            shardTransform.Rotate(0f, 0f, angularVelocity * Time.unscaledDeltaTime);
+            shardTransform.localScale = Vector3.Lerp(startScale, startScale * 0.2f, t);
+
+            Color color = shardRenderer.color;
+            color.a = Mathf.Lerp(bossVictoryShardColor.a, 0f, t);
+            shardRenderer.color = color;
+            yield return null;
+        }
+
+        if (shardTransform != null)
+            Destroy(shardTransform.gameObject);
+    }
+
+    private SpriteRenderer ResolveBossShardSource(SpriteRenderer[] renderers)
+    {
+        if (renderers == null || renderers.Length == 0)
+            return null;
+
+        SpriteRenderer best = null;
+        float bestArea = float.MinValue;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer sr = renderers[i];
+            if (sr == null || sr.sprite == null)
+                continue;
+
+            float area = sr.bounds.size.x * sr.bounds.size.y;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = sr;
+            }
+        }
+
+        return best;
+    }
+
+    private void ApplyBossVictoryCameraShake(Transform cameraTransform, Vector3 basePosition, float elapsed)
+    {
+        if (cameraTransform == null)
+            return;
+
+        float duration = Mathf.Max(0.01f, bossVictoryCameraShakeSeconds);
+        float t = Mathf.Clamp01(elapsed / duration);
+        float fade = 1f - t;
+        float pulse = Mathf.Sin(elapsed * Mathf.Max(1f, bossVictoryCameraShakeFrequency));
+        Vector2 noise = Random.insideUnitCircle * bossVictoryCameraShakeAmplitude * fade * (0.65f + (0.35f * Mathf.Abs(pulse)));
+        cameraTransform.position = basePosition + new Vector3(noise.x, noise.y, 0f);
+    }
+
+    private IEnumerator BossVictoryScreenFlashRoutine()
+    {
+        if (!EnsureBossVictoryFlashOverlay())
+            yield break;
+
+        bossVictoryFlashOverlay.gameObject.SetActive(true);
+        bossVictoryFlashOverlay.alpha = 0f;
+
+        yield return FlashBossVictoryOverlay(
+            bossVictoryScreenFlashPrimaryColor,
+            Mathf.Max(0.01f, bossVictoryScreenFlashPrimarySeconds),
+            1f);
+
+        yield return FlashBossVictoryOverlay(
+            bossVictoryScreenFlashSecondaryColor,
+            Mathf.Max(0.01f, bossVictoryScreenFlashSecondarySeconds),
+            bossVictoryScreenFlashSecondaryColor.a);
+
+        bossVictoryFlashOverlay.alpha = 0f;
+        bossVictoryFlashOverlay.gameObject.SetActive(false);
+    }
+
+    private IEnumerator FlashBossVictoryOverlay(Color color, float duration, float peakAlpha)
+    {
+        if (bossVictoryFlashOverlay == null || bossVictoryFlashImage == null)
+            yield break;
+
+        bossVictoryFlashImage.color = new Color(color.r, color.g, color.b, 1f);
+        float halfDuration = Mathf.Max(0.01f, duration * 0.5f);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float alpha = elapsed <= halfDuration
+                ? Mathf.Lerp(0f, peakAlpha, elapsed / halfDuration)
+                : Mathf.Lerp(peakAlpha, 0f, (elapsed - halfDuration) / halfDuration);
+            bossVictoryFlashOverlay.alpha = Mathf.Clamp01(alpha);
+            yield return null;
+        }
+
+        bossVictoryFlashOverlay.alpha = 0f;
     }
 
     private void HideRunSummary()
@@ -1444,6 +2109,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             playerMotor = FindObjectOfType<PlayerMotor2D>();
 
         PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        bool purchasedShieldEffect = false;
 
         if (item.Effects != null)
         {
@@ -1462,6 +2128,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
                         break;
                     case ShopItemEffectType.AddShieldCharges:
                         if (playerHealth != null) playerHealth.AddShieldCharges(effect.intValue);
+                        purchasedShieldEffect = true;
+                        break;
+                    case ShopItemEffectType.PeriodicShieldUpgrade:
+                        if (playerHealth != null) playerHealth.UpgradePeriodicShield(effect.floatValue);
+                        purchasedShieldEffect = true;
                         break;
                     case ShopItemEffectType.XPPerKillAdd:
                         bonusXPPerKill += Mathf.Max(0, effect.intValue);
@@ -1480,7 +2151,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         if (healthUI != null)
+        {
             healthUI.ResetHealthUI();
+            if (purchasedShieldEffect)
+                healthUI.RevealForShopFeedback(1.6f);
+        }
 
         RunLogger.Event($"Shop item applied: {item.ItemTitle}");
     }
@@ -1622,6 +2297,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 storyIntroSkipButton.onClick.AddListener(OnStorySkipButtonClicked);
         }
 
+        if (BGMManager.Instance != null)
+            BGMManager.Instance.PlayStoryIntroBGM();
+
         RefreshTitleAndCreditsPanels();
         storyIntroCo = StartCoroutine(PlayStoryIntroRoutine(pages, allowSkip));
         RunLogger.Event($"Story intro started. pages={pages.Count}, allowSkip={allowSkip}");
@@ -1629,6 +2307,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void StopStoryIntroPresentation(bool clearQueuedRun)
     {
+        bool wasActive = storyIntroActive;
+
         if (storyIntroCo != null)
         {
             StopCoroutine(storyIntroCo);
@@ -1651,23 +2331,22 @@ private void TryShowDeferredLevelUpRewardIfReady()
             storyIntroOverlay.gameObject.SetActive(false);
         }
 
+        if (wasActive && BGMManager.Instance != null)
+            BGMManager.Instance.OnGameStateChanged(state);
+
         RefreshTitleAndCreditsPanels();
     }
 
     private IEnumerator PlayStoryIntroRoutine(List<StoryComicPage> pages, bool allowSkip)
     {
-        int totalSteps = 0;
-        for (int i = 0; i < pages.Count; i++)
-            totalSteps += pages[i].ClicksToAdvance;
-        totalSteps = Mathf.Max(1, totalSteps);
-
+        int totalSteps = pages.Count; // 1 click per page.
         int currentStep = 0;
         yield return null; // Avoid consuming the same click used to start run.
 
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
             StoryComicPage page = pages[pageIndex];
-            int pageSteps = page.ClicksToAdvance;
+            int pageSteps = 1; // Temporarily override — single click to advance.
 
             for (int step = 1; step <= pageSteps; step++)
             {
@@ -1943,7 +2622,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     // ====== Internal ======
 
-    private void SwitchState(GameState next)
+private void SwitchState(GameState next)
 {
     if (next != GameState.Title && storyIntroActive)
         StopStoryIntroPresentation(false);
@@ -1960,9 +2639,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     if (state != GameState.Title)
         creditsOpen = false;
+    if (state != GameState.Victory)
+        victoryCreditsVisible = false;
 
     RefreshTitleAndCreditsPanels();
     if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement);
+    if (state != GameState.Gameplay)
+    {
+        StopGameplayTutorialSequence();
+        ClearGameplayTutorialHint();
+    }
     if (levelUpPanel != null)
         levelUpPanel.ForceHideImmediate();
     else if (panelLevelUp != null)
@@ -1980,6 +2666,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         victoryPanel.HideVictoryPanel();
         Time.timeScale = 1f; // 鎭㈠鏃堕棿娴?
+    }
+    if (previous == GameState.Victory)
+    {
+        if (victoryPresentationCo != null)
+        {
+            StopCoroutine(victoryPresentationCo);
+            victoryPresentationCo = null;
+        }
+
+        HideVictoryThanksOverlayImmediate();
     }
 
     bool inGameplay = (state == GameState.Gameplay);
@@ -2007,6 +2703,138 @@ private void TryShowDeferredLevelUpRewardIfReady()
     BindKeyboardFocusIndicatorsToSceneSelectables();
 }
 
+    private void BeginGameplayTutorialSequence()
+    {
+        if (!enableGameplayTutorial || !isActiveAndEnabled)
+            return;
+
+        StopGameplayTutorialSequence();
+        gameplayTutorialCo = StartCoroutine(GameplayTutorialSequence());
+    }
+
+    private void StopGameplayTutorialSequence()
+    {
+        if (gameplayTutorialCo == null)
+        {
+            if (gameplayTutorialDebtFollowupCo == null)
+                return;
+        }
+
+        if (gameplayTutorialCo != null)
+        {
+            StopCoroutine(gameplayTutorialCo);
+            gameplayTutorialCo = null;
+        }
+
+        if (gameplayTutorialDebtFollowupCo != null)
+        {
+            StopCoroutine(gameplayTutorialDebtFollowupCo);
+            gameplayTutorialDebtFollowupCo = null;
+        }
+    }
+
+    private IEnumerator GameplayTutorialSequence()
+    {
+        while (state == GameState.Gameplay && (roundIntroActive || roundClearActive || storyIntroActive))
+            yield return null;
+
+        gameplayTutorialCo = null;
+
+        if (state != GameState.Gameplay || gameplayTutorialFirstKillShown || !enableGameplayTutorial)
+            yield break;
+
+        ShowGameplayTutorialHint(
+            gameplayTutorialMoveText,
+            gameplayTutorialSpawnPosition + gameplayTutorialMoveOffset,
+            gameplayTutorialMoveLifetime,
+            GameplayTutorialHintType.Move);
+    }
+
+    private IEnumerator ShowDebtTutorialAfterDelay(Vector3 worldPosition, float delay)
+    {
+        yield return new WaitForSeconds(Mathf.Max(0.01f, delay));
+        gameplayTutorialDebtFollowupCo = null;
+
+        if (state != GameState.Gameplay || !enableGameplayTutorial)
+            yield break;
+
+        ShowGameplayTutorialHint(
+            gameplayTutorialDebtText,
+            worldPosition,
+            gameplayTutorialPickupLifetime,
+            GameplayTutorialHintType.Debt);
+    }
+
+    private void ShowGameplayTutorialHint(string content, Vector3 worldPosition, float lifetime, GameplayTutorialHintType hintType)
+    {
+        ClearGameplayTutorialHint();
+
+        activeGameplayTutorialHint = WorldInstructionText.Spawn(
+            content,
+            worldPosition,
+            gameplayTutorialTextColor,
+            gameplayTutorialFont,
+            gameplayTutorialFontSize,
+            gameplayTutorialTextScale,
+            lifetime);
+        activeGameplayTutorialHintType = activeGameplayTutorialHint != null ? hintType : GameplayTutorialHintType.None;
+    }
+
+    private void ClearGameplayTutorialHint()
+    {
+        if (activeGameplayTutorialHint == null)
+        {
+            activeGameplayTutorialHintType = GameplayTutorialHintType.None;
+            return;
+        }
+
+        Destroy(activeGameplayTutorialHint.gameObject);
+        activeGameplayTutorialHint = null;
+        activeGameplayTutorialHintType = GameplayTutorialHintType.None;
+    }
+
+    private void UpdateGameplayTutorialProgress()
+    {
+        if (!enableGameplayTutorial || state != GameState.Gameplay || activeGameplayTutorialHint == null)
+            return;
+
+        if (activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
+            !activeGameplayTutorialHint.IsCompleting &&
+            playerMotor != null &&
+            playerMotor.CurrentMoveInput.sqrMagnitude > 0.001f)
+        {
+            TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move);
+        }
+    }
+
+    private bool TryCompleteGameplayTutorialHint(GameplayTutorialHintType expectedType)
+    {
+        if (activeGameplayTutorialHint == null || activeGameplayTutorialHintType != expectedType)
+            return false;
+
+        if (activeGameplayTutorialHint.IsCompleting)
+            return false;
+
+        activeGameplayTutorialHint.Complete(
+            gameplayTutorialCompleteColor,
+            gameplayTutorialCompleteFadeDuration);
+        return true;
+    }
+
+    private Vector3 ResolveGameplayTutorialAnchorPosition()
+    {
+        if (playerMotor != null)
+            return playerMotor.transform.position;
+        if (playerShooter != null)
+            return playerShooter.transform.position;
+
+        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth != null)
+            return playerHealth.transform.position;
+
+        return Vector3.zero;
+    }
+
 private void RefreshTitleAndCreditsPanels()
 {
     EnsureCreditsButtonsBound();
@@ -2027,13 +2855,75 @@ private void RefreshTitleAndCreditsPanels()
         creditsPanelMissingWarned = false;
     }
 
-    bool showCredits = inTitle && creditsOpen && hasCreditsPanel;
+    bool showCredits = ((inTitle && creditsOpen) || (state == GameState.Victory && victoryCreditsVisible)) && hasCreditsPanel;
     bool showTitle = inTitle && !showCredits && !storyIntroActive;
 
     if (panelTitle != null)
         panelTitle.SetActive(showTitle);
     if (hasCreditsPanel && panelCredits != null)
         panelCredits.SetActive(showCredits);
+}
+
+private bool EnsureVictoryThanksOverlay()
+{
+    if (victoryThanksOverlay != null && victoryThanksTitleText != null && victoryThanksSubtitleText != null)
+        return true;
+
+    if (victoryThanksOverlayAutoCreated)
+        return false;
+
+    Canvas parentCanvas = GetComponentInParent<Canvas>();
+    if (parentCanvas == null)
+        parentCanvas = FindObjectOfType<Canvas>();
+    if (parentCanvas == null)
+        return false;
+
+    GameObject root = new GameObject("VictoryThanksOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+    root.transform.SetParent(parentCanvas.transform, false);
+
+    RectTransform rootRect = root.GetComponent<RectTransform>();
+    rootRect.anchorMin = Vector2.zero;
+    rootRect.anchorMax = Vector2.one;
+    rootRect.offsetMin = Vector2.zero;
+    rootRect.offsetMax = Vector2.zero;
+
+    Image backdrop = root.GetComponent<Image>();
+    backdrop.color = victoryPresentationBackdropColor;
+    backdrop.raycastTarget = false;
+
+    victoryThanksOverlay = root.GetComponent<CanvasGroup>();
+    victoryThanksOverlay.alpha = 0f;
+    victoryThanksOverlay.interactable = false;
+    victoryThanksOverlay.blocksRaycasts = false;
+
+    victoryThanksTitleText = CreateVictoryThanksText(root.transform, "ThanksTitle", 88f, FontStyles.UpperCase, 0f, 44f);
+    victoryThanksSubtitleText = CreateVictoryThanksText(root.transform, "ThanksSubtitle", 34f, FontStyles.Normal, 0f, -34f);
+
+    root.SetActive(false);
+    victoryThanksOverlayAutoCreated = true;
+    return true;
+}
+
+private TMP_Text CreateVictoryThanksText(Transform parent, string name, float fontSize, FontStyles fontStyle, float x, float y)
+{
+    GameObject textObj = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+    textObj.transform.SetParent(parent, false);
+
+    RectTransform rect = textObj.GetComponent<RectTransform>();
+    rect.anchorMin = new Vector2(0.5f, 0.5f);
+    rect.anchorMax = new Vector2(0.5f, 0.5f);
+    rect.pivot = new Vector2(0.5f, 0.5f);
+    rect.anchoredPosition = new Vector2(x, y);
+    rect.sizeDelta = new Vector2(1400f, 160f);
+
+    TextMeshProUGUI text = textObj.GetComponent<TextMeshProUGUI>();
+    text.alignment = TextAlignmentOptions.Center;
+    text.fontSize = fontSize;
+    text.fontStyle = fontStyle;
+    text.color = victoryThanksTextColor;
+    text.raycastTarget = false;
+    text.enableWordWrapping = false;
+    return text;
 }
 
 private bool EnsureCreditsPanelBound()
@@ -2363,12 +3253,18 @@ private void SetPauseMenuVisible(bool visible)
     private int CalcDue(int round)
     {
         if (round <= 0) return 0;
+        if (round == 1)
+            return Mathf.Max(0, firstRoundDue);
+
         int due = baseDue + (round - 1) * stepDue;
         if (useDebtCurveMultiplier)
         {
             float debtMultiplier = EvaluateMonotonicCurve(debtCurve, Mathf.Max(1, round), debtMinGrowthPerRound);
             due = Mathf.RoundToInt(due * debtMultiplier);
         }
+
+        if (useIncomeScaledDebt)
+            due = Mathf.Max(due, Mathf.RoundToInt(GetGrossCashForDebtRound(round) * Mathf.Max(0f, incomeScaledDebtRatio)));
 
         if (round == roundIndex)
             due += runProgression.CurrentRoundDebtIncrease;
@@ -2383,14 +3279,14 @@ private void SetPauseMenuVisible(bool visible)
         int due = CalcDue(roundIndex);
         int nextRound = roundIndex + 1;
         int nextDue = CalcDue(nextRound);
-        int cashEarned = cash;
+        int cashEarned = currentRoundCashEarned;
         int netCash = cash - due;
         int roundsLeft = Mathf.Max(0, GetBossRoundIndex() - roundIndex);
         bool hasNextRound = nextRound <= GetBossRoundIndex();
         string nextDebtText = hasNextRound ? GetDebtDisplay(nextRound) : "-";
 
         RunLogger.Event(
-            $"Settlement preview: round={roundIndex}, due={due}, cash={cash}, net={netCash}, nextDue={nextDue}, roundsLeft={roundsLeft}");
+            $"Settlement preview: round={roundIndex}, cashEarned={cashEarned}, cashOnHand={cash}, due={due}, net={netCash}, nextDue={nextDue}, roundsLeft={roundsLeft}");
 
         // Legacy fields (backward-compatible with older settlement panels).
         if (textDue) textDue.text = $"Debt Payment: -{FormatCurrency(due)}";
@@ -2722,6 +3618,8 @@ private void SetPauseMenuVisible(bool visible)
                 return panelShop != null && panelShop.activeInHierarchy ? panelShop : null;
 
             case GameState.GameOver:
+                if (runSummaryPanel != null && runSummaryPanel.gameObject.activeInHierarchy)
+                    return runSummaryPanel.gameObject;
                 if (monsterDeathPanel != null && monsterDeathPanel.gameObject.activeInHierarchy)
                     return monsterDeathPanel.gameObject;
                 if (debtFailurePanel != null && debtFailurePanel.gameObject.activeInHierarchy)
@@ -2729,6 +3627,8 @@ private void SetPauseMenuVisible(bool visible)
                 return null;
 
             case GameState.Victory:
+                if (runSummaryPanel != null && runSummaryPanel.gameObject.activeInHierarchy)
+                    return runSummaryPanel.gameObject;
                 if (victoryPanel != null && victoryPanel.gameObject.activeInHierarchy)
                     return victoryPanel.gameObject;
                 return null;
@@ -2849,6 +3749,13 @@ private void SetPauseMenuVisible(bool visible)
             return;
         }
 
+        if (pauseSettingsMenu != null &&
+            root == pauseSettingsMenu.gameObject &&
+            pauseSettingsMenu.TryHandleKeyboardMove(moveDir, selected))
+        {
+            return;
+        }
+
         AxisEventData axisEvent = new AxisEventData(eventSystem)
         {
             moveDir = moveDir,
@@ -2866,7 +3773,7 @@ private void SetPauseMenuVisible(bool visible)
     {
         if (eventSystem == null || root == null)
             return;
-        if (!Input.GetKeyDown(KeyCode.Space))
+        if (!IsKeyboardUIConfirmPressed())
             return;
 
         GameObject selected = eventSystem.currentSelectedGameObject;
@@ -2879,8 +3786,47 @@ private void SetPauseMenuVisible(bool visible)
         if (selected == null)
             return;
 
+        if (pauseSettingsMenu != null &&
+            root == pauseSettingsMenu.gameObject &&
+            pauseSettingsMenu.TryHandleKeyboardSubmit(selected))
+        {
+            return;
+        }
+
         BaseEventData submitEvent = new BaseEventData(eventSystem);
         ExecuteEvents.Execute(selected, submitEvent, ExecuteEvents.submitHandler);
+    }
+
+    private bool IsKeyboardUIConfirmPressed()
+    {
+        if (useSpaceForUIConfirm && Input.GetKeyDown(KeyCode.Space))
+            return true;
+        if (Input.GetKeyDown(KeyCode.Return))
+            return true;
+        if (Input.GetKeyDown(KeyCode.KeypadEnter))
+            return true;
+
+        return false;
+    }
+
+    private void CommitRoundCashEarnedToHistory()
+    {
+        previousRoundCashEarned = Mathf.Max(0, currentRoundCashEarned);
+        currentRoundCashEarned = 0;
+    }
+
+    private int GetGrossCashForDebtRound(int round)
+    {
+        if (round <= 1)
+            return 0;
+        if (round == roundIndex)
+            return Mathf.Max(0, previousRoundCashEarned);
+        if (round == roundIndex + 1)
+            return Mathf.Max(0, currentRoundCashEarned);
+        if (round < roundIndex)
+            return Mathf.Max(0, previousRoundCashEarned);
+
+        return Mathf.Max(0, currentRoundCashEarned);
     }
 
     private void ShowRoundClearTransition()
@@ -3392,7 +4338,7 @@ private void SetPauseMenuVisible(bool visible)
     {
         return new System.Collections.Generic.List<WeaponUpgrade>
         {
-            new WeaponUpgrade("Power Up I", "Increase damage +1", null, power: 1),
+            new WeaponUpgrade("Power Up I", "Increase damage +10", null, power: 10),
             new WeaponUpgrade("Speed Up I", "Increase projectile speed +2", null, speed: 2f),
             new WeaponUpgrade("Fire Rate Up I", "Increase fire rate +0.05/s", null, fireRate: 0.05f),
             new WeaponUpgrade("Spread Shot", "Extra projectile +1, spread angle +4", null)
@@ -3661,6 +4607,45 @@ private void SetPauseMenuVisible(bool visible)
         roundClearOverlay.gameObject.SetActive(false);
         roundClearOverlayAutoCreated = true;
         UpdateRoundClearText();
+        return true;
+    }
+
+    private bool EnsureBossVictoryFlashOverlay()
+    {
+        if (bossVictoryFlashOverlay != null && bossVictoryFlashImage != null)
+            return true;
+
+        if (bossVictoryFlashOverlayAutoCreated)
+            return false;
+
+        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
+        if (canvas == null)
+            return false;
+
+        Transform parent = panelHUD != null && panelHUD.transform.parent != null
+            ? panelHUD.transform.parent
+            : canvas.transform;
+
+        GameObject overlayRoot = new GameObject("BossVictoryFlashOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(parent, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        bossVictoryFlashImage = overlayRoot.GetComponent<Image>();
+        bossVictoryFlashImage.color = Color.white;
+        bossVictoryFlashImage.raycastTarget = false;
+
+        bossVictoryFlashOverlay = overlayRoot.GetComponent<CanvasGroup>();
+        bossVictoryFlashOverlay.alpha = 0f;
+        bossVictoryFlashOverlay.interactable = false;
+        bossVictoryFlashOverlay.blocksRaycasts = false;
+        bossVictoryFlashOverlay.gameObject.SetActive(false);
+        bossVictoryFlashOverlay.transform.SetAsLastSibling();
+
+        bossVictoryFlashOverlayAutoCreated = true;
         return true;
     }
 

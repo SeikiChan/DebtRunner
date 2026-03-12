@@ -52,7 +52,7 @@ public class SettingsPanelTemplate
         contentRect.SetParent(panelRect, false);
         contentRect.anchorMin = new Vector2(0.5f, 0.5f);
         contentRect.anchorMax = new Vector2(0.5f, 0.5f);
-        contentRect.sizeDelta = new Vector2(520, 520);
+        contentRect.sizeDelta = new Vector2(520, 560);
         contentRect.anchoredPosition = Vector2.zero;
 
         // 内容背景
@@ -99,15 +99,20 @@ public class SettingsPanelTemplate
             "Resolution", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         TMP_Dropdown resDropdown = CreateDropdown("Dropdown_Resolution", contentRect,
             new Vector2(80, rowY), new Vector2(260, 35));
+        rowY = -120f;
+        CreateLabel("Label_Fullscreen", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
+            "Fullscreen", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+        Toggle fullscreenToggle = CreateToggle("Toggle_Fullscreen", contentRect,
+            new Vector2(80, rowY), new Vector2(220, 36), "Use Fullscreen", true);
 
         // ── Resolution Hint ──
-        rowY = -90f;
+        rowY = -155f;
         TextMeshProUGUI resHint = CreateLabel("ResolutionHint", contentRect,
             new Vector2(0, rowY), new Vector2(460, 25),
             "", 16, FontStyles.Italic, new Color(0.7f, 0.7f, 0.7f, 0.6f));
 
         // ── Back 按钮 ──
-        rowY = -180f;
+        rowY = -220f;
         Button backBtn = CreateButton("Btn_Back", contentRect,
             new Vector2(0, rowY), "BACK", new Color(0.25f, 0.55f, 0.9f, 1f));
 
@@ -123,6 +128,7 @@ public class SettingsPanelTemplate
         so.FindProperty("sfxVolumeValueText").objectReferenceValue = sfxValueText;
         so.FindProperty("resolutionTMPDropdown").objectReferenceValue = resDropdown;
         so.FindProperty("resolutionHintText").objectReferenceValue = resHint;
+        so.FindProperty("fullscreenToggle").objectReferenceValue = fullscreenToggle;
         so.FindProperty("backButton").objectReferenceValue = backBtn;
 
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -431,6 +437,54 @@ public class SettingsPanelTemplate
         tmp.color = Color.white;
 
         return btnObj.GetComponent<Button>();
+    }
+
+    private static Toggle CreateToggle(
+        string name, Transform parent,
+        Vector2 pos, Vector2 size, string label, bool defaultValue)
+    {
+        GameObject toggleObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Toggle));
+        RectTransform rect = toggleObj.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = pos;
+
+        Image background = toggleObj.GetComponent<Image>();
+        background.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+
+        GameObject checkmarkObj = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+        RectTransform checkmarkRect = checkmarkObj.GetComponent<RectTransform>();
+        checkmarkRect.SetParent(rect, false);
+        checkmarkRect.anchorMin = new Vector2(0f, 0.5f);
+        checkmarkRect.anchorMax = new Vector2(0f, 0.5f);
+        checkmarkRect.sizeDelta = new Vector2(24f, 24f);
+        checkmarkRect.anchoredPosition = new Vector2(18f, 0f);
+
+        Image checkmarkImage = checkmarkObj.GetComponent<Image>();
+        checkmarkImage.color = new Color(0.3f, 0.7f, 1f, 1f);
+
+        GameObject labelObj = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.SetParent(rect, false);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(44f, 0f);
+        labelRect.offsetMax = new Vector2(-8f, 0f);
+
+        TextMeshProUGUI labelTMP = labelObj.GetComponent<TextMeshProUGUI>();
+        labelTMP.text = label;
+        labelTMP.alignment = TextAlignmentOptions.Left;
+        labelTMP.fontSize = 20f;
+        labelTMP.color = Color.white;
+        labelTMP.raycastTarget = false;
+
+        Toggle toggle = toggleObj.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+        toggle.graphic = checkmarkImage;
+        toggle.isOn = defaultValue;
+        return toggle;
     }
 }
 

@@ -78,7 +78,10 @@ public class XPPickup : MonoBehaviour
         collected = true;
         RunLogger.Event($"XP pickup collected: +{amount}");
         if (GameFlowController.Instance != null)
+        {
             GameFlowController.Instance.AddXP(amount);
+            GameFlowController.Instance.NotifyGameplayTutorialPickupCollected(transform.position);
+        }
         if (sfxCollect != null && SFXManager.Instance != null)
             SFXManager.Instance.Play(sfxCollect, 0.35f);
         Destroy(gameObject);

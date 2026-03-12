@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: WeaponUpgrade_ 20
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
   upgradeTitle: Lockdown Ring
-  description: The ring tightens into a brutal no-entry zone.
+  description: The ring locks a wider perimeter and shreds anything left inside it.
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4
@@ -23,7 +23,7 @@ MonoBehaviour:
     floatValue: 0.0
   - effectType: 11
     intValue: 0
-    floatValue: 36.0
+    floatValue: 24.0
   - effectType: 10
     intValue: 0
-    floatValue: 0.15
+    floatValue: 0.25

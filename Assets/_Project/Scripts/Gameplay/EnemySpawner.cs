@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -42,7 +43,9 @@ public class EnemySpawner : MonoBehaviour
     [LocalizedLabel("刷怪间隔 (秒)")]
     [SerializeField] private float spawnInterval = 1.0f;
     [LocalizedLabel("刷怪半径")]
-    [SerializeField] private float spawnRadius = 10f;
+    [SerializeField] private float spawnRadius = 7f;
+    [LocalizedLabel("最小生成离玩家距离")]
+    [SerializeField, Min(0.5f)] private float minSpawnDistanceFromPlayer = 3.5f;
     [LocalizedLabel("最大存活数量")]
     [SerializeField] private int maxAlive = 30;
     [LocalizedLabel("每次刷怪数量")]
@@ -57,12 +60,16 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private LayerMask spawnSpacingMask = ~0;
     [LocalizedLabel("生成点仅检测敌人层")]
     [SerializeField] private bool spawnSpacingUseEnemyLayerOnly = true;
-    [LocalizedLabel("只在屏幕外刷怪")]
-    [SerializeField] private bool spawnOutsideCameraView = true;
-    [LocalizedLabel("屏幕外额外距离")]
-    [SerializeField, Min(0f)] private float offscreenPadding = 1.8f;
-    [LocalizedLabel("最小刷怪距离")]
-    [SerializeField, Min(0f)] private float minSpawnDistance = 12f;
+
+    [Header("Spawn Warning / 生成预警")]
+    [LocalizedLabel("预警持续时间")]
+    [SerializeField, Min(0f)] private float spawnWarningDuration = 0.5f;
+    [LocalizedLabel("预警圆环颜色")]
+    [SerializeField] private Color spawnWarningColor = new Color(1f, 0.2f, 0.15f, 0.5f);
+    [LocalizedLabel("预警圆环半径")]
+    [SerializeField, Min(0.1f)] private float spawnWarningRadius = 0.5f;
+    [LocalizedLabel("预警圆环线段数")]
+    [SerializeField, Min(8)] private int warningCircleSegments = 24;
 
     [Header("Safe Gap / 安全缺口")]
     [LocalizedLabel("启用安全缺口")]
@@ -93,8 +100,6 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private AnimationCurve hpMultiplierCurve = AnimationCurve.Linear(0f, 1f, 1f, 1.8f);
     [LocalizedLabel("敌人速度倍率曲线")]
     [SerializeField] private AnimationCurve speedMultiplierCurve = AnimationCurve.Linear(0f, 1f, 1f, 1.35f);
-    [LocalizedLabel("最小刷怪距离曲线")]
-    [SerializeField] private AnimationCurve minSpawnDistanceCurve = AnimationCurve.Linear(0f, 1f, 1f, 1.2f);
 
     [Header("XP Drop / 经验掉落")]
     [LocalizedLabel("经验掉落预制体")]
@@ -112,21 +117,79 @@ public class EnemySpawner : MonoBehaviour
     [LocalizedLabel("Boss回合继续刷普通敌人")]
     [SerializeField] private bool spawnRegularEnemiesDuringBossRound = true;
 
+    // Runtime state
     private float timer;
     private float safeGapTimer;
-    private float safeGapDirection; // 安全缺口中心角度 (度)
+    private float safeGapDirection;
     private float runtimeSpawnInterval;
     private int runtimeSpawnPerTick;
     private int runtimeMaxAlive;
-    private float runtimeMinSpawnDistance;
     private float runtimeEnemyHpMultiplier;
     private float runtimeEnemySpeedMultiplier;
     private int trackedRound = -1;
     private bool bossSpawnedThisRound;
     private readonly Collider2D[] spawnSpacingHits = new Collider2D[32];
     private EnemyController[] runtimeEnemyPool;
+    private float[] runtimeEnemyWeights;
+    private float runtimeWeightTotal;
     private readonly List<EnemyController> runtimeEnemyPoolBuffer = new List<EnemyController>(16);
+    private readonly List<float> runtimeWeightBuffer = new List<float>(16);
     private readonly List<RoundEnemyPoolEntry> sortedRoundEnemyPools = new List<RoundEnemyPoolEntry>(16);
+
+    // Warning circle material (reused)
+    private Material warningLineMaterial;
+
+    #region Per-Round Spawn Config
+
+    private struct RoundSpawnConfig
+    {
+        public float interval;
+        public int perTick;
+        public int maxAlive;
+        // Weights per enemy type (by name keyword match): melee, dash, ranged, tank, treasure
+        public float wMelee, wDash, wRanged, wTank, wTreasure;
+    }
+
+    private static RoundSpawnConfig GetBuiltInRoundConfig(int round)
+    {
+        switch (round)
+        {
+            case 1:
+                return new RoundSpawnConfig
+                {
+                    interval = 1.2f, perTick = 1, maxAlive = 15,
+                    wMelee = 1f, wDash = 0f, wRanged = 0f, wTank = 0f, wTreasure = 0f
+                };
+            case 2:
+                return new RoundSpawnConfig
+                {
+                    interval = 1.0f, perTick = 2, maxAlive = 20,
+                    wMelee = 0.8f, wDash = 0.2f, wRanged = 0f, wTank = 0f, wTreasure = 0f
+                };
+            case 3:
+                return new RoundSpawnConfig
+                {
+                    interval = 1.0f, perTick = 2, maxAlive = 22,
+                    wMelee = 0.65f, wDash = 0.15f, wRanged = 0.2f, wTank = 0f, wTreasure = 0f
+                };
+            case 4:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.9f, perTick = 2, maxAlive = 25,
+                    wMelee = 0.45f, wDash = 0.18f, wRanged = 0.17f, wTank = 0.12f, wTreasure = 0.08f
+                };
+            default: // R5+
+                return new RoundSpawnConfig
+                {
+                    interval = Mathf.Max(0.5f, 0.8f - (round - 5) * 0.03f),
+                    perTick = Mathf.Min(4, 3 + (round - 5) / 3),
+                    maxAlive = Mathf.Min(45, 30 + (round - 5) * 2),
+                    wMelee = 0.35f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.1f
+                };
+        }
+    }
+
+    #endregion
 
     private void OnEnable()
     {
@@ -140,13 +203,19 @@ public class EnemySpawner : MonoBehaviour
         RefreshRuntimeEnemyPool(currentRound);
         RunLogger.Event(
             $"EnemySpawner enabled: interval={spawnInterval:F2}s, radius={spawnRadius:F1}, maxAlive={maxAlive}, " +
-            $"perTick={spawnPerTick}, outsideView={spawnOutsideCameraView}, hpX={globalEnemyHpMultiplier:F2}, speedX={globalEnemySpeedMultiplier:F2}, " +
+            $"perTick={spawnPerTick}, hpX={globalEnemyHpMultiplier:F2}, speedX={globalEnemySpeedMultiplier:F2}, " +
             $"roundCurves={useRoundCurves}");
     }
 
     private void OnDisable()
     {
         RunLogger.Event("EnemySpawner disabled.");
+    }
+
+    private void OnDestroy()
+    {
+        if (warningLineMaterial != null)
+            Destroy(warningLineMaterial);
     }
 
     private void Update()
@@ -172,7 +241,6 @@ public class EnemySpawner : MonoBehaviour
 
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return;
 
-        // 定期旋转安全缺口方向
         if (enableSafeGap)
         {
             safeGapTimer -= Time.deltaTime;
@@ -199,19 +267,109 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnOne()
     {
-        var prefab = runtimeEnemyPool[Random.Range(0, runtimeEnemyPool.Length)];
-        SpawnEnemy(prefab);
-    }
-
-    private void SpawnEnemy(EnemyController prefab)
-    {
-        if (prefab == null)
-            return;
+        EnemyController prefab = PickWeightedPrefab();
+        if (prefab == null) return;
 
         Vector3 pos = ResolveSpawnPositionWithSpacing();
 
-        var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
+        if (spawnWarningDuration > 0f)
+            StartCoroutine(SpawnWithWarning(prefab, pos));
+        else
+            SpawnEnemy(prefab, pos);
+    }
 
+    private EnemyController PickWeightedPrefab()
+    {
+        if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return null;
+        if (runtimeEnemyWeights == null || runtimeWeightTotal <= 0f)
+            return runtimeEnemyPool[Random.Range(0, runtimeEnemyPool.Length)];
+
+        float roll = Random.Range(0f, runtimeWeightTotal);
+        float cumulative = 0f;
+        for (int i = 0; i < runtimeEnemyWeights.Length; i++)
+        {
+            cumulative += runtimeEnemyWeights[i];
+            if (roll <= cumulative)
+                return runtimeEnemyPool[i];
+        }
+        return runtimeEnemyPool[runtimeEnemyPool.Length - 1];
+    }
+
+    private IEnumerator SpawnWithWarning(EnemyController prefab, Vector3 pos)
+    {
+        // Create warning circle
+        GameObject warning = CreateWarningCircle(pos);
+
+        float elapsed = 0f;
+        while (elapsed < spawnWarningDuration)
+        {
+            elapsed += Time.deltaTime;
+            // Pulse alpha
+            if (warning != null)
+            {
+                LineRenderer lr = warning.GetComponent<LineRenderer>();
+                if (lr != null)
+                {
+                    float pulse = 0.3f + 0.7f * Mathf.Abs(Mathf.Sin(elapsed * Mathf.PI * 3f));
+                    Color c = spawnWarningColor;
+                    c.a = spawnWarningColor.a * pulse;
+                    lr.startColor = c;
+                    lr.endColor = c;
+                }
+            }
+            yield return null;
+        }
+
+        if (warning != null) Destroy(warning);
+
+        // Check if spawner still active
+        if (this == null || !isActiveAndEnabled) yield break;
+
+        SpawnEnemy(prefab, pos);
+    }
+
+    private GameObject CreateWarningCircle(Vector3 center)
+    {
+        GameObject go = new GameObject("SpawnWarning");
+        go.transform.position = center;
+
+        LineRenderer lr = go.AddComponent<LineRenderer>();
+        lr.useWorldSpace = true;
+        lr.loop = true;
+        lr.alignment = LineAlignment.View;
+        lr.numCapVertices = 2;
+        lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        lr.receiveShadows = false;
+        lr.startWidth = 0.06f;
+        lr.endWidth = 0.06f;
+        lr.startColor = spawnWarningColor;
+        lr.endColor = spawnWarningColor;
+        lr.sortingOrder = 200;
+
+        if (warningLineMaterial == null)
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader != null) warningLineMaterial = new Material(shader);
+        }
+        if (warningLineMaterial != null) lr.material = warningLineMaterial;
+
+        int seg = Mathf.Max(8, warningCircleSegments);
+        lr.positionCount = seg;
+        float step = 2f * Mathf.PI / seg;
+        for (int i = 0; i < seg; i++)
+        {
+            float angle = step * i;
+            lr.SetPosition(i, center + new Vector3(Mathf.Cos(angle) * spawnWarningRadius, Mathf.Sin(angle) * spawnWarningRadius, 0f));
+        }
+
+        return go;
+    }
+
+    private void SpawnEnemy(EnemyController prefab, Vector3 pos)
+    {
+        if (prefab == null) return;
+
+        var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
         e.Init(player, xpPickupPrefab, pickupsRoot, cashPickupPrefab);
 
         if (GameFlowController.Instance != null)
@@ -228,17 +386,13 @@ public class EnemySpawner : MonoBehaviour
 
         var shooter = e.GetComponent<EnemyShooter>();
         if (shooter != null)
-        {
             shooter.Init(player, projectilesRoot);
-        }
     }
 
     private void TrySpawnBossForRound()
     {
-        if (!spawnBossOnBossRound || bossPrefab == null)
-            return;
-        if (bossSpawnedThisRound)
-            return;
+        if (!spawnBossOnBossRound || bossPrefab == null) return;
+        if (bossSpawnedThisRound) return;
 
         if (HasAliveBossInScene())
         {
@@ -249,7 +403,8 @@ public class EnemySpawner : MonoBehaviour
 
         bossSpawnedThisRound = true;
         RefreshRuntimeSpawnSettings();
-        SpawnEnemy(bossPrefab);
+        Vector3 bossPos = ResolveSpawnPositionWithSpacing();
+        SpawnEnemy(bossPrefab, bossPos);
         RunLogger.Event($"Boss spawned for round {trackedRound}. one-time spawn enforced.");
     }
 
@@ -262,83 +417,62 @@ public class EnemySpawner : MonoBehaviour
         for (int i = 0; i < bosses.Length; i++)
         {
             BossAttackController boss = bosses[i];
-            if (boss == null || !boss.gameObject.activeInHierarchy)
-                continue;
-
+            if (boss == null || !boss.gameObject.activeInHierarchy) continue;
             EnemyController bossEnemy = boss.GetComponent<EnemyController>();
-            if (bossEnemy == null || bossEnemy.CurrentHP > 0f)
-                return true;
+            if (bossEnemy == null || bossEnemy.CurrentHP > 0f) return true;
         }
-
         return false;
     }
 
+    #region Spawn Position
+
     private Vector3 ResolveSpawnPosition()
     {
-        if (player == null)
-            return transform.position;
-
-        if (!spawnOutsideCameraView)
-            return player.position + (Vector3)RandomOffsetByRadius();
+        if (player == null) return transform.position;
 
         Camera cam = Camera.main;
         if (cam == null || !cam.orthographic)
-            return player.position + (Vector3)RandomOffsetByRadius();
+            return player.position + (Vector3)RandomScreenOffset();
 
-        float halfHeight = cam.orthographicSize + Mathf.Max(0f, offscreenPadding);
-        float halfWidth = halfHeight * cam.aspect;
-        float minDistSqr = runtimeMinSpawnDistance * runtimeMinSpawnDistance;
+        // Spawn within camera view but outside min distance from player.
+        float halfH = cam.orthographicSize * 0.85f; // Slight margin from screen edge
+        float halfW = halfH * cam.aspect;
 
         for (int i = 0; i < 12; i++)
         {
-            Vector2 edgeOffset = RandomEdgeOffset(halfWidth, halfHeight);
-            if (edgeOffset.sqrMagnitude < minDistSqr)
+            float x = Random.Range(-halfW, halfW);
+            float y = Random.Range(-halfH, halfH);
+            Vector3 candidate = cam.transform.position + new Vector3(x, y, 0f);
+            candidate.z = 0f;
+
+            float distSqr = ((Vector2)candidate - (Vector2)player.position).sqrMagnitude;
+            if (distSqr < minSpawnDistanceFromPlayer * minSpawnDistanceFromPlayer)
                 continue;
 
-            return player.position + (Vector3)edgeOffset;
+            // Clamp to boundary
+            if (CircleBoundary.Instance != null)
+            {
+                Vector2 clamped = CircleBoundary.Instance.ClampPosition(candidate);
+                float clampedDistSqr = (clamped - (Vector2)player.position).sqrMagnitude;
+                if (clampedDistSqr < minSpawnDistanceFromPlayer * minSpawnDistanceFromPlayer)
+                    continue;
+                candidate = new Vector3(clamped.x, clamped.y, 0f);
+            }
+
+            return candidate;
         }
 
-        float fallbackDistance = Mathf.Max(runtimeMinSpawnDistance, Mathf.Max(halfWidth, halfHeight));
-        Vector2 fallbackDir = Random.insideUnitCircle.normalized;
-        if (fallbackDir.sqrMagnitude <= 0.0001f)
-            fallbackDir = Vector2.right;
-        return player.position + (Vector3)(fallbackDir * fallbackDistance);
+        // Fallback: random direction at spawnRadius
+        return player.position + (Vector3)RandomScreenOffset();
     }
 
-    private Vector2 RandomOffsetByRadius()
+    private Vector2 RandomScreenOffset()
     {
-        float radius = Mathf.Max(spawnRadius, runtimeMinSpawnDistance);
+        float radius = Mathf.Max(spawnRadius, minSpawnDistanceFromPlayer);
         Vector2 dir = Random.insideUnitCircle.normalized;
-        if (dir.sqrMagnitude <= 0.0001f)
-            dir = Vector2.right;
-        return dir * radius;
-    }
-
-    private Vector2 RandomEdgeOffset(float halfWidth, float halfHeight)
-    {
-        float x;
-        float y;
-        switch (Random.Range(0, 4))
-        {
-            case 0: // Top
-                x = Random.Range(-halfWidth, halfWidth);
-                y = halfHeight;
-                break;
-            case 1: // Bottom
-                x = Random.Range(-halfWidth, halfWidth);
-                y = -halfHeight;
-                break;
-            case 2: // Left
-                x = -halfWidth;
-                y = Random.Range(-halfHeight, halfHeight);
-                break;
-            default: // Right
-                x = halfWidth;
-                y = Random.Range(-halfHeight, halfHeight);
-                break;
-        }
-
-        return new Vector2(x, y);
+        if (dir.sqrMagnitude <= 0.0001f) dir = Vector2.right;
+        float dist = Random.Range(minSpawnDistanceFromPlayer, radius);
+        return dir * dist;
     }
 
     private Vector3 ResolveSpawnPositionWithSpacing()
@@ -358,7 +492,22 @@ public class EnemySpawner : MonoBehaviour
                 candidate += new Vector3(jitter.x, jitter.y, 0f);
             }
 
-            // 安全缺口：拒绝在缺口角度范围内的生成点
+            // Boundary clamp
+            if (CircleBoundary.Instance != null)
+            {
+                Vector2 clamped = CircleBoundary.Instance.ClampPosition(candidate);
+                candidate = new Vector3(clamped.x, clamped.y, 0f);
+            }
+
+            // Min distance from player check
+            if (player != null)
+            {
+                float distSqr = ((Vector2)candidate - (Vector2)player.position).sqrMagnitude;
+                if (distSqr < minSpawnDistanceFromPlayer * minSpawnDistanceFromPlayer)
+                    continue;
+            }
+
+            // Safe gap check
             if (enableSafeGap && player != null && IsInSafeGap(candidate))
                 continue;
 
@@ -375,7 +524,6 @@ public class EnemySpawner : MonoBehaviour
     {
         Vector2 dir = (Vector2)(spawnPos - player.position);
         if (dir.sqrMagnitude < 0.01f) return false;
-
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         float diff = Mathf.DeltaAngle(angle, safeGapDirection);
         return Mathf.Abs(diff) < safeGapAngle * 0.5f;
@@ -384,156 +532,119 @@ public class EnemySpawner : MonoBehaviour
     private bool IsSpawnPointClear(Vector3 point, float spacingRadius)
     {
         int queryMask = ResolveSpawnSpacingMask();
-        int hitCount = Physics2D.OverlapCircleNonAlloc(
-            point,
-            spacingRadius,
-            spawnSpacingHits,
-            queryMask);
-
-        if (hitCount <= 0)
-            return true;
+        int hitCount = Physics2D.OverlapCircleNonAlloc(point, spacingRadius, spawnSpacingHits, queryMask);
+        if (hitCount <= 0) return true;
 
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D hit = spawnSpacingHits[i];
-            if (hit == null)
-                continue;
-
-            EnemyController enemy = hit.GetComponent<EnemyController>();
-            if (enemy == null)
-                enemy = hit.GetComponentInParent<EnemyController>();
-
-            if (enemy != null && enemy.isActiveAndEnabled)
-                return false;
+            if (hit == null) continue;
+            EnemyController enemy = hit.GetComponent<EnemyController>() ?? hit.GetComponentInParent<EnemyController>();
+            if (enemy != null && enemy.isActiveAndEnabled) return false;
         }
-
         return true;
     }
 
     private int ResolveSpawnSpacingMask()
     {
         int enemyLayer = enemiesRoot != null ? enemiesRoot.gameObject.layer : -1;
-        if (enemyLayer < 0)
-            return spawnSpacingMask.value;
-
+        if (enemyLayer < 0) return spawnSpacingMask.value;
         int enemyLayerMask = 1 << enemyLayer;
-        if (spawnSpacingUseEnemyLayerOnly)
-            return enemyLayerMask;
-
+        if (spawnSpacingUseEnemyLayerOnly) return enemyLayerMask;
         int mask = spawnSpacingMask.value;
-        if (mask == 0)
-            return enemyLayerMask;
-
-        return mask | enemyLayerMask;
+        return mask == 0 ? enemyLayerMask : mask | enemyLayerMask;
     }
+
+    #endregion
+
+    #region Enemy Pool
 
     private void RefreshRuntimeEnemyPool(int currentRound)
     {
         runtimeEnemyPoolBuffer.Clear();
+        runtimeWeightBuffer.Clear();
 
-        // Fallback template: if round pools are enabled but empty, build a sane progressive pool
-        // from base prefabs so gameplay still matches expected round structure.
-        if (useRoundEnemyPools && !HasConfiguredRoundPoolEntries())
+        // Always use built-in per-round config for weights
+        RoundSpawnConfig config = GetBuiltInRoundConfig(currentRound);
+
+        // Resolve prefabs by name
+        EnemyController melee = FindPrefabByNameKeyword("\u8FD1\u6218", "melee");
+        EnemyController dash = FindPrefabByNameKeyword("\u51B2\u523A", "dash", "charger");
+        EnemyController ranged = FindPrefabByNameKeyword("\u8FDC\u7A0B", "ranged");
+        EnemyController tank = FindPrefabByNameKeyword("\u8089\u76FE", "tank", "brute", "heavy");
+        EnemyController treasure = FindPrefabByNameKeyword("\u5B9D\u7BB1", "chest", "treasure");
+
+        if (melee == null) melee = FindFirstNonNullPrefab();
+
+        AddWeighted(melee, config.wMelee);
+        AddWeighted(dash, config.wDash);
+        AddWeighted(ranged, config.wRanged);
+        AddWeighted(tank, config.wTank);
+        AddWeighted(treasure, config.wTreasure);
+
+        // If user has custom round pool config, merge those too
+        if (useRoundEnemyPools && HasConfiguredRoundPoolEntries())
         {
-            if (TryBuildFallbackProgressiveRoundPool(currentRound))
-            {
-                runtimeEnemyPool = runtimeEnemyPoolBuffer.ToArray();
-                RunLogger.Warning(
-                    $"Round {currentRound} enemy pool fallback applied: " +
-                    "R1 melee, R2 +ranged +dash, R3 +tank +treasure.");
-                return;
-            }
-        }
+            runtimeEnemyPoolBuffer.Clear();
+            runtimeWeightBuffer.Clear();
 
-        if (seedWithBaseEnemyPrefabs)
-            AddUniquePrefabs(enemyPrefabs);
+            if (seedWithBaseEnemyPrefabs)
+                AddUniquePrefabs(enemyPrefabs);
 
-        if (useRoundEnemyPools && roundEnemyPools != null && roundEnemyPools.Count > 0)
-        {
             sortedRoundEnemyPools.Clear();
             for (int i = 0; i < roundEnemyPools.Count; i++)
             {
                 RoundEnemyPoolEntry entry = roundEnemyPools[i];
-                if (entry == null || entry.round <= 0)
-                    continue;
-
+                if (entry == null || entry.round <= 0) continue;
                 sortedRoundEnemyPools.Add(entry);
             }
-
             sortedRoundEnemyPools.Sort((a, b) => a.round.CompareTo(b.round));
 
             for (int i = 0; i < sortedRoundEnemyPools.Count; i++)
             {
                 RoundEnemyPoolEntry entry = sortedRoundEnemyPools[i];
-                if (entry.round > currentRound)
-                    break;
-
-                if (entry.mode == RoundPoolMode.Replace)
-                    runtimeEnemyPoolBuffer.Clear();
-
+                if (entry.round > currentRound) break;
+                if (entry.mode == RoundPoolMode.Replace) runtimeEnemyPoolBuffer.Clear();
                 AddUniquePrefabs(entry.prefabs);
             }
+
+            if (runtimeEnemyPoolBuffer.Count <= 0) AddUniquePrefabs(enemyPrefabs);
+
+            // Equal weights for custom config
+            runtimeWeightBuffer.Clear();
+            for (int i = 0; i < runtimeEnemyPoolBuffer.Count; i++)
+                runtimeWeightBuffer.Add(1f);
         }
 
-        if (runtimeEnemyPoolBuffer.Count <= 0)
-            AddUniquePrefabs(enemyPrefabs);
-
         runtimeEnemyPool = runtimeEnemyPoolBuffer.ToArray();
+        runtimeEnemyWeights = runtimeWeightBuffer.ToArray();
+        runtimeWeightTotal = 0f;
+        for (int i = 0; i < runtimeEnemyWeights.Length; i++)
+            runtimeWeightTotal += runtimeEnemyWeights[i];
 
         RunLogger.Event(
             $"Round {currentRound} enemy pool ready: types={runtimeEnemyPool.Length}, " +
-            $"mode={(useRoundEnemyPools ? "round-config" : "base-only")}");
+            $"config=R{currentRound}(interval={config.interval:F2}, perTick={config.perTick}, maxAlive={config.maxAlive})");
+    }
+
+    private void AddWeighted(EnemyController prefab, float weight)
+    {
+        if (prefab == null || weight <= 0f) return;
+        runtimeEnemyPoolBuffer.Add(prefab);
+        runtimeWeightBuffer.Add(weight);
     }
 
     private bool HasConfiguredRoundPoolEntries()
     {
-        if (roundEnemyPools == null || roundEnemyPools.Count <= 0)
-            return false;
-
+        if (roundEnemyPools == null || roundEnemyPools.Count <= 0) return false;
         for (int i = 0; i < roundEnemyPools.Count; i++)
         {
             RoundEnemyPoolEntry entry = roundEnemyPools[i];
-            if (entry == null || entry.round <= 0 || entry.prefabs == null)
-                continue;
-
+            if (entry == null || entry.round <= 0 || entry.prefabs == null) continue;
             for (int p = 0; p < entry.prefabs.Length; p++)
-            {
-                if (entry.prefabs[p] != null)
-                    return true;
-            }
+                if (entry.prefabs[p] != null) return true;
         }
-
         return false;
-    }
-
-    private bool TryBuildFallbackProgressiveRoundPool(int currentRound)
-    {
-        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
-            return false;
-
-        EnemyController melee = FindPrefabByNameKeyword("\u8FD1\u6218", "melee");
-        EnemyController ranged = FindPrefabByNameKeyword("\u8FDC\u7A0B", "ranged");
-        EnemyController dash = FindPrefabByNameKeyword("\u51B2\u523A", "dash", "charger");
-        EnemyController tank = FindPrefabByNameKeyword("\u8089\u76FE", "tank", "brute", "heavy");
-        EnemyController treasure = FindPrefabByNameKeyword("\u5B9D\u7BB1", "chest", "treasure");
-
-        // Last-resort fallback so pool is never empty due naming mismatch.
-        if (melee == null)
-            melee = FindFirstNonNullPrefab();
-
-        AddUniqueIfNotNull(melee);
-        if (currentRound >= 2)
-        {
-            AddUniqueIfNotNull(ranged);
-            AddUniqueIfNotNull(dash);
-        }
-        if (currentRound >= 3)
-        {
-            AddUniqueIfNotNull(tank);
-            AddUniqueIfNotNull(treasure);
-        }
-
-        return runtimeEnemyPoolBuffer.Count > 0;
     }
 
     private EnemyController FindPrefabByNameKeyword(params string[] keywords)
@@ -544,97 +655,66 @@ public class EnemySpawner : MonoBehaviour
         for (int i = 0; i < enemyPrefabs.Length; i++)
         {
             EnemyController prefab = enemyPrefabs[i];
-            if (prefab == null)
-                continue;
-
+            if (prefab == null) continue;
             string nameLower = prefab.name != null ? prefab.name.ToLowerInvariant() : string.Empty;
             for (int k = 0; k < keywords.Length; k++)
             {
                 string keyword = keywords[k];
-                if (string.IsNullOrWhiteSpace(keyword))
-                    continue;
-
-                if (nameLower.Contains(keyword.ToLowerInvariant()))
-                    return prefab;
+                if (string.IsNullOrWhiteSpace(keyword)) continue;
+                if (nameLower.Contains(keyword.ToLowerInvariant())) return prefab;
             }
         }
-
         return null;
     }
 
     private EnemyController FindFirstNonNullPrefab()
     {
-        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
-            return null;
-
+        if (enemyPrefabs == null || enemyPrefabs.Length <= 0) return null;
         for (int i = 0; i < enemyPrefabs.Length; i++)
-        {
-            if (enemyPrefabs[i] != null)
-                return enemyPrefabs[i];
-        }
-
+            if (enemyPrefabs[i] != null) return enemyPrefabs[i];
         return null;
     }
 
     private void AddUniqueIfNotNull(EnemyController prefab)
     {
-        if (prefab == null)
-            return;
-        if (runtimeEnemyPoolBuffer.Contains(prefab))
-            return;
+        if (prefab == null || runtimeEnemyPoolBuffer.Contains(prefab)) return;
         runtimeEnemyPoolBuffer.Add(prefab);
     }
 
     private void AddUniquePrefabs(EnemyController[] prefabs)
     {
-        if (prefabs == null || prefabs.Length == 0)
-            return;
-
+        if (prefabs == null || prefabs.Length == 0) return;
         for (int i = 0; i < prefabs.Length; i++)
         {
             EnemyController prefab = prefabs[i];
-            if (prefab == null)
-                continue;
-
-            if (runtimeEnemyPoolBuffer.Contains(prefab))
-                continue;
-
+            if (prefab == null || runtimeEnemyPoolBuffer.Contains(prefab)) continue;
             runtimeEnemyPoolBuffer.Add(prefab);
         }
     }
 
-    private void OnValidate()
-    {
-        if (roundEnemyPools == null)
-            return;
+    #endregion
 
-        for (int i = 0; i < roundEnemyPools.Count; i++)
-        {
-            RoundEnemyPoolEntry entry = roundEnemyPools[i];
-            if (entry == null)
-                continue;
-
-            entry.round = Mathf.Max(1, entry.round);
-        }
-    }
+    #region Runtime Settings
 
     private void RefreshRuntimeSpawnSettings()
     {
-        float t = GetRoundCurveT();
+        int currentRound = 1;
+        if (GameFlowController.Instance != null)
+            currentRound = Mathf.Max(1, GameFlowController.Instance.GetCurrentRound());
 
-        float intervalMul = useRoundCurves ? EvaluateRoundCurve(spawnIntervalCurve, t) : 1f;
-        float perTickMul = useRoundCurves ? EvaluateRoundCurve(spawnPerTickCurve, t) : 1f;
-        float maxAliveMul = useRoundCurves ? EvaluateRoundCurve(maxAliveCurve, t) : 1f;
+        // Use built-in per-round config as base
+        RoundSpawnConfig config = GetBuiltInRoundConfig(currentRound);
+
+        // Apply round curves on top of per-round config
+        float t = GetRoundCurveT();
         float hpMul = useRoundCurves ? EvaluateRoundCurve(hpMultiplierCurve, t) : 1f;
         float speedMul = useRoundCurves ? EvaluateRoundCurve(speedMultiplierCurve, t) : 1f;
-        float minDistanceMul = useRoundCurves ? EvaluateRoundCurve(minSpawnDistanceCurve, t) : 1f;
 
-        runtimeSpawnInterval = Mathf.Max(0.05f, spawnInterval * intervalMul);
-        runtimeSpawnPerTick = Mathf.Max(1, Mathf.RoundToInt(spawnPerTick * perTickMul));
-        runtimeMaxAlive = Mathf.Max(1, Mathf.RoundToInt(maxAlive * maxAliveMul));
+        runtimeSpawnInterval = Mathf.Max(0.05f, config.interval);
+        runtimeSpawnPerTick = Mathf.Max(1, config.perTick);
+        runtimeMaxAlive = Mathf.Max(1, config.maxAlive);
         runtimeEnemyHpMultiplier = Mathf.Max(0.1f, globalEnemyHpMultiplier * hpMul);
         runtimeEnemySpeedMultiplier = Mathf.Max(0.1f, globalEnemySpeedMultiplier * speedMul);
-        runtimeMinSpawnDistance = Mathf.Max(0f, minSpawnDistance * minDistanceMul);
     }
 
     private float GetRoundCurveT()
@@ -642,16 +722,26 @@ public class EnemySpawner : MonoBehaviour
         int currentRound = 1;
         if (GameFlowController.Instance != null)
             currentRound = Mathf.Max(1, GameFlowController.Instance.GetCurrentRound());
-
         int maxRound = Mathf.Max(2, roundCurveMaxRound);
         return Mathf.Clamp01((currentRound - 1f) / (maxRound - 1f));
     }
 
     private float EvaluateRoundCurve(AnimationCurve curve, float t)
     {
-        if (curve == null || curve.length == 0)
-            return 1f;
-
+        if (curve == null || curve.length == 0) return 1f;
         return Mathf.Max(0.01f, curve.Evaluate(Mathf.Clamp01(t)));
+    }
+
+    #endregion
+
+    private void OnValidate()
+    {
+        if (roundEnemyPools == null) return;
+        for (int i = 0; i < roundEnemyPools.Count; i++)
+        {
+            RoundEnemyPoolEntry entry = roundEnemyPools[i];
+            if (entry == null) continue;
+            entry.round = Mathf.Max(1, entry.round);
+        }
     }
 }

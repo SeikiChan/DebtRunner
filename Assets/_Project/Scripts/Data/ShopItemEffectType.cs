@@ -6,4 +6,5 @@ public enum ShopItemEffectType
     XPPerKillAdd = 6,
     XPMagnetRadiusAdd = 7,
     CashOnKillPercentAdd = 8,
+    PeriodicShieldUpgrade = 9,
 }

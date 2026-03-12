@@ -172,33 +172,44 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 1
+  moveSpeed: 1.8
   enableEnemySeparation: 1
-  separationRadius: 2
-  separationStrength: 10
-  separationMaxSpeed: 5
+  separationRadius: 1.25
+  separationStrength: 7
+  separationMaxSpeed: 4.8
   closeRepelDistance: 0.42
   closeRepelBoost: 1.9
   separationMask:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 4294967295
   separationUseOwnLayerOnly: 1
   separationBufferSize: 64
-  sfxHit: {fileID: 8300000, guid: 51dca3f8a418efe40a4e86f6b3517569, type: 3}
+  sfxHit: {fileID: 8300000, guid: 4832225ec9b6b82499d4e66325f66694, type: 3}
   sfxDeath: {fileID: 0}
-  maxHP: 6
+  sfxHitVolume: 0.8
+  sfxDeathVolume: 0.9
+  fitHitboxToSprite: 1
+  preferPolygonHitbox: 1
+  spriteHitboxScale: 1.02
+  maxHP: 30
   cashValue: 100
   xpDrop: 10
-  cashPopupColor: {r: 0.9245283, g: 0.86318535, b: 0.02180491, a: 1}
-  cashPopupFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  cashPopupTextSize: 10
-  cashPopupTextScale: 1
-  cashPopupRiseSpeed: 1.5
-  cashPopupLifetime: 0.9
-  cashPopupFadeOutDuration: 0.35
+  cashPickupPrefab: {fileID: 0}
+  pickupDropScatterRadius: 0.26
+  pickupDropInnerRadiusRatio: 0.35
+  pickupDropVerticalOffset: 0.05
+  pickupDropMinSeparation: 0.28
+  pickupDropPositionAttempts: 12
+  damagePopupColor: {r: 0.17254902, g: 0.7529412, b: 0.70980394, a: 1}
+  damagePopupFont: {fileID: 0}
+  damagePopupTextSize: 15
+  damagePopupTextScale: 0.5
+  damagePopupRiseSpeed: 1.5
+  damagePopupLifetime: 0.9
+  damagePopupFadeOutDuration: 0.35
   hpDropChance: 1
-  hpHealAmount: 1
-  hpPickupPrefab: {fileID: 0}
+  hpHealAmount: 10
+  hpPickupPrefab: {fileID: -5382311237400407486, guid: db29db41dee0a004cb7d30bb480f26a2, type: 3}
 --- !u!114 &-7703636692332815141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,9 +258,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4669af3280bc02842b09f1589a64cc6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHitFeedback
-  flashColor: {r: 1, g: 1, b: 1, a: 1}
+  targetRenderer: {fileID: 0}
+  flashColor: {r: 1, g: 0.32, b: 0.32, a: 1}
   flashDuration: 0.06
   punchScale: 1.25
   punchRecoverSpeed: 12
+  burstColor: {r: 1, g: 0.62, b: 0.24, a: 0.85}
+  burstDuration: 0.12
+  burstStartScale: 0.35
+  burstEndScale: 0.95
   deathShrinkDuration: 0.2
   deathSpinAngle: 45

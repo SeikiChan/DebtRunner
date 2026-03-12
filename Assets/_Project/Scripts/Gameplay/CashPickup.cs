@@ -73,7 +73,10 @@ public class CashPickup : MonoBehaviour
         collected = true;
 
         if (GameFlowController.Instance != null)
+        {
             GameFlowController.Instance.AddCash(amount);
+            GameFlowController.Instance.NotifyGameplayTutorialPickupCollected(transform.position);
+        }
 
         RunLogger.Event($"Cash pickup collected: +{amount}");
         if (sfxCollect != null && SFXManager.Instance != null)

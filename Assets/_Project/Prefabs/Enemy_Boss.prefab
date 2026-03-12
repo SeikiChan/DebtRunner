@@ -86,12 +86,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 20
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -6248741079362886434, guid: 0c94bfa7e83cf4b4e8e8be7c3f3d1875, type: 3}
+  m_Sprite: {fileID: -3958687697214979409, guid: 7d93b21060a792b4b88cbbc9703a329b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 7.77, y: 7.36}
+  m_Size: {x: 8.87, y: 9.09}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -195,6 +195,7 @@ MonoBehaviour:
   projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
   debtCollectorPrefab: {fileID: 0}
   addsXpPickupPrefab: {fileID: 0}
+  addsCashPickupPrefab: {fileID: 0}
   projectilesRoot: {fileID: 0}
   enemiesRoot: {fileID: 0}
   pickupsRoot: {fileID: 0}
@@ -204,11 +205,11 @@ MonoBehaviour:
   phase2RecoveryRange: {x: 0.6, y: 0.85}
   enrageRecoveryRange: {x: 0.4, y: 0.6}
   suppressEnemyMovementDuringDash: 1
-  telegraphColor: {r: 1, g: 0.25, b: 0.2, a: 0.92}
-  telegraphLineWidth: 0.1
-  telegraphCircleWidth: 0.08
+  telegraphColor: {r: 0.990566, g: 0.72379726, b: 0.70554465, a: 0.3529412}
+  telegraphLineWidth: 0.5
+  telegraphCircleWidth: 0.25
   telegraphCircleSegments: 72
-  telegraphLength: 12
+  telegraphLength: 5
   telegraphSortingOrder: 250
   chipFanTelegraphSeconds: 0.6
   chipFanMinShots: 7
@@ -282,18 +283,29 @@ MonoBehaviour:
     m_Bits: 4294967295
   separationUseOwnLayerOnly: 1
   separationBufferSize: 64
-  sfxHit: {fileID: 8300000, guid: 8bbef4317dfcc084f8719502ffc54518, type: 3}
-  sfxDeath: {fileID: 0}
-  maxHP: 1000
+  sfxHit: {fileID: 8300000, guid: 4832225ec9b6b82499d4e66325f66694, type: 3}
+  sfxDeath: {fileID: 8300000, guid: 3024a25e30609d4489fb2d2423a7ebc4, type: 3}
+  sfxHitVolume: 1.569
+  sfxDeathVolume: 0.9
+  fitHitboxToSprite: 1
+  preferPolygonHitbox: 1
+  spriteHitboxScale: 1.02
+  maxHP: 5
   cashValue: 20
-  xpDrop: 1
-  cashPopupColor: {r: 0.64, g: 1, b: 0.64, a: 1}
-  cashPopupFont: {fileID: 0}
-  cashPopupTextSize: 6
-  cashPopupTextScale: 0.12
-  cashPopupRiseSpeed: 1.5
-  cashPopupLifetime: 0.9
-  cashPopupFadeOutDuration: 0.35
+  xpDrop: 10
+  cashPickupPrefab: {fileID: 0}
+  pickupDropScatterRadius: 0.26
+  pickupDropInnerRadiusRatio: 0.35
+  pickupDropVerticalOffset: 0.05
+  pickupDropMinSeparation: 0.28
+  pickupDropPositionAttempts: 12
+  damagePopupColor: {r: 0.30495724, g: 0.75059134, b: 0.8396226, a: 1}
+  damagePopupFont: {fileID: 11400000, guid: 5ed8fdb7bcf15f247993ac9ea8fffd06, type: 2}
+  damagePopupTextSize: 20
+  damagePopupTextScale: 0.12
+  damagePopupRiseSpeed: 1.5
+  damagePopupLifetime: 0.9
+  damagePopupFadeOutDuration: 0.35
   hpDropChance: 0.12
-  hpHealAmount: 1
+  hpHealAmount: 10
   hpPickupPrefab: {fileID: 0}

@@ -10,6 +10,8 @@ public class PlayerMotor2D : MonoBehaviour
     private Vector2 moveInput;
     private Vector2 lastMoveDir = Vector2.right;
     private Vector2 externalVelocity;
+    private Vector3 spawnPosition;
+    private Quaternion spawnRotation;
 
     private float baseMoveSpeed;
     private float moveSpeedFlatBonus;
@@ -23,6 +25,8 @@ public class PlayerMotor2D : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         baseMoveSpeed = Mathf.Max(0.1f, moveSpeed);
+        spawnPosition = transform.position;
+        spawnRotation = transform.rotation;
 
         if (GetComponent<PlayerVisualAnim>() == null)
             gameObject.AddComponent<PlayerVisualAnim>();
@@ -59,6 +63,23 @@ public class PlayerMotor2D : MonoBehaviour
         moveSpeedFlatBonus = 0f;
         moveSpeedPercentBonus = 0f;
         externalVelocity = Vector2.zero;
+    }
+
+    public void ResetForNewRun()
+    {
+        ResetRuntimeStats();
+        moveInput = Vector2.zero;
+        lastMoveDir = Vector2.right;
+
+        transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+
+        if (rb != null)
+        {
+            rb.position = spawnPosition;
+            rb.rotation = spawnRotation.eulerAngles.z;
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+        }
     }
 
     public void AddMoveSpeedFlat(float amount)

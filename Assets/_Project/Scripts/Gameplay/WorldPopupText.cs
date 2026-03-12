@@ -8,12 +8,16 @@ public class WorldPopupText : MonoBehaviour
     [SerializeField, Min(0.01f)] private float fadeOutDuration = 0.35f;
     [SerializeField, Min(0.1f)] private float textScale = 0.12f;
     [SerializeField, Min(0.1f)] private float textSize = 6f;
+    [SerializeField, Range(0f, 1f)] private float outlineWidth = 0.22f;
+    [SerializeField] private Color outlineColor = new Color(0.08f, 0.03f, 0.03f, 0.95f);
 
     private TextMeshPro textMesh;
     private Color baseColor;
+    private Color baseOutlineColor;
     private float timer;
     private Camera cachedCamera;
     private bool initialized;
+    private Material textMaterial;
 
     public static void Spawn(string content, Vector3 worldPos, Color color)
     {
@@ -79,7 +83,9 @@ public class WorldPopupText : MonoBehaviour
             textMesh.font = TMP_Settings.defaultFontAsset;
 
         baseColor = color;
-        textMesh.color = baseColor;
+        baseOutlineColor = outlineColor;
+        ApplyStyle();
+        ApplyFaceColor(baseColor);
         transform.localScale = Vector3.one * textScale;
         initialized = true;
         RefreshFacing();
@@ -101,7 +107,7 @@ public class WorldPopupText : MonoBehaviour
             float alpha = Mathf.InverseLerp(lifetime, fadeStartTime, timer);
             Color c = baseColor;
             c.a *= alpha;
-            textMesh.color = c;
+            ApplyFaceColor(c);
         }
 
         if (timer >= lifetime)
@@ -141,10 +147,45 @@ public class WorldPopupText : MonoBehaviour
         if (baseColor.a <= 0f)
             baseColor = Color.white;
 
-        textMesh.color = baseColor;
+        baseOutlineColor = outlineColor;
+        ApplyStyle();
+        ApplyFaceColor(baseColor);
         if (transform.localScale == Vector3.zero)
             transform.localScale = Vector3.one * textScale;
 
         initialized = true;
+    }
+
+    private void ApplyStyle()
+    {
+        if (textMesh == null)
+            return;
+
+        textMaterial = textMesh.fontMaterial;
+        if (textMaterial == null)
+            return;
+
+        if (textMaterial.HasProperty(ShaderUtilities.ID_OutlineWidth))
+            textMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth, Mathf.Clamp01(outlineWidth));
+    }
+
+    private void ApplyFaceColor(Color faceColor)
+    {
+        if (textMesh == null)
+            return;
+
+        textMesh.color = faceColor;
+
+        if (textMaterial == null)
+            textMaterial = textMesh.fontMaterial;
+        if (textMaterial == null)
+            return;
+
+        if (textMaterial.HasProperty(ShaderUtilities.ID_OutlineColor))
+        {
+            Color currentOutline = baseOutlineColor;
+            currentOutline.a *= faceColor.a;
+            textMaterial.SetColor(ShaderUtilities.ID_OutlineColor, currentOutline);
+        }
     }
 }

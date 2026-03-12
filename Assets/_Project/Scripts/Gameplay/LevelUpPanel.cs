@@ -27,6 +27,7 @@ public class LevelUpPanel : MonoBehaviour
     private Coroutine fadeCo;
     private bool selectionLocked;
     private bool isShowing;
+    private RectTransform rootRect;
 
     public bool IsShowing => isShowing;
 
@@ -35,9 +36,12 @@ public class LevelUpPanel : MonoBehaviour
         if (panel == null)
             panel = gameObject;
 
+        rootRect = transform as RectTransform;
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null)
             canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+        EnsureFullscreenOverlayLayout();
     }
 
     private void Start()
@@ -92,8 +96,14 @@ public class LevelUpPanel : MonoBehaviour
         selectionLocked = false;
         onUpgradeSelected = onSelected;
 
+        EnsureFullscreenOverlayLayout();
+        transform.SetAsLastSibling();
+
         if (panel != null && panel != gameObject)
+        {
             panel.SetActive(true);
+            panel.transform.SetAsLastSibling();
+        }
 
         SetVisible(true);
         SetInputEnabled(true);
@@ -238,5 +248,44 @@ public class LevelUpPanel : MonoBehaviour
             if (cardSlots[i] != null)
                 cardSlots[i].SetInteractable(enabled);
         }
+    }
+
+    private void OnRectTransformDimensionsChange()
+    {
+        if (!isActiveAndEnabled)
+            return;
+
+        EnsureFullscreenOverlayLayout();
+    }
+
+    private void EnsureFullscreenOverlayLayout()
+    {
+        StretchToParent(rootRect);
+
+        if (dimBackground != null)
+        {
+            RectTransform dimRect = dimBackground.rectTransform;
+            StretchToParent(dimRect);
+            dimRect.SetAsFirstSibling();
+        }
+
+        if (panel != null)
+        {
+            RectTransform panelRect = panel.transform as RectTransform;
+            if (panelRect != null && panelRect.parent == transform)
+                StretchToParent(panelRect);
+        }
+    }
+
+    private static void StretchToParent(RectTransform rect)
+    {
+        if (rect == null || rect.parent == null)
+            return;
+
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.anchoredPosition = Vector2.zero;
     }
 }

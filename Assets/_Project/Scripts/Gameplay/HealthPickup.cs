@@ -91,6 +91,8 @@ public class HealthPickup : MonoBehaviour
         int before = playerHealth.CurrentHP;
         playerHealth.Heal(healAmount);
         int healed = Mathf.Max(0, playerHealth.CurrentHP - before);
+        if (GameFlowController.Instance != null)
+            GameFlowController.Instance.NotifyGameplayTutorialPickupCollected(transform.position);
         RunLogger.Event($"HP pickup collected: +{healed}");
         if (sfxCollect != null && SFXManager.Instance != null)
             SFXManager.Instance.Play(sfxCollect, 0.5f);

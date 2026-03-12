@@ -18,12 +18,19 @@ public class EnemyController : MonoBehaviour
 
     [SerializeField] private AudioClip sfxHit;
     [SerializeField] private AudioClip sfxDeath;
+    [SerializeField, Range(0f, 2f)] private float sfxHitVolume = 0.8f;
+    [SerializeField, Range(0f, 2f)] private float sfxDeathVolume = 0.9f;
 
-    [SerializeField] private int maxHP = 3;
+    [Header("Hitbox")]
+    [SerializeField] private bool fitHitboxToSprite = true;
+    [SerializeField] private bool preferPolygonHitbox = true;
+    [SerializeField, Range(0.8f, 1.25f)] private float spriteHitboxScale = 1.02f;
+
+    [SerializeField] private int maxHP = 30;
     private float hp;
 
     [SerializeField] private int cashValue = 20;
-    [SerializeField] private int xpDrop = 1;
+    [SerializeField] private int xpDrop = 10;
     [SerializeField] private CashPickup cashPickupPrefab;
     [SerializeField, Min(0f)] private float pickupDropScatterRadius = 0.26f;
     [SerializeField, Range(0f, 0.95f)] private float pickupDropInnerRadiusRatio = 0.35f;
@@ -45,7 +52,7 @@ public class EnemyController : MonoBehaviour
     [FormerlySerializedAs("cashPopupFadeOutDuration")]
     [SerializeField, Min(0.01f)] private float damagePopupFadeOutDuration = 0.35f;
     [SerializeField, Range(0f, 1f)] private float hpDropChance = 0.12f;
-    [SerializeField] private int hpHealAmount = 1;
+    [SerializeField] private int hpHealAmount = 10;
     [SerializeField] private HealthPickup hpPickupPrefab;
 
     private Rigidbody2D rb;
@@ -55,20 +62,26 @@ public class EnemyController : MonoBehaviour
     private float runtimeMaxHP;
     private EnemyHitKnockback hitKnockback;
     private EnemyHitFeedback hitFeedback;
+    private SpriteRenderer primarySpriteRenderer;
+    private Collider2D targetCollider;
 
     private XPPickup xpPrefab;
     private CashPickup cashPrefab;
     private Transform pickupsRoot;
     private Collider2D[] separationHits;
+    private readonly List<Vector2> spritePhysicsShapeBuffer = new List<Vector2>(32);
+    private static readonly List<EnemyController> activeEnemies = new List<EnemyController>(256);
     private static bool missingCashPickupWarned;
 
     public float CurrentHP => Mathf.Max(0f, hp);
     public float MaxHP => Mathf.Max(1f, runtimeMaxHP);
     public float HealthRatio => Mathf.Clamp01(CurrentHP / MaxHP);
+    public Collider2D TargetCollider => targetCollider;
+    public static IReadOnlyList<EnemyController> ActiveEnemies => activeEnemies;
 
     /// <summary>
-    /// 褰撲负 true 鏃讹紝FixedUpdate 璺宠繃杩借釜绉诲姩銆?
-    /// EnemyDashAttack / EnemyOrbitMovement 绛夌粍浠朵娇鐢ㄦ灞炴€ф帴绠＄Щ鍔ㄣ€?
+    /// When true, FixedUpdate skips default chase movement.
+    /// Used by components such as EnemyDashAttack and EnemyOrbitMovement.
     /// </summary>
     public bool SuppressChaseMovement { get; set; }
     public Transform Player => player;
@@ -77,13 +90,208 @@ public class EnemyController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        primarySpriteRenderer = ResolvePrimarySpriteRenderer();
+        ConfigureSpriteHitbox();
+        RefreshTargetCollider();
         hitKnockback = GetComponent<EnemyHitKnockback>();
         hitFeedback = GetComponent<EnemyHitFeedback>();
+        if (hitFeedback == null)
+            hitFeedback = gameObject.AddComponent<EnemyHitFeedback>();
         baseMaxHP = Mathf.Max(1, maxHP);
         baseMoveSpeed = Mathf.Max(0.2f, moveSpeed);
         runtimeMaxHP = baseMaxHP;
         hp = runtimeMaxHP;
         separationHits = new Collider2D[Mathf.Max(1, separationBufferSize)];
+    }
+
+    private void OnEnable()
+    {
+        RefreshTargetCollider();
+        if (!activeEnemies.Contains(this))
+            activeEnemies.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        activeEnemies.Remove(this);
+    }
+
+    private SpriteRenderer ResolvePrimarySpriteRenderer()
+    {
+        if (primarySpriteRenderer != null)
+            return primarySpriteRenderer;
+
+        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        float bestArea = float.MinValue;
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer sr = renderers[i];
+            if (sr == null || sr.sprite == null)
+                continue;
+
+            Bounds bounds = sr.bounds;
+            float area = bounds.size.x * bounds.size.y;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                primarySpriteRenderer = sr;
+            }
+        }
+
+        return primarySpriteRenderer;
+    }
+
+    private void ConfigureSpriteHitbox()
+    {
+        if (!fitHitboxToSprite)
+            return;
+
+        SpriteRenderer sr = ResolvePrimarySpriteRenderer();
+        if (sr == null || sr.sprite == null)
+            return;
+
+        if (preferPolygonHitbox && TryConfigurePolygonHitbox(sr))
+            return;
+
+        ConfigureFallbackBoxHitbox(sr);
+    }
+
+    private bool TryConfigurePolygonHitbox(SpriteRenderer sr)
+    {
+        Sprite sprite = sr.sprite;
+        if (sprite == null)
+            return false;
+
+        int shapeCount = sprite.GetPhysicsShapeCount();
+        if (shapeCount <= 0)
+            return false;
+
+        Collider2D previousCollider = GetComponent<Collider2D>();
+        PolygonCollider2D polygon = GetComponent<PolygonCollider2D>();
+        if (polygon == null)
+        {
+            bool wasTrigger = previousCollider == null || previousCollider.isTrigger;
+            PhysicsMaterial2D sharedMaterial = previousCollider != null ? previousCollider.sharedMaterial : null;
+            if (previousCollider != null)
+            {
+                previousCollider.enabled = false;
+                Destroy(previousCollider);
+            }
+
+            polygon = gameObject.AddComponent<PolygonCollider2D>();
+            polygon.isTrigger = wasTrigger;
+            polygon.sharedMaterial = sharedMaterial;
+        }
+
+        polygon.enabled = true;
+        polygon.pathCount = shapeCount;
+
+        for (int i = 0; i < shapeCount; i++)
+        {
+            spritePhysicsShapeBuffer.Clear();
+            sprite.GetPhysicsShape(i, spritePhysicsShapeBuffer);
+            Vector2[] localPoints = new Vector2[spritePhysicsShapeBuffer.Count];
+            Vector2 spriteCenter = sprite.bounds.center;
+
+            for (int p = 0; p < spritePhysicsShapeBuffer.Count; p++)
+            {
+                Vector2 point = ApplySpriteFlip(spritePhysicsShapeBuffer[p], sr, sprite);
+                point = spriteCenter + ((point - spriteCenter) * Mathf.Max(0.01f, spriteHitboxScale));
+                Vector3 worldPoint = sr.transform.TransformPoint(point);
+                localPoints[p] = transform.InverseTransformPoint(worldPoint);
+            }
+
+            polygon.SetPath(i, localPoints);
+        }
+
+        targetCollider = polygon;
+
+        return true;
+    }
+
+    private void ConfigureFallbackBoxHitbox(SpriteRenderer sr)
+    {
+        Sprite sprite = sr.sprite;
+        if (sprite == null)
+            return;
+
+        Collider2D previousCollider = GetComponent<Collider2D>();
+        BoxCollider2D box = GetComponent<BoxCollider2D>();
+        if (box == null)
+        {
+            bool wasTrigger = previousCollider == null || previousCollider.isTrigger;
+            PhysicsMaterial2D sharedMaterial = previousCollider != null ? previousCollider.sharedMaterial : null;
+            if (previousCollider != null)
+            {
+                previousCollider.enabled = false;
+                Destroy(previousCollider);
+            }
+
+            box = gameObject.AddComponent<BoxCollider2D>();
+            box.isTrigger = wasTrigger;
+            box.sharedMaterial = sharedMaterial;
+        }
+
+        Bounds spriteBounds = sprite.bounds;
+        Vector2 center = spriteBounds.center;
+        Vector2 extents = spriteBounds.extents * Mathf.Max(0.01f, spriteHitboxScale);
+        Vector2[] corners =
+        {
+            center + new Vector2(-extents.x, -extents.y),
+            center + new Vector2(-extents.x, extents.y),
+            center + new Vector2(extents.x, extents.y),
+            center + new Vector2(extents.x, -extents.y)
+        };
+
+        Vector2 min = Vector2.positiveInfinity;
+        Vector2 max = Vector2.negativeInfinity;
+
+        for (int i = 0; i < corners.Length; i++)
+        {
+            Vector2 point = ApplySpriteFlip(corners[i], sr, sprite);
+            Vector3 worldPoint = sr.transform.TransformPoint(point);
+            Vector2 localPoint = transform.InverseTransformPoint(worldPoint);
+            min = Vector2.Min(min, localPoint);
+            max = Vector2.Max(max, localPoint);
+        }
+
+        box.enabled = true;
+        box.offset = (min + max) * 0.5f;
+        box.size = max - min;
+        targetCollider = box;
+    }
+
+    private Vector2 ApplySpriteFlip(Vector2 point, SpriteRenderer sr, Sprite sprite)
+    {
+        Vector2 result = point;
+        Vector2 center = sprite.bounds.center;
+
+        if (sr.flipX)
+            result.x = (center.x * 2f) - result.x;
+        if (sr.flipY)
+            result.y = (center.y * 2f) - result.y;
+
+        return result;
+    }
+
+    private void RefreshTargetCollider()
+    {
+        Collider2D[] colliders = GetComponents<Collider2D>();
+        targetCollider = null;
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D col = colliders[i];
+            if (col == null || !col.enabled)
+                continue;
+
+            targetCollider = col;
+            return;
+        }
+
+        if (colliders.Length > 0)
+            targetCollider = colliders[0];
     }
 
     public void Init(Transform playerTf, XPPickup xpPickupPrefab, Transform pickupsParent, CashPickup cashPickupTemplate = null)
@@ -247,7 +455,7 @@ public class EnemyController : MonoBehaviour
             {
                 AudioClip deathClip = sfxDeath != null ? sfxDeath : sfxHit;
                 if (deathClip != null)
-                    SFXManager.Instance.PlayAtPoint(deathClip, transform.position, 0.6f);
+                    SFXManager.Instance.PlayAtPoint(deathClip, transform.position, sfxDeathVolume);
             }
             Die();
         }
@@ -255,16 +463,13 @@ public class EnemyController : MonoBehaviour
         {
             if (hitFeedback != null) hitFeedback.PlayHit();
             if (sfxHit != null && SFXManager.Instance != null)
-                SFXManager.Instance.PlayAtPoint(sfxHit, transform.position, 0.4f);
+                SFXManager.Instance.PlayAtPoint(sfxHit, transform.position, sfxHitVolume);
         }
     }
 
     private void Die()
     {
         RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
-
-        if (GameFlowController.Instance != null)
-            GameFlowController.Instance.NotifyEnemyKilled();
 
         // Apply reward multiplier from wheel "Risk & Reward" outcome
         float rewardMul = GameFlowController.Instance != null ? GameFlowController.Instance.CurrentRewardMultiplier : 1f;
@@ -288,9 +493,15 @@ public class EnemyController : MonoBehaviour
         TryDropHealthPickup(reservedDropOffsets);
         LateBossDefeatNotify(isBossEnemy);
 
+        if (GameFlowController.Instance != null)
+            GameFlowController.Instance.NotifyEnemyKilled(transform.position);
+
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
         SuppressChaseMovement = true;
+
+        if (isBossEnemy && GameFlowController.Instance != null && GameFlowController.Instance.TryStartBossVictorySequence(this))
+            return;
 
         float deathDuration = 0f;
         if (hitFeedback != null)
@@ -470,7 +681,7 @@ public class EnemyController : MonoBehaviour
             return;
 
         if (GameFlowController.Instance != null)
-            GameFlowController.Instance.NotifyBossDefeated();
+            GameFlowController.Instance.NotifyBossDefeated(this);
     }
 }
 

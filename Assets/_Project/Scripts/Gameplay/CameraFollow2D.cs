@@ -40,6 +40,15 @@ public class CameraFollow2D : MonoBehaviour
             UpdateOrthoSize();
     }
 
+    public void SnapToTarget()
+    {
+        if (target != null)
+            transform.position = new Vector3(target.position.x, target.position.y, transform.position.z);
+
+        if (adaptiveOrthoSize && cam != null && cam.orthographic)
+            UpdateOrthoSize();
+    }
+
     private void UpdateOrthoSize()
     {
         float designAspect = (float)designWidth / designHeight;

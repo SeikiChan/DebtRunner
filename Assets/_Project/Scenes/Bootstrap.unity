@@ -2062,7 +2062,7 @@ MonoBehaviour:
   projectilesRoot: {fileID: 499288855}
   fireInterval: 0.3
   projectileSpeed: 12
-  damage: 1
+  damage: 10
   muzzle: {fileID: 0}
 --- !u!1 &1032902891
 GameObject:
@@ -2273,7 +2273,7 @@ MonoBehaviour:
   roundDurationSeconds: 30
   level: 1
   xp: 0
-  xpToNext: 10
+  xpToNext: 125
   enemySpawner: {fileID: 0}
   playerShooter: {fileID: 0}
 --- !u!1 &1129502848
