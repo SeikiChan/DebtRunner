@@ -40,7 +40,6 @@ public class SFXManager : MonoBehaviour
 
     [Header("Audio Source")]
     [SerializeField] private AudioSource source2D;
-    [SerializeField] private AudioSource sourceExclusive2D;
 
     [Header("Master Volume")]
     [SerializeField, Range(0f, 1f)] private float masterVolume = 1f;
@@ -83,22 +82,6 @@ public class SFXManager : MonoBehaviour
         source2D.PlayOneShot(clip, masterVolume * volumeScale);
     }
 
-    public bool PlayExclusive(AudioClip clip, float volumeScale = 1f)
-    {
-        EnsureSourceReady();
-        if (clip == null || sourceExclusive2D == null)
-            return false;
-
-        if (sourceExclusive2D.isPlaying)
-            return false;
-
-        sourceExclusive2D.clip = clip;
-        sourceExclusive2D.loop = false;
-        sourceExclusive2D.volume = masterVolume * volumeScale;
-        sourceExclusive2D.Play();
-        return true;
-    }
-
     public void PlayAtPoint(AudioClip clip, Vector3 position, float volumeScale = 1f)
     {
         if (clip == null)
@@ -125,34 +108,14 @@ public class SFXManager : MonoBehaviour
 
     private void EnsureSourceReady()
     {
-        if (source2D != null && sourceExclusive2D != null)
+        if (source2D != null)
             return;
 
-        AudioSource[] sources = GetComponents<AudioSource>();
-        if (source2D == null && sources.Length > 0)
-            source2D = sources[0];
-
-        if (sourceExclusive2D == null)
-        {
-            for (int i = 0; i < sources.Length; i++)
-            {
-                if (sources[i] != null && sources[i] != source2D)
-                {
-                    sourceExclusive2D = sources[i];
-                    break;
-                }
-            }
-        }
-
+        source2D = GetComponent<AudioSource>();
         if (source2D == null)
             source2D = gameObject.AddComponent<AudioSource>();
 
-        if (sourceExclusive2D == null)
-            sourceExclusive2D = gameObject.AddComponent<AudioSource>();
-
         source2D.playOnAwake = false;
         source2D.spatialBlend = 0f;
-        sourceExclusive2D.playOnAwake = false;
-        sourceExclusive2D.spatialBlend = 0f;
     }
 }

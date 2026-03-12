@@ -73,6 +73,7 @@ public class EnemyController : MonoBehaviour
     private readonly List<Vector2> spritePhysicsShapeBuffer = new List<Vector2>(32);
     private static readonly List<EnemyController> activeEnemies = new List<EnemyController>(256);
     private static bool missingCashPickupWarned;
+    private static float nextGlobalHitSfxAllowedTime;
 
     public float CurrentHP => Mathf.Max(0f, hp);
     public float MaxHP => Mathf.Max(1f, runtimeMaxHP);
@@ -469,9 +470,22 @@ public class EnemyController : MonoBehaviour
         else
         {
             if (hitFeedback != null) hitFeedback.PlayHit();
-            if (sfxHit != null && SFXManager.Instance != null)
-                SFXManager.Instance.PlayExclusive(sfxHit, sfxHitVolume);
+            TryPlaySharedHitSfx();
         }
+    }
+
+    private void TryPlaySharedHitSfx()
+    {
+        if (sfxHit == null || SFXManager.Instance == null)
+            return;
+
+        float now = Time.unscaledTime;
+        if (now < nextGlobalHitSfxAllowedTime)
+            return;
+
+        SFXManager.Instance.PlayAtPoint(sfxHit, transform.position, sfxHitVolume);
+        float clipDuration = Mathf.Max(0.03f, sfxHit.length);
+        nextGlobalHitSfxAllowedTime = now + clipDuration;
     }
 
     private void Die()

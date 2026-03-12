@@ -14133,7 +14133,7 @@ MonoBehaviour:
   orbitAngularSpeed: 140
   orbitHitRadius: 30
   orbitHitCooldown: 0.2
-  orbitDamageScale: 0.65
+  orbitDamageScale: 30
   orbitVisualScale: 3
   orbitVisualSizeMultiplier: 3
   orbitRadiusPadding: 0.32
@@ -15513,7 +15513,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SFXManager
   source2D: {fileID: 0}
-  sourceExclusive2D: {fileID: 0}
   masterVolume: 1
 --- !u!114 &1102755125
 MonoBehaviour:
