@@ -21,4 +21,4 @@ MonoBehaviour:
   effects:
   - effectType: 8
     intValue: 0
-    floatValue: 10
+    floatValue: 5

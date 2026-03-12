@@ -2273,7 +2273,7 @@ MonoBehaviour:
   roundDurationSeconds: 30
   level: 1
   xp: 0
-  xpToNext: 125
+  xpToNext: 12
   enemySpawner: {fileID: 0}
   playerShooter: {fileID: 0}
 --- !u!1 &1129502848
@@ -2822,6 +2822,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
   enemyPrefabs: []
+  useRoundEnemyPools: 1
+  seedWithBaseEnemyPrefabs: 0
+  roundEnemyPools:
+  - round: 1
+    mode: 0
+    prefabs:
+    - {fileID: 2284842997876372299, guid: 3a50f3b08bb61e94f839774e5095fce2, type: 3}
+  - round: 2
+    mode: 0
+    prefabs:
+    - {fileID: 2284842997876372299, guid: 2d69bc7d90d8f3d4d8a090c25e277ca5, type: 3}
+  - round: 3
+    mode: 0
+    prefabs:
+    - {fileID: 2284842997876372299, guid: 706bdbe192ce11848931f32d32d2e2c9, type: 3}
+  - round: 4
+    mode: 0
+    prefabs:
+    - {fileID: 2284842997876372299, guid: 21752d5e90063f14a91ab7f77f09fc0f, type: 3}
+  - round: 5
+    mode: 0
+    prefabs:
+    - {fileID: 2284842997876372299, guid: 3ad0fcdc2abdb7047941853d551d02ab, type: 3}
   enemiesRoot: {fileID: 238697713}
   player: {fileID: 1032491599}
   spawnInterval: 1

@@ -104,6 +104,7 @@ public class EnemySpawner : MonoBehaviour
     [Header("XP Drop / 经验掉落")]
     [LocalizedLabel("经验掉落预制体")]
     [SerializeField] private XPPickup xpPickupPrefab;
+    [SerializeField] private XPPickup[] xpPickupPrefabs;
     [LocalizedLabel("现金掉落预制体")]
     [SerializeField] private CashPickup cashPickupPrefab;
     [LocalizedLabel("掉落物根节点")]
@@ -116,6 +117,9 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private EnemyController bossPrefab;
     [LocalizedLabel("Boss回合继续刷普通敌人")]
     [SerializeField] private bool spawnRegularEnemiesDuringBossRound = true;
+    [Header("Treasure Spawn Limit / 宝箱怪上限")]
+    [SerializeField, Min(0)] private int treasureSpawnLimitMidRounds = 1;
+    [SerializeField, Min(0)] private int treasureSpawnLimitLateRounds = 2;
 
     // Runtime state
     private float timer;
@@ -128,6 +132,9 @@ public class EnemySpawner : MonoBehaviour
     private float runtimeEnemySpeedMultiplier;
     private int trackedRound = -1;
     private bool bossSpawnedThisRound;
+    private int treasureSpawnsThisRound;
+    private int pendingTreasureSpawnsThisRound;
+    private EnemyController runtimeTreasurePrefab;
     private readonly Collider2D[] spawnSpacingHits = new Collider2D[32];
     private EnemyController[] runtimeEnemyPool;
     private float[] runtimeEnemyWeights;
@@ -163,28 +170,28 @@ public class EnemySpawner : MonoBehaviour
             case 2:
                 return new RoundSpawnConfig
                 {
-                    interval = 1.0f, perTick = 2, maxAlive = 20,
+                    interval = 0.85f, perTick = 2, maxAlive = 22,
                     wMelee = 0.8f, wDash = 0.2f, wRanged = 0f, wTank = 0f, wTreasure = 0f
                 };
             case 3:
                 return new RoundSpawnConfig
                 {
-                    interval = 1.0f, perTick = 2, maxAlive = 22,
+                    interval = 0.9f, perTick = 2, maxAlive = 24,
                     wMelee = 0.65f, wDash = 0.15f, wRanged = 0.2f, wTank = 0f, wTreasure = 0f
                 };
             case 4:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.9f, perTick = 2, maxAlive = 25,
-                    wMelee = 0.45f, wDash = 0.18f, wRanged = 0.17f, wTank = 0.12f, wTreasure = 0.08f
+                    interval = 0.82f, perTick = 2, maxAlive = 27,
+                    wMelee = 0.49f, wDash = 0.18f, wRanged = 0.18f, wTank = 0.14f, wTreasure = 0.01f
                 };
             default: // R5+
                 return new RoundSpawnConfig
                 {
-                    interval = Mathf.Max(0.5f, 0.8f - (round - 5) * 0.03f),
+                    interval = Mathf.Max(0.45f, 0.72f - (round - 5) * 0.035f),
                     perTick = Mathf.Min(4, 3 + (round - 5) / 3),
-                    maxAlive = Mathf.Min(45, 30 + (round - 5) * 2),
-                    wMelee = 0.35f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.1f
+                    maxAlive = Mathf.Min(48, 32 + (round - 5) * 2),
+                    wMelee = 0.38f, wDash = 0.21f, wRanged = 0.21f, wTank = 0.18f, wTreasure = 0.02f
                 };
         }
     }
@@ -198,6 +205,9 @@ public class EnemySpawner : MonoBehaviour
         safeGapDirection = Random.Range(0f, 360f);
         trackedRound = -1;
         bossSpawnedThisRound = false;
+        treasureSpawnsThisRound = 0;
+        pendingTreasureSpawnsThisRound = 0;
+        runtimeTreasurePrefab = null;
         RefreshRuntimeSpawnSettings();
         int currentRound = GameFlowController.Instance != null ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound()) : 1;
         RefreshRuntimeEnemyPool(currentRound);
@@ -228,6 +238,8 @@ public class EnemySpawner : MonoBehaviour
         {
             trackedRound = currentRound;
             bossSpawnedThisRound = false;
+            treasureSpawnsThisRound = 0;
+            pendingTreasureSpawnsThisRound = 0;
             RefreshRuntimeEnemyPool(currentRound);
         }
 
@@ -270,6 +282,10 @@ public class EnemySpawner : MonoBehaviour
         EnemyController prefab = PickWeightedPrefab();
         if (prefab == null) return;
 
+        bool isTreasure = IsTreasurePrefab(prefab);
+        if (isTreasure)
+            pendingTreasureSpawnsThisRound++;
+
         Vector3 pos = ResolveSpawnPositionWithSpacing();
 
         if (spawnWarningDuration > 0f)
@@ -281,18 +297,56 @@ public class EnemySpawner : MonoBehaviour
     private EnemyController PickWeightedPrefab()
     {
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return null;
+        bool canSpawnTreasure = CanSpawnTreasureThisRound();
         if (runtimeEnemyWeights == null || runtimeWeightTotal <= 0f)
-            return runtimeEnemyPool[Random.Range(0, runtimeEnemyPool.Length)];
-
-        float roll = Random.Range(0f, runtimeWeightTotal);
-        float cumulative = 0f;
-        for (int i = 0; i < runtimeEnemyWeights.Length; i++)
         {
-            cumulative += runtimeEnemyWeights[i];
-            if (roll <= cumulative)
-                return runtimeEnemyPool[i];
+            List<EnemyController> valid = new List<EnemyController>(runtimeEnemyPool.Length);
+            for (int i = 0; i < runtimeEnemyPool.Length; i++)
+            {
+                EnemyController prefab = runtimeEnemyPool[i];
+                if (prefab == null) continue;
+                if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
+                valid.Add(prefab);
+            }
+
+            if (valid.Count <= 0) return null;
+            return valid[Random.Range(0, valid.Count)];
         }
-        return runtimeEnemyPool[runtimeEnemyPool.Length - 1];
+
+        float validWeightTotal = 0f;
+        for (int i = 0; i < runtimeEnemyWeights.Length && i < runtimeEnemyPool.Length; i++)
+        {
+            EnemyController prefab = runtimeEnemyPool[i];
+            if (prefab == null) continue;
+            if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
+            validWeightTotal += Mathf.Max(0f, runtimeEnemyWeights[i]);
+        }
+
+        if (validWeightTotal <= 0f)
+            return null;
+
+        float roll = Random.Range(0f, validWeightTotal);
+        float cumulative = 0f;
+        for (int i = 0; i < runtimeEnemyWeights.Length && i < runtimeEnemyPool.Length; i++)
+        {
+            EnemyController prefab = runtimeEnemyPool[i];
+            if (prefab == null) continue;
+            if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
+
+            cumulative += Mathf.Max(0f, runtimeEnemyWeights[i]);
+            if (roll <= cumulative)
+                return prefab;
+        }
+
+        for (int i = runtimeEnemyPool.Length - 1; i >= 0; i--)
+        {
+            EnemyController prefab = runtimeEnemyPool[i];
+            if (prefab == null) continue;
+            if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
+            return prefab;
+        }
+
+        return null;
     }
 
     private IEnumerator SpawnWithWarning(EnemyController prefab, Vector3 pos)
@@ -323,7 +377,12 @@ public class EnemySpawner : MonoBehaviour
         if (warning != null) Destroy(warning);
 
         // Check if spawner still active
-        if (this == null || !isActiveAndEnabled) yield break;
+        if (this == null || !isActiveAndEnabled)
+        {
+            if (IsTreasurePrefab(prefab))
+                pendingTreasureSpawnsThisRound = Mathf.Max(0, pendingTreasureSpawnsThisRound - 1);
+            yield break;
+        }
 
         SpawnEnemy(prefab, pos);
     }
@@ -369,8 +428,17 @@ public class EnemySpawner : MonoBehaviour
     {
         if (prefab == null) return;
 
+        if (IsTreasurePrefab(prefab))
+        {
+            pendingTreasureSpawnsThisRound = Mathf.Max(0, pendingTreasureSpawnsThisRound - 1);
+            treasureSpawnsThisRound++;
+        }
+
         var e = Instantiate(prefab, pos, Quaternion.identity, enemiesRoot);
-        e.Init(player, xpPickupPrefab, pickupsRoot, cashPickupPrefab);
+        if (xpPickupPrefabs != null && xpPickupPrefabs.Length > 0)
+            e.Init(player, xpPickupPrefabs, pickupsRoot, cashPickupPrefab);
+        else
+            e.Init(player, xpPickupPrefab, pickupsRoot, cashPickupPrefab);
 
         if (GameFlowController.Instance != null)
         {
@@ -573,6 +641,7 @@ public class EnemySpawner : MonoBehaviour
         EnemyController ranged = FindPrefabByNameKeyword("\u8FDC\u7A0B", "ranged");
         EnemyController tank = FindPrefabByNameKeyword("\u8089\u76FE", "tank", "brute", "heavy");
         EnemyController treasure = FindPrefabByNameKeyword("\u5B9D\u7BB1", "chest", "treasure");
+        runtimeTreasurePrefab = treasure;
 
         if (melee == null) melee = FindFirstNonNullPrefab();
 
@@ -690,6 +759,23 @@ public class EnemySpawner : MonoBehaviour
             if (prefab == null || runtimeEnemyPoolBuffer.Contains(prefab)) continue;
             runtimeEnemyPoolBuffer.Add(prefab);
         }
+    }
+
+    private bool IsTreasurePrefab(EnemyController prefab)
+    {
+        return prefab != null && runtimeTreasurePrefab != null && prefab == runtimeTreasurePrefab;
+    }
+
+    private bool CanSpawnTreasureThisRound()
+    {
+        if (runtimeTreasurePrefab == null)
+            return false;
+
+        int currentRound = GameFlowController.Instance != null ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound()) : 1;
+        int limit = currentRound >= 7
+            ? Mathf.Max(0, treasureSpawnLimitLateRounds)
+            : Mathf.Max(0, treasureSpawnLimitMidRounds);
+        return treasureSpawnsThisRound + pendingTreasureSpawnsThisRound < limit;
     }
 
     #endregion

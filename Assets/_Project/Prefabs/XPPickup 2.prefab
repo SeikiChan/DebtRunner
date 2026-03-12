@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 322585663444450550}
   - component: {fileID: -561626204055706042}
   m_Layer: 10
-  m_Name: XPPickup
+  m_Name: XPPickup 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -83,7 +83,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 5
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: f9ce554bdb6d4174995e3fa19b91195b, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 07d87bbd1161d904c91ce9ec1b373ed6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -141,7 +141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed69d2e2a68a8c244adb3bb197de169b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::XPPickup
-  amount: 1
+  amount: 2
   sfxCollect: {fileID: 8300000, guid: 1c4fadba216d32c48a3db61004b004cc, type: 3}
   magnetRadius: 2.6
   magnetSpeed: 8

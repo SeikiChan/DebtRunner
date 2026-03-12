@@ -15,6 +15,8 @@ public class XPPickup : MonoBehaviour
     private float magnetRadiusSqr;
     private float autoCollectDistanceSqr;
 
+    public int Amount => Mathf.Max(1, amount);
+
     public void SetAmount(int value) => amount = Mathf.Max(1, value);
 
     private void Awake()

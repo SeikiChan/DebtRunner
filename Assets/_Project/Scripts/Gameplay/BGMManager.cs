@@ -29,6 +29,8 @@ public class BGMManager : MonoBehaviour
     private AudioSource sourceB;
     private bool usingA = true;
     private Coroutine fadeRoutine;
+    private AudioClip gameplayResumeClip;
+    private float gameplayResumeTime;
 
     public float Volume => volume;
 
@@ -72,7 +74,7 @@ public class BGMManager : MonoBehaviour
         if (current != null && current.clip == clip && current.isPlaying)
             return;
 
-        CrossFadeTo(clip);
+        CrossFadeTo(clip, ConsumeResumeTimeIfMatching(clip));
     }
 
     /// <summary>
@@ -90,7 +92,7 @@ public class BGMManager : MonoBehaviour
         if (current != null && current.clip == bossClip && current.isPlaying)
             return;
 
-        CrossFadeTo(bossClip);
+        CrossFadeTo(bossClip, ConsumeResumeTimeIfMatching(bossClip));
     }
 
     public void PlayLevelUpBGM()
@@ -104,6 +106,7 @@ public class BGMManager : MonoBehaviour
         if (current != null && current.clip == bgmLevelUp && current.isPlaying)
             return;
 
+        CacheGameplayResumePoint();
         CrossFadeTo(bgmLevelUp);
     }
 
@@ -146,7 +149,7 @@ public class BGMManager : MonoBehaviour
             sourceB.volume = usingA ? 0f : volume;
     }
 
-    private void CrossFadeTo(AudioClip newClip)
+    private void CrossFadeTo(AudioClip newClip, float startTime = 0f)
     {
         if (newClip == null)
             return;
@@ -166,6 +169,8 @@ public class BGMManager : MonoBehaviour
         to.clip = newClip;
         to.volume = 0f;
         to.loop = ShouldLoop(newClip);
+        if (newClip.length > 0.01f)
+            to.time = Mathf.Clamp(startTime, 0f, Mathf.Max(0f, newClip.length - 0.01f));
         to.Play();
 
         if (from == null || !from.isPlaying || fadeDuration <= 0.001f)
@@ -262,5 +267,30 @@ public class BGMManager : MonoBehaviour
             return gameOverLoop;
 
         return loop;
+    }
+
+    private void CacheGameplayResumePoint()
+    {
+        AudioSource current = usingA ? sourceA : sourceB;
+        if (current == null || current.clip == null || !current.isPlaying)
+            return;
+
+        AudioClip bossClip = bgmBoss != null ? bgmBoss : bgmBattle;
+        if (current.clip != bgmBattle && current.clip != bossClip)
+            return;
+
+        gameplayResumeClip = current.clip;
+        gameplayResumeTime = Mathf.Max(0f, current.time);
+    }
+
+    private float ConsumeResumeTimeIfMatching(AudioClip clip)
+    {
+        if (clip == null || gameplayResumeClip != clip)
+            return 0f;
+
+        float resumeTime = gameplayResumeTime;
+        gameplayResumeClip = null;
+        gameplayResumeTime = 0f;
+        return resumeTime;
     }
 }

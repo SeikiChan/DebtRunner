@@ -187,15 +187,15 @@ MonoBehaviour:
   separationBufferSize: 64
   sfxHit: {fileID: 8300000, guid: 4832225ec9b6b82499d4e66325f66694, type: 3}
   sfxDeath: {fileID: 0}
-  sfxHitVolume: 2
+  sfxHitVolume: 0.34
   sfxDeathVolume: 0.9
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
   spriteHitboxScale: 1.02
   maxHP: 30
-  cashValue: 10
-  xpDrop: 10
-  cashPickupPrefab: {fileID: 0}
+  cashValue: 4
+  xpDrop: 1
+  cashPickupPrefab: {fileID: -2223663088653925849, guid: 579e178f9139359488de49e6b4271060, type: 3}
   pickupDropScatterRadius: 0.26
   pickupDropInnerRadiusRatio: 0.35
   pickupDropVerticalOffset: 0.05
@@ -208,7 +208,7 @@ MonoBehaviour:
   damagePopupRiseSpeed: 1.5
   damagePopupLifetime: 0.9
   damagePopupFadeOutDuration: 0.35
-  hpDropChance: 0.12
+  hpDropChance: 0.07
   hpHealAmount: 10
   hpPickupPrefab: {fileID: -5382311237400407486, guid: db29db41dee0a004cb7d30bb480f26a2, type: 3}
 --- !u!114 &-7703636692332815141

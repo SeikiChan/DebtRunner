@@ -64,7 +64,7 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private int debtPenaltyMax = 260;
     [SerializeField] private float enemyHpBuffMultiplier = 1.22f;
     [SerializeField] private float enemySpeedBuffMultiplier = 1.08f;
-    [SerializeField] private float enemyRewardBuffMultiplier = 1.5f;
+    [SerializeField] private float enemyRewardBuffMultiplier = 1.25f;
     [SerializeField] private bool useDynamicGambleCost = true;
     [SerializeField, Range(0.35f, 0.95f)] private float gambleCostToOfferPriceRatio = 0.42f;
     [SerializeField, Min(1)] private int gambleCostMin = 35;
@@ -169,7 +169,10 @@ public class ShopSystem : MonoBehaviour
         GenerateOffers();
         BindSpinningWheel();
         spinningWheel?.OnShopOpened();
-        SetInfo($"Spend cash to upgrade. Roll costs ${ResolveRuntimeGambleCost()} — big rewards await!");
+        if (gameFlow != null && gameFlow.GetCurrentRound() == 1)
+            SetInfo("Spend cash to upgrade. Your first roll this shop is FREE.");
+        else
+            SetInfo($"Spend cash to upgrade. Roll costs ${ResolveRuntimeGambleCost()} — big rewards await!");
         RefreshShopUI();
     }
 

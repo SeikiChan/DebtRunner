@@ -87,7 +87,7 @@ public class SpinningWheelController : MonoBehaviour
     [SerializeField] private Vector2Int debtPenaltyRange = new Vector2Int(150, 400);
     [SerializeField, Min(1f)] private float enemyHpBuffMultiplier = 1.35f;
     [SerializeField, Min(1f)] private float enemySpeedBuffMultiplier = 1.15f;
-    [SerializeField, Min(1f)] private float enemyRewardBuffMultiplier = 1.5f;
+    [SerializeField, Min(1f)] private float enemyRewardBuffMultiplier = 1.25f;
     [SerializeField] private bool cashOutcomeRefundsDrawCost = false;
 
     [Header("Outcome Labels / 结果标签")]
@@ -102,6 +102,7 @@ public class SpinningWheelController : MonoBehaviour
     private GameFlowController gameFlow;
     private ShopSystem shopSystem;
     private bool firstInteractionInShop = true;
+    private bool firstRoundFreeDrawAvailable;
     private bool hasPendingResult;
     private PrizeOutcomeType pendingOutcome = PrizeOutcomeType.ThankYou;
 
@@ -142,8 +143,10 @@ public class SpinningWheelController : MonoBehaviour
     public void OnShopOpened()
     {
         firstInteractionInShop = true;
+        firstRoundFreeDrawAvailable = gameFlow != null && gameFlow.GetCurrentRound() == 1;
         CancelAndReset(false);
         RefreshSegmentVisuals();
+        RefreshDrawLabel();
     }
 
     public void MarkOtherShopInteraction()
@@ -287,7 +290,7 @@ public class SpinningWheelController : MonoBehaviour
     private void RefreshDrawLabel()
     {
         if (textDrawLabel != null)
-            textDrawLabel.text = $"ROLL\n${drawCost}";
+            textDrawLabel.text = IsFreeDrawAvailable() ? "ROLL\nFREE" : $"ROLL\n${drawCost}";
     }
 
     private void OnDrawClicked()
@@ -300,8 +303,14 @@ public class SpinningWheelController : MonoBehaviour
 
         bool useBoost = firstInteractionInShop;
         firstInteractionInShop = false;
+        bool isFreeDraw = IsFreeDrawAvailable();
+        if (isFreeDraw)
+        {
+            firstRoundFreeDrawAvailable = false;
+            RefreshDrawLabel();
+        }
 
-        if (!gameFlow.TrySpendCash(drawCost))
+        if (!isFreeDraw && !gameFlow.TrySpendCash(drawCost))
         {
             PushInfo("Not enough cash to roll.");
             return;
@@ -322,6 +331,11 @@ public class SpinningWheelController : MonoBehaviour
 
         float targetAngle = GetSegmentCenterAngle(targetIndex);
         animator.SpinToAngle(targetAngle, OnSpinFinished);
+    }
+
+    private bool IsFreeDrawAvailable()
+    {
+        return firstRoundFreeDrawAvailable && gameFlow != null && gameFlow.GetCurrentRound() == 1;
     }
 
     private PrizeOutcomeType RollOutcome(bool useBoost)

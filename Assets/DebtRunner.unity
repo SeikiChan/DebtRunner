@@ -327,7 +327,7 @@ MonoBehaviour:
   debtPenaltyRange: {x: 150, y: 400}
   enemyHpBuffMultiplier: 1.35
   enemySpeedBuffMultiplier: 1.15
-  enemyRewardBuffMultiplier: 1.5
+  enemyRewardBuffMultiplier: 1.25
   cashOutcomeRefundsDrawCost: 0
   labelThankYou: THANKS
   labelDebtUp: DEBT+
@@ -357,7 +357,7 @@ MonoBehaviour:
   debtPenaltyMax: 400
   enemyHpBuffMultiplier: 1.35
   enemySpeedBuffMultiplier: 1.15
-  enemyRewardBuffMultiplier: 1.5
+  enemyRewardBuffMultiplier: 1.25
   useDynamicGambleCost: 1
   gambleCostToOfferPriceRatio: 0.68
   gambleCostMin: 70
@@ -3284,7 +3284,7 @@ SpriteRenderer:
   m_SortingLayer: -1
   m_SortingOrder: -100
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -1834578678649642157, guid: 1b27ee887d4a41b43bd02be6c21de55a, type: 3}
+  m_Sprite: {fileID: -7443756053782179069, guid: 706e937948c3a824ea1194ff38bfd02b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -4845,7 +4845,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.72, g: 0.2, b: 0.2, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -9858,7 +9858,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.72, g: 0.2, b: 0.2, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -10285,7 +10285,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.72, g: 0.2, b: 0.2, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -14129,12 +14129,13 @@ MonoBehaviour:
   autoAimRequireOnScreen: 1
   autoAimViewportPadding: 0.02
   orbitProjectileCount: 0
-  orbitRadius: 1.6
+  orbitRadius: 30
   orbitAngularSpeed: 140
-  orbitHitRadius: 0.35
+  orbitHitRadius: 30
   orbitHitCooldown: 0.2
   orbitDamageScale: 0.65
-  orbitVisualScale: 0.85
+  orbitVisualScale: 3
+  orbitVisualSizeMultiplier: 3
   orbitRadiusPadding: 0.32
   orbitCollisionQueryInterval: 0.05
   orbitHitBufferSize: 64
@@ -15206,9 +15207,10 @@ MonoBehaviour:
   textSettlementNextRoundDebt: {fileID: 371131205}
   textSettlementRoundsLeft: {fileID: 1930566004}
   totalRounds: 10
-  firstRoundDue: 100
+  firstRoundDue: 50
   baseDue: 220
   stepDue: 140
+  cashDropGrowthPerRound: 0.34
   roundDurationSeconds: 60
   countdownUrgentThresholdSeconds: 10
   countdownUrgentColor: {r: 1, g: 0.78, b: 0.22, a: 1}
@@ -15216,7 +15218,7 @@ MonoBehaviour:
   countdownUrgentScaleMultiplier: 1.28
   countdownTickPopSeconds: 0.18
   countdownTickPopAmplitude: 0.16
-  baseXpToNext: 100
+  baseXpToNext: 12
   useDebtCurveMultiplier: 1
   debtCurve:
     serializedVersion: 2
@@ -15325,7 +15327,7 @@ MonoBehaviour:
   maxNextRoundEnemySpeedBuffMultiplier: 1.4
   level: 1
   xp: 0
-  xpToNext: 125
+  xpToNext: 12
   xpCurveMaxLevel: 25
   xpToNextCurve:
     serializedVersion: 2
@@ -15341,7 +15343,7 @@ MonoBehaviour:
       outWeight: 0
     - serializedVersion: 3
       time: 1
-      value: 5
+      value: 9
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -15351,19 +15353,146 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  xpMinGrowthPerLevel: 0.12
-  xpRequirementMultiplierAtLevel1: 1.25
-  xpRequirementMultiplierAtHighLevel: 1.65
+  xpMinGrowthPerLevel: 0.2
+  xpRequirementMultiplierAtLevel1: 1
+  xpRequirementMultiplierAtHighLevel: 2.3
   gateWeaponUpgradeRarityByRound: 1
   uncommonUpgradeUnlockRound: 2
   rareUpgradeUnlockRound: 4
   epicUpgradeUnlockRound: 6
   legendaryUpgradeUnlockRound: 8
+  commonUpgradeOfferWeightByRound:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1.35
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0.45
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  uncommonUpgradeOfferWeightByRound:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.9
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1.1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  rareUpgradeOfferWeightByRound:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.4
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1.65
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  epicUpgradeOfferWeightByRound:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.12
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1.95
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  legendaryUpgradeOfferWeightByRound:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1.4
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recentUpgradeOfferMemory: 6
+  recentUpgradeOfferRepeatPenalty: 0.2
   enemyHpPressureAtRound1: 1.05
   enemyHpPressureAtBoss: 1.25
   enemySpeedPressureAtRound1: 1
   enemySpeedPressureAtBoss: 1.03
   weaponUpgradePoolAsset: {fileID: 11400000, guid: b88798f2c909df34bb80d125dbb32cb2, type: 2}
+  enableUpgradeTestHotkey: 1
+  upgradeTestHotkey: 288
+  enableBossRoundTestHotkey: 1
+  bossRoundTestHotkey: 287
+  bossRoundTestAltHotkey: 98
   enemySpawner: {fileID: 1473927928}
   playerShooter: {fileID: 1032491604}
   shopSystem: {fileID: 0}
@@ -15371,9 +15500,6 @@ MonoBehaviour:
   studioSplash: {fileID: 2122128055}
   failAnimator: {fileID: 0}
   failTriggerName: Fail
-  enableDebugHotkeys: 1
-  debugJumpBossRoundKey: 287
-  debugResetStatsBeforeBoss: 0
 --- !u!114 &1102755124
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15387,6 +15513,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SFXManager
   source2D: {fileID: 0}
+  sourceExclusive2D: {fileID: 0}
   masterVolume: 1
 --- !u!114 &1102755125
 MonoBehaviour:
@@ -20446,12 +20573,18 @@ MonoBehaviour:
   - round: 2
     mode: 0
     prefabs:
-    - {fileID: 2284842997876372299, guid: 706bdbe192ce11848931f32d32d2e2c9, type: 3}
     - {fileID: 2284842997876372299, guid: 2d69bc7d90d8f3d4d8a090c25e277ca5, type: 3}
   - round: 3
     mode: 0
     prefabs:
+    - {fileID: 2284842997876372299, guid: 706bdbe192ce11848931f32d32d2e2c9, type: 3}
+  - round: 4
+    mode: 0
+    prefabs:
     - {fileID: 2284842997876372299, guid: 21752d5e90063f14a91ab7f77f09fc0f, type: 3}
+  - round: 5
+    mode: 0
+    prefabs:
     - {fileID: 2284842997876372299, guid: 3ad0fcdc2abdb7047941853d551d02ab, type: 3}
   enemiesRoot: {fileID: 238697713}
   player: {fileID: 1032491599}
@@ -20600,11 +20733,17 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   xpPickupPrefab: {fileID: -561626204055706042, guid: 3f5657d4297d1554594b377ccbdaf83a, type: 3}
+  xpPickupPrefabs:
+  - {fileID: -561626204055706042, guid: 6f0d343af91f9824a947d0009c9e7c53, type: 3}
+  - {fileID: -561626204055706042, guid: b0f8a7b59c3dfa94183722a55e0877d5, type: 3}
+  - {fileID: -561626204055706042, guid: 3f5657d4297d1554594b377ccbdaf83a, type: 3}
   cashPickupPrefab: {fileID: -2223663088653925849, guid: 579e178f9139359488de49e6b4271060, type: 3}
   pickupsRoot: {fileID: 1070266287}
   spawnBossOnBossRound: 1
   bossPrefab: {fileID: 4722894591820441064, guid: 87862cd1e01a6314a99401bea9c9ee41, type: 3}
   spawnRegularEnemiesDuringBossRound: 1
+  treasureSpawnLimitMidRounds: 2
+  treasureSpawnLimitLateRounds: 3
 --- !u!1 &1475702773
 GameObject:
   m_ObjectHideFlags: 0

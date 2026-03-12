@@ -113,8 +113,17 @@ public class SpinningWheelAnimator : MonoBehaviour
 
     private void PlaySfx(AudioClip clip)
     {
-        if (clip == null || sfxSource == null) return;
-        sfxSource.PlayOneShot(clip);
+        if (clip == null)
+            return;
+
+        if (sfxSource != null)
+        {
+            sfxSource.PlayOneShot(clip);
+            return;
+        }
+
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.Play(clip);
     }
 
     private void OnDisable()

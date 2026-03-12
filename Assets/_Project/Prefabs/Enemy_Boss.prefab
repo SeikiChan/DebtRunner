@@ -195,6 +195,7 @@ MonoBehaviour:
   projectilePrefab: {fileID: -9155657289756517626, guid: 03bbbd0bb9b26b74495950b5650e443a, type: 3}
   debtCollectorPrefab: {fileID: 0}
   addsXpPickupPrefab: {fileID: 0}
+  addsXpPickupPrefabs: []
   addsCashPickupPrefab: {fileID: 0}
   projectilesRoot: {fileID: 0}
   enemiesRoot: {fileID: 0}
@@ -290,9 +291,9 @@ MonoBehaviour:
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
   spriteHitboxScale: 1.02
-  maxHP: 5
-  cashValue: 20
-  xpDrop: 10
+  maxHP: 1000
+  cashValue: 60
+  xpDrop: 20
   cashPickupPrefab: {fileID: 0}
   pickupDropScatterRadius: 0.26
   pickupDropInnerRadiusRatio: 0.35

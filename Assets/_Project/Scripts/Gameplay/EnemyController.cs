@@ -66,6 +66,7 @@ public class EnemyController : MonoBehaviour
     private Collider2D targetCollider;
 
     private XPPickup xpPrefab;
+    private XPPickup[] xpPickupPrefabs;
     private CashPickup cashPrefab;
     private Transform pickupsRoot;
     private Collider2D[] separationHits;
@@ -81,7 +82,7 @@ public class EnemyController : MonoBehaviour
 
     /// <summary>
     /// When true, FixedUpdate skips default chase movement.
-    /// Used by components such as EnemyDashAttack and EnemyOrbitMovement.
+    /// Used by movement/attack components such as EnemyDashAttack.
     /// </summary>
     public bool SuppressChaseMovement { get; set; }
     public Transform Player => player;
@@ -296,8 +297,14 @@ public class EnemyController : MonoBehaviour
 
     public void Init(Transform playerTf, XPPickup xpPickupPrefab, Transform pickupsParent, CashPickup cashPickupTemplate = null)
     {
+        Init(playerTf, xpPickupPrefab != null ? new[] { xpPickupPrefab } : null, pickupsParent, cashPickupTemplate);
+    }
+
+    public void Init(Transform playerTf, XPPickup[] xpPickupPrefabOptions, Transform pickupsParent, CashPickup cashPickupTemplate = null)
+    {
         player = playerTf;
-        xpPrefab = xpPickupPrefab;
+        xpPickupPrefabs = xpPickupPrefabOptions;
+        xpPrefab = GetPrimaryXPPickupPrefab();
         cashPrefab = cashPickupTemplate != null ? cashPickupTemplate : cashPickupPrefab;
         pickupsRoot = pickupsParent;
 
@@ -463,7 +470,7 @@ public class EnemyController : MonoBehaviour
         {
             if (hitFeedback != null) hitFeedback.PlayHit();
             if (sfxHit != null && SFXManager.Instance != null)
-                SFXManager.Instance.PlayAtPoint(sfxHit, transform.position, sfxHitVolume);
+                SFXManager.Instance.PlayExclusive(sfxHit, sfxHitVolume);
         }
     }
 
@@ -473,7 +480,10 @@ public class EnemyController : MonoBehaviour
 
         // Apply reward multiplier from wheel "Risk & Reward" outcome
         float rewardMul = GameFlowController.Instance != null ? GameFlowController.Instance.CurrentRewardMultiplier : 1f;
-        int effectiveCash = Mathf.RoundToInt(cashValue * rewardMul);
+        float roundCashMul = GameFlowController.Instance != null
+            ? GameFlowController.Instance.GetCashDropMultiplierForRound(GameFlowController.Instance.GetCurrentRound())
+            : 1f;
+        int effectiveCash = Mathf.RoundToInt(cashValue * rewardMul * roundCashMul);
         int effectiveXP = Mathf.RoundToInt(xpDrop * rewardMul);
 
         bool isBossEnemy = GetComponent<BossAttackController>() != null;
@@ -481,14 +491,10 @@ public class EnemyController : MonoBehaviour
 
         SpawnCashPickup(ResolvePickupDropPosition(reservedDropOffsets), effectiveCash);
 
-        if (xpPrefab != null)
-        {
-            int totalXP = effectiveXP;
-            if (GameFlowController.Instance != null)
-                totalXP += GameFlowController.Instance.BonusXPPerKill;
-            var p = Instantiate(xpPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
-            p.SetAmount(totalXP);
-        }
+        int totalXP = effectiveXP;
+        if (GameFlowController.Instance != null)
+            totalXP += GameFlowController.Instance.BonusXPPerKill;
+        SpawnXPPickups(totalXP, reservedDropOffsets);
 
         TryDropHealthPickup(reservedDropOffsets);
         LateBossDefeatNotify(isBossEnemy);
@@ -561,6 +567,134 @@ public class EnemyController : MonoBehaviour
         }
 
         pickup.SetAmount(amount);
+    }
+
+    private void SpawnXPPickups(int totalXP, List<Vector2> reservedDropOffsets)
+    {
+        if (totalXP <= 0)
+            return;
+
+        XPPickup[] prefabs = GetAvailableXPPickupPrefabs();
+        if (prefabs == null || prefabs.Length == 0)
+            return;
+
+        List<XPPickup> dropPlan = BuildExactXPPickupPlan(totalXP, prefabs);
+        if (dropPlan == null || dropPlan.Count == 0)
+        {
+            XPPickup fallbackPrefab = GetPrimaryXPPickupPrefab();
+            if (fallbackPrefab == null)
+                return;
+
+            XPPickup fallback = Instantiate(fallbackPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
+            fallback.SetAmount(totalXP);
+            return;
+        }
+
+        for (int i = 0; i < dropPlan.Count; i++)
+        {
+            XPPickup pickupPrefab = dropPlan[i];
+            if (pickupPrefab == null)
+                continue;
+
+            Instantiate(pickupPrefab, ResolvePickupDropPosition(reservedDropOffsets), Quaternion.identity, pickupsRoot);
+        }
+    }
+
+    private XPPickup[] GetAvailableXPPickupPrefabs()
+    {
+        if (xpPickupPrefabs == null || xpPickupPrefabs.Length == 0)
+            return xpPrefab != null ? new[] { xpPrefab } : null;
+
+        List<XPPickup> valid = new List<XPPickup>(xpPickupPrefabs.Length);
+        for (int i = 0; i < xpPickupPrefabs.Length; i++)
+        {
+            if (xpPickupPrefabs[i] != null)
+                valid.Add(xpPickupPrefabs[i]);
+        }
+
+        if (valid.Count == 0)
+            return xpPrefab != null ? new[] { xpPrefab } : null;
+
+        return valid.ToArray();
+    }
+
+    private XPPickup GetPrimaryXPPickupPrefab()
+    {
+        if (xpPickupPrefabs != null)
+        {
+            for (int i = 0; i < xpPickupPrefabs.Length; i++)
+            {
+                if (xpPickupPrefabs[i] != null)
+                    return xpPickupPrefabs[i];
+            }
+        }
+
+        return xpPrefab;
+    }
+
+    private List<XPPickup> BuildExactXPPickupPlan(int totalXP, XPPickup[] prefabs)
+    {
+        if (prefabs == null || prefabs.Length == 0 || totalXP <= 0)
+            return null;
+
+        int[] minPickupCounts = new int[totalXP + 1];
+        int[] pickedPrefabIndex = new int[totalXP + 1];
+        for (int sum = 1; sum <= totalXP; sum++)
+        {
+            minPickupCounts[sum] = int.MaxValue;
+            pickedPrefabIndex[sum] = -1;
+        }
+
+        minPickupCounts[0] = 0;
+
+        for (int sum = 1; sum <= totalXP; sum++)
+        {
+            for (int i = 0; i < prefabs.Length; i++)
+            {
+                XPPickup prefab = prefabs[i];
+                if (prefab == null)
+                    continue;
+
+                int value = prefab.Amount;
+                if (value <= 0 || value > sum || minPickupCounts[sum - value] == int.MaxValue)
+                    continue;
+
+                int candidateCount = minPickupCounts[sum - value] + 1;
+                int currentIndex = pickedPrefabIndex[sum];
+                int currentValue = currentIndex >= 0 && currentIndex < prefabs.Length && prefabs[currentIndex] != null
+                    ? prefabs[currentIndex].Amount
+                    : -1;
+
+                if (candidateCount < minPickupCounts[sum] ||
+                    (candidateCount == minPickupCounts[sum] && value > currentValue))
+                {
+                    minPickupCounts[sum] = candidateCount;
+                    pickedPrefabIndex[sum] = i;
+                }
+            }
+        }
+
+        if (pickedPrefabIndex[totalXP] < 0)
+            return null;
+
+        List<XPPickup> plan = new List<XPPickup>(minPickupCounts[totalXP]);
+        int remaining = totalXP;
+        while (remaining > 0)
+        {
+            int prefabIndex = pickedPrefabIndex[remaining];
+            if (prefabIndex < 0 || prefabIndex >= prefabs.Length || prefabs[prefabIndex] == null)
+                return null;
+
+            XPPickup prefab = prefabs[prefabIndex];
+            int value = prefab.Amount;
+            if (value <= 0 || value > remaining)
+                return null;
+
+            plan.Add(prefab);
+            remaining -= value;
+        }
+
+        return plan;
     }
 
     private Vector3 ResolvePickupDropPosition(List<Vector2> reservedOffsets)

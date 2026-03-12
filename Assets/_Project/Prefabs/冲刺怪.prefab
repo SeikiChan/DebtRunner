@@ -210,14 +210,14 @@ MonoBehaviour:
   separationBufferSize: 64
   sfxHit: {fileID: 8300000, guid: 4832225ec9b6b82499d4e66325f66694, type: 3}
   sfxDeath: {fileID: 0}
-  sfxHitVolume: 1
+  sfxHitVolume: 0.367
   sfxDeathVolume: 0.679
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
   spriteHitboxScale: 1.02
   maxHP: 30
-  cashValue: 20
-  xpDrop: 10
+  cashValue: 6
+  xpDrop: 2
   cashPickupPrefab: {fileID: 0}
   pickupDropScatterRadius: 0.26
   pickupDropInnerRadiusRatio: 0.35

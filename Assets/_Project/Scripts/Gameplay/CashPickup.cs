@@ -39,7 +39,13 @@ public class CashPickup : MonoBehaviour
 
         Vector2 toPlayer = (Vector2)player.position - (Vector2)transform.position;
         float sqrDist = toPlayer.sqrMagnitude;
-        if (sqrDist > magnetRadiusSqr)
+
+        float effectiveRadius = magnetRadius;
+        if (GameFlowController.Instance != null)
+            effectiveRadius += GameFlowController.Instance.BonusXPMagnetRadius;
+        float effectiveRadiusSqr = effectiveRadius * effectiveRadius;
+
+        if (sqrDist > effectiveRadiusSqr)
             return;
 
         transform.position = Vector2.MoveTowards(transform.position, player.position, magnetSpeed * Time.deltaTime);

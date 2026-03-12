@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class PlayerShooter : MonoBehaviour
 {
+    private const float DefaultOrbitVisualSizeMultiplier = 3f;
+
     [SerializeField] private PlayerMotor2D motor;
     [SerializeField] private Projectile projectilePrefab;
     [SerializeField] private Transform projectilesRoot;
@@ -34,12 +36,13 @@ public class PlayerShooter : MonoBehaviour
 
     [Header("Orbiting Projectiles")]
     [SerializeField] private int orbitProjectileCount = 0;
-    [SerializeField] private float orbitRadius = 2.45f;
+    [SerializeField] private float orbitRadius = 3.1f;
     [SerializeField] private float orbitAngularSpeed = 140f;
     [SerializeField] private float orbitHitRadius = 0.35f;
     [SerializeField] private float orbitHitCooldown = 0.2f;
     [SerializeField] private float orbitDamageScale = 0.65f;
     [SerializeField] private float orbitVisualScale = 1f;
+    [SerializeField] private float orbitVisualSizeMultiplier = DefaultOrbitVisualSizeMultiplier;
     [SerializeField, Min(0f)] private float orbitRadiusPadding = 0.32f;
     [SerializeField, Min(0.01f)] private float orbitCollisionQueryInterval = 0.05f;
     [SerializeField, Min(8)] private int orbitHitBufferSize = 64;
@@ -74,6 +77,10 @@ public class PlayerShooter : MonoBehaviour
     private float baseProjectileSpeed;
     private int baseDamage;
     private float baseKnockbackMultiplier;
+    private float baseOrbitRadius;
+    private float baseOrbitAngularSpeed;
+    private float baseOrbitVisualScale;
+    private float baseOrbitVisualSizeMultiplier;
     private Sprite orbitVisualSprite;
     private Material orbitVisualMaterial;
     private string orbitSortingLayerName;
@@ -92,6 +99,10 @@ public class PlayerShooter : MonoBehaviour
         baseProjectileSpeed = projectileSpeed;
         baseDamage = damage;
         baseKnockbackMultiplier = Mathf.Max(0f, knockbackMultiplier);
+        baseOrbitRadius = orbitRadius;
+        baseOrbitAngularSpeed = orbitAngularSpeed;
+        baseOrbitVisualScale = orbitVisualScale;
+        baseOrbitVisualSizeMultiplier = GetResolvedOrbitVisualSizeMultiplier();
         selfColliders = GetComponentsInChildren<Collider2D>(true);
         selfSpriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         orbitHitBuffer = new Collider2D[Mathf.Max(8, orbitHitBufferSize)];
@@ -523,8 +534,10 @@ public class PlayerShooter : MonoBehaviour
         onHitScatterAngle = 18f;
 
         orbitProjectileCount = 0;
-        orbitRadius = 2.45f;
-        orbitAngularSpeed = 140f;
+        orbitRadius = Mathf.Max(0f, baseOrbitRadius);
+        orbitAngularSpeed = Mathf.Max(0f, baseOrbitAngularSpeed);
+        orbitVisualScale = Mathf.Max(0.01f, baseOrbitVisualScale);
+        orbitVisualSizeMultiplier = Mathf.Max(0.01f, baseOrbitVisualSizeMultiplier);
         novaProjectileCount = 0;
         novaTimer = Mathf.Max(0.25f, novaBurstInterval);
         orbitCollisionTimer = 0f;
@@ -645,7 +658,7 @@ public class PlayerShooter : MonoBehaviour
     private float ResolveOrbitRadius()
     {
         float playerExtent = EstimateSelfExtentRadius();
-        float cardExtent = orbitVisualExtent * Mathf.Max(0.01f, orbitVisualScale);
+        float cardExtent = orbitVisualExtent * GetResolvedOrbitVisualScaleMultiplier();
         float minimumRadius = playerExtent + cardExtent + Mathf.Max(0f, orbitRadiusPadding);
         return Mathf.Max(orbitRadius, minimumRadius);
     }
@@ -685,11 +698,21 @@ public class PlayerShooter : MonoBehaviour
 
     private Vector3 GetOrbitVisualScale()
     {
-        float scaleMultiplier = Mathf.Max(0.01f, orbitVisualScale);
+        float scaleMultiplier = GetResolvedOrbitVisualScaleMultiplier();
         Vector3 baseScale = orbitVisualBaseScale == Vector3.zero ? Vector3.one : orbitVisualBaseScale;
         return new Vector3(
             baseScale.x * scaleMultiplier,
             baseScale.y * scaleMultiplier,
             baseScale.z == 0f ? 1f : baseScale.z);
+    }
+
+    private float GetResolvedOrbitVisualScaleMultiplier()
+    {
+        return Mathf.Max(0.01f, orbitVisualScale) * GetResolvedOrbitVisualSizeMultiplier();
+    }
+
+    private float GetResolvedOrbitVisualSizeMultiplier()
+    {
+        return orbitVisualSizeMultiplier > 0f ? orbitVisualSizeMultiplier : DefaultOrbitVisualSizeMultiplier;
     }
 }

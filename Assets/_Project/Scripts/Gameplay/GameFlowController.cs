@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using TMPro;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -165,9 +166,10 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textSettlementRoundsLeft;
 
     [SerializeField] private int totalRounds = 10;
-    [SerializeField] private int firstRoundDue = 100;
+    [SerializeField] private int firstRoundDue = 50;
     [SerializeField] private int baseDue = 220;
     [SerializeField] private int stepDue = 140;
+    [SerializeField, Min(0f)] private float cashDropGrowthPerRound = 0.38f;
     [SerializeField] private float roundDurationSeconds = 22f;
     [SerializeField, Min(1)] private int countdownUrgentThresholdSeconds = 10;
     [SerializeField] private Color countdownUrgentColor = new Color(1f, 0.78f, 0.22f, 1f);
@@ -195,12 +197,12 @@ public class GameFlowController : MonoBehaviour
 
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
-    [SerializeField] private int xpToNext = 100;
+    [SerializeField] private int xpToNext = 12;
     [SerializeField, Min(2)] private int xpCurveMaxLevel = 25;
-    [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 5f);
-    [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.12f;
-    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtLevel1 = 1.25f;
-    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtHighLevel = 1.65f;
+    [SerializeField] private AnimationCurve xpToNextCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 9f);
+    [SerializeField, Min(0.001f)] private float xpMinGrowthPerLevel = 0.2f;
+    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtLevel1 = 1f;
+    [SerializeField, Min(1f)] private float xpRequirementMultiplierAtHighLevel = 2.3f;
 
     [Header("Weapon Upgrade Curve")]
     [SerializeField] private bool gateWeaponUpgradeRarityByRound = true;
@@ -208,6 +210,13 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(1)] private int rareUpgradeUnlockRound = 4;
     [SerializeField, Min(1)] private int epicUpgradeUnlockRound = 6;
     [SerializeField, Min(1)] private int legendaryUpgradeUnlockRound = 8;
+    [SerializeField] private AnimationCurve commonUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 1.35f, 1f, 0.45f);
+    [SerializeField] private AnimationCurve uncommonUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.9f, 1f, 1.1f);
+    [SerializeField] private AnimationCurve rareUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.4f, 1f, 1.65f);
+    [SerializeField] private AnimationCurve epicUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.12f, 1f, 1.95f);
+    [SerializeField] private AnimationCurve legendaryUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.03f, 1f, 1.4f);
+    [SerializeField, Min(0)] private int recentUpgradeOfferMemory = 6;
+    [SerializeField, Range(0.05f, 1f)] private float recentUpgradeOfferRepeatPenalty = 0.2f;
 
     [Header("Enemy Pressure")]
     [SerializeField, Min(1f)] private float enemyHpPressureAtRound1 = 1.05f;
@@ -216,6 +225,15 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(1f)] private float enemySpeedPressureAtBoss = 1.08f;
 
     [SerializeField] private WeaponUpgradePoolAsset weaponUpgradePoolAsset;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    [Header("Debug / 测试")]
+    [SerializeField] private bool enableUpgradeTestHotkey = true;
+    [SerializeField] private KeyCode upgradeTestHotkey = KeyCode.F7;
+    [SerializeField] private bool enableBossRoundTestHotkey = true;
+    [SerializeField] private KeyCode bossRoundTestHotkey = KeyCode.F6;
+    [SerializeField] private KeyCode bossRoundTestAltHotkey = KeyCode.B;
+#endif
 
     [SerializeField] private EnemySpawner enemySpawner;
     [SerializeField] private PlayerShooter playerShooter;
@@ -228,10 +246,6 @@ public class GameFlowController : MonoBehaviour
 
     [SerializeField] private Animator failAnimator;
     [SerializeField] private string failTriggerName = "Fail";
-
-    [SerializeField] private bool enableDebugHotkeys = true;
-    [SerializeField] private KeyCode debugJumpBossRoundKey = KeyCode.F6;
-    [SerializeField] private bool debugResetStatsBeforeBoss = false;
 
     private enum SettingsReturnTarget
     {
@@ -268,6 +282,7 @@ public class GameFlowController : MonoBehaviour
     private bool startRunQueuedAfterStory;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
+    private readonly Queue<WeaponUpgradeDefinition> recentUpgradeOfferHistory = new Queue<WeaponUpgradeDefinition>();
     private DeathType currentDeathType = DeathType.KilledByMonster;
     private bool countdownStyleInitialized;
     private TMP_Text countdownStyleTarget;
@@ -642,14 +657,6 @@ public class GameFlowController : MonoBehaviour
 
     private void Update()
     {
-        // 蹇€熸祴璇曠儹閿?
-        if (Input.GetKeyDown(KeyCode.F1)) SwitchState(GameState.Title);
-        if (Input.GetKeyDown(KeyCode.F2)) StartRun();
-        if (Input.GetKeyDown(KeyCode.F3)) EndRound();
-        if (Input.GetKeyDown(KeyCode.F4)) EnterShop();
-        if (Input.GetKeyDown(KeyCode.F5)) SwitchState(GameState.GameOver);
-        if (enableDebugHotkeys && Input.GetKeyDown(debugJumpBossRoundKey)) DebugJumpToBossRound(debugResetStatsBeforeBoss);
-
         if (storyIntroActive)
         {
             HandleStoryIntroInput();
@@ -678,13 +685,51 @@ public class GameFlowController : MonoBehaviour
                 OpenPauseMenu();
             }
         }
-        
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        TryHandleUpgradeTestHotkey();
+        TryHandleBossRoundTestHotkey();
+#endif
+
         UpdateCountdownDisplay();
         UpdateGameplayTutorialProgress();
 
         AutoCompleteBossRoundIfBossDefeated();
         TryShowDeferredLevelUpRewardIfReady();
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private void TryHandleUpgradeTestHotkey()
+    {
+        if (!enableUpgradeTestHotkey || !Input.GetKeyDown(upgradeTestHotkey))
+            return;
+
+        if (state != GameState.Gameplay || pauseMenuOpen || creditsOpen || roundIntroActive || roundClearActive)
+            return;
+
+        if (IsLevelUpPanelOpen())
+            return;
+
+        if (!TryShowLevelUpRewardPanelNow())
+            RunLogger.Warning("Upgrade test hotkey pressed, but no level-up choices could be shown.");
+    }
+
+    private void TryHandleBossRoundTestHotkey()
+    {
+        if (!enableBossRoundTestHotkey)
+            return;
+
+        bool pressedPrimary = Input.GetKeyDown(bossRoundTestHotkey);
+        bool pressedAlt = bossRoundTestAltHotkey != KeyCode.None && Input.GetKeyDown(bossRoundTestAltHotkey);
+        if (!pressedPrimary && !pressedAlt)
+            return;
+
+        if (storyIntroActive || pauseMenuOpen || creditsOpen)
+            return;
+
+        DebugJumpToBossRound(false);
+    }
+#endif
 
     // ====== Public APIs (缁欏叾浠栫郴缁熻皟鐢? ======
 
@@ -837,19 +882,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
             : weaponUpgradePoolAsset.Entries;
 
         System.Collections.Generic.List<WeaponUpgradeDefinition> pickedDefinitions =
-            WeightedPickerUtility.PickUnique(sourceEntries, count, weaponUpgradePoolAsset.GetEffectiveWeight);
-
-        while (pickedDefinitions.Count < count)
-        {
-            System.Collections.Generic.List<WeaponUpgradeDefinition> oneMore =
-                WeightedPickerUtility.PickUnique(sourceEntries, 1, weaponUpgradePoolAsset.GetEffectiveWeight);
-            if (oneMore.Count == 0 || oneMore[0] == null)
-                break;
-            pickedDefinitions.Add(oneMore[0]);
-        }
+            PickUniqueUpgradeDefinitionsByFamily(sourceEntries, count);
 
         if (pickedDefinitions.Count < count)
             return new WeaponUpgrade[0];
+
+        RememberOfferedUpgrades(pickedDefinitions);
 
         WeaponUpgrade[] selected = new WeaponUpgrade[count];
         for (int i = 0; i < count; i++)
@@ -882,6 +920,156 @@ private void TryShowDeferredLevelUpRewardIfReady()
             default:
                 return 1;
         }
+    }
+
+    private float GetUpgradeOfferWeight(WeaponUpgradeDefinition entry)
+    {
+        if (entry == null)
+            return 0f;
+
+        float baseWeight = weaponUpgradePoolAsset != null
+            ? weaponUpgradePoolAsset.GetEffectiveWeight(entry)
+            : Mathf.Max(0f, entry.WeightPercent);
+        if (baseWeight <= 0f)
+            return 0f;
+
+        float weight = baseWeight * GetUpgradeRarityRoundWeight(entry.Rarity);
+        int recentOfferCount = CountRecentUpgradeOffers(entry);
+        if (recentOfferCount > 0)
+            weight *= Mathf.Pow(Mathf.Clamp(recentUpgradeOfferRepeatPenalty, 0.05f, 1f), recentOfferCount);
+
+        return Mathf.Max(0.0001f, weight);
+    }
+
+    private List<WeaponUpgradeDefinition> PickUniqueUpgradeDefinitionsByFamily(IReadOnlyList<WeaponUpgradeDefinition> sourceEntries, int count)
+    {
+        List<WeaponUpgradeDefinition> results = new List<WeaponUpgradeDefinition>();
+        if (sourceEntries == null || count <= 0)
+            return results;
+
+        List<WeaponUpgradeDefinition> remaining = new List<WeaponUpgradeDefinition>();
+        for (int i = 0; i < sourceEntries.Count; i++)
+        {
+            WeaponUpgradeDefinition entry = sourceEntries[i];
+            if (entry != null)
+                remaining.Add(entry);
+        }
+
+        HashSet<string> usedFamilyKeys = new HashSet<string>();
+        while (results.Count < count && remaining.Count > 0)
+        {
+            List<WeaponUpgradeDefinition> familyEligible = new List<WeaponUpgradeDefinition>();
+            for (int i = 0; i < remaining.Count; i++)
+            {
+                WeaponUpgradeDefinition entry = remaining[i];
+                if (entry == null)
+                    continue;
+
+                string familyKey = GetUpgradeOfferFamilyKey(entry);
+                if (usedFamilyKeys.Contains(familyKey))
+                    continue;
+
+                if (GetUpgradeOfferWeight(entry) > 0f)
+                    familyEligible.Add(entry);
+            }
+
+            if (familyEligible.Count <= 0)
+                break;
+
+            List<WeaponUpgradeDefinition> pickedOne = WeightedPickerUtility.PickUnique(familyEligible, 1, GetUpgradeOfferWeight);
+            WeaponUpgradeDefinition picked = pickedOne.Count > 0 ? pickedOne[0] : null;
+            if (picked == null)
+                break;
+
+            results.Add(picked);
+            usedFamilyKeys.Add(GetUpgradeOfferFamilyKey(picked));
+            remaining.Remove(picked);
+        }
+
+        return results;
+    }
+
+    private float GetUpgradeRarityRoundWeight(UpgradeRarity rarity)
+    {
+        float t = GetRoundCurveT(roundIndex);
+        switch (rarity)
+        {
+            case UpgradeRarity.Uncommon:
+                return Mathf.Max(0.01f, uncommonUpgradeOfferWeightByRound.Evaluate(t));
+            case UpgradeRarity.Rare:
+                return Mathf.Max(0.01f, rareUpgradeOfferWeightByRound.Evaluate(t));
+            case UpgradeRarity.Epic:
+                return Mathf.Max(0.01f, epicUpgradeOfferWeightByRound.Evaluate(t));
+            case UpgradeRarity.Legendary:
+                return Mathf.Max(0.01f, legendaryUpgradeOfferWeightByRound.Evaluate(t));
+            default:
+                return Mathf.Max(0.01f, commonUpgradeOfferWeightByRound.Evaluate(t));
+        }
+    }
+
+    private int CountRecentUpgradeOffers(WeaponUpgradeDefinition entry)
+    {
+        if (entry == null || recentUpgradeOfferHistory.Count == 0)
+            return 0;
+
+        int count = 0;
+        foreach (WeaponUpgradeDefinition recent in recentUpgradeOfferHistory)
+        {
+            if (recent == entry)
+                count++;
+        }
+
+        return count;
+    }
+
+    private string GetUpgradeOfferFamilyKey(WeaponUpgradeDefinition entry)
+    {
+        if (entry == null)
+            return string.Empty;
+
+        string explicitKey = entry.UpgradeFamilyKey;
+        if (!string.IsNullOrWhiteSpace(explicitKey))
+            return explicitKey.Trim().ToLowerInvariant();
+
+        return NormalizeUpgradeFamilyKey(entry.UpgradeTitle);
+    }
+
+    private static string NormalizeUpgradeFamilyKey(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        string normalized = title.Trim();
+        normalized = Regex.Replace(normalized, @"\s+(?:[ivx]+|\d+)$", string.Empty, RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"\s+", " ");
+        return normalized.Trim().ToLowerInvariant();
+    }
+
+    private void RememberOfferedUpgrades(IReadOnlyList<WeaponUpgradeDefinition> pickedDefinitions)
+    {
+        if (pickedDefinitions == null || pickedDefinitions.Count == 0)
+            return;
+
+        int memory = Mathf.Max(0, recentUpgradeOfferMemory);
+        if (memory <= 0)
+            return;
+
+        for (int i = 0; i < pickedDefinitions.Count; i++)
+        {
+            WeaponUpgradeDefinition entry = pickedDefinitions[i];
+            if (entry == null)
+                continue;
+
+            recentUpgradeOfferHistory.Enqueue(entry);
+        }
+
+        while (recentUpgradeOfferHistory.Count > memory)
+            recentUpgradeOfferHistory.Dequeue();
+    }
+
+    private void ResetUpgradeOfferHistory()
+    {
+        recentUpgradeOfferHistory.Clear();
     }
 
     private WeaponUpgrade[] SelectFallbackRandomUpgrades(int count)
@@ -961,6 +1149,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public string GetNextRoundDebtDisplay() => GetDebtDisplay(roundIndex + 1);
     public bool IsBossRoundActive() => IsCurrentRoundBoss();
     public int GetBossRoundNumber() => GetBossRoundIndex();
+    public float GetCashDropMultiplierForRound(int round) => Mathf.Max(0f, 1f + Mathf.Max(0, round - 1) * cashDropGrowthPerRound);
 
     // UI Button: Start
     public void StartRun()
@@ -995,6 +1184,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         gameplayTutorialFirstPickupShown = false;
         runProgression.Reset();
         runProgression.BeginRound();
+        ResetUpgradeOfferHistory();
         LogCurrentEnemyDifficulty();
 
         RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
@@ -1100,6 +1290,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         previousRoundCashEarned = 0;
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
+        ResetUpgradeOfferHistory();
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
         roundIndex = GetBossRoundIndex();

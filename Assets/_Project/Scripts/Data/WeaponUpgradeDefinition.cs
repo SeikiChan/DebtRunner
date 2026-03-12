@@ -12,6 +12,7 @@ public class WeaponUpgradeDefinition : ScriptableObject
     [Header("Drop")]
     [SerializeField] private UpgradeRarity rarity = UpgradeRarity.Common;
     [SerializeField, Min(0f)] private float weightPercent = 10f;
+    [SerializeField] private string upgradeFamilyKey = "";
 
     [Header("Effects")]
     [SerializeField] private List<WeaponUpgradeEffect> effects = new List<WeaponUpgradeEffect>();
@@ -21,6 +22,7 @@ public class WeaponUpgradeDefinition : ScriptableObject
     public Sprite Icon => icon;
     public UpgradeRarity Rarity => rarity;
     public float WeightPercent => Mathf.Max(0f, weightPercent);
+    public string UpgradeFamilyKey => upgradeFamilyKey;
     public IReadOnlyList<WeaponUpgradeEffect> Effects => effects;
 
     public WeaponUpgrade CreateRuntimeUpgrade()
