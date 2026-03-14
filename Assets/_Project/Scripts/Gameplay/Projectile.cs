@@ -15,16 +15,31 @@ public class Projectile : MonoBehaviour
     private static readonly HashSet<int> scatterSeenIds = new HashSet<int>();
 
     private Rigidbody2D rb;
+    private SpriteRenderer spriteRenderer;
     private int damage;
     private int pierceRemaining;
     private float knockbackMultiplier = 1f;
     private int onHitScatterCount;
     private float onHitScatterAngle;
+    private float launchSpeed;
+    private float returnSpeed;
+    private float returnSpeedMultiplier = 1f;
+    private bool returnToOwnerEnabled;
+    private bool isReturning;
+    private Transform returnTarget;
     private bool scatterTriggered;
     private bool isReturningToPool;
+    private bool isOrbiting;
+    private float orbitHitCooldown;
     private int poolKey;
     private Projectile sourcePrefab;
     private HashSet<int> hitEnemyIds;
+    private Dictionary<int, float> orbitLastHitAt;
+    private readonly List<int> staleOrbitHitKeys = new List<int>(16);
+    private Vector3 defaultLocalScale = Vector3.one;
+    private Color defaultColor = Color.white;
+    private string defaultSortingLayerName;
+    private int defaultSortingOrder;
 
     public static Projectile Spawn(Projectile prefab, Vector3 position, Quaternion rotation, Transform parent)
     {
@@ -39,22 +54,17 @@ public class Projectile : MonoBehaviour
             pooledProjectiles[key] = pool;
         }
 
+        // Refuse new spawns before reusing/instantiating anything, otherwise a freshly
+        // instantiated projectile can remain visible in-scene when we early-out at cap.
+        if (activeCount >= MaxActiveProjectiles)
+            return null;
+
         Projectile projectile = null;
         while (pool.Count > 0 && projectile == null)
             projectile = pool.Pop();
 
         if (projectile == null)
             projectile = Instantiate(source, position, rotation, parent);
-
-        // Cap active projectiles to prevent lag spikes.
-        if (activeCount >= MaxActiveProjectiles)
-        {
-            if (projectile != null && projectile != source)
-            {
-                pool.Push(projectile);
-            }
-            return null;
-        }
 
         projectile.sourcePrefab = source;
         projectile.poolKey = key;
@@ -89,9 +99,18 @@ public class Projectile : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
         hitEnemyIds = new HashSet<int>();
+        orbitLastHitAt = new Dictionary<int, float>();
         if (sourcePrefab == null)
             sourcePrefab = this;
+        defaultLocalScale = transform.localScale;
+        if (spriteRenderer != null)
+        {
+            defaultColor = spriteRenderer.color;
+            defaultSortingLayerName = spriteRenderer.sortingLayerName;
+            defaultSortingOrder = spriteRenderer.sortingOrder;
+        }
     }
 
     private void OnDisable()
@@ -99,10 +118,20 @@ public class Projectile : MonoBehaviour
         CancelInvoke();
         if (rb != null)
             rb.linearVelocity = Vector2.zero;
+        returnTarget = null;
+        returnToOwnerEnabled = false;
+        isReturning = false;
+        isOrbiting = false;
+        orbitHitCooldown = 0f;
+        orbitLastHitAt?.Clear();
+        RestoreDefaultPresentation();
     }
 
     private void FixedUpdate()
     {
+        if (isOrbiting)
+            return;
+
         // Destroy projectile when it exits the play area boundary.
         if (CircleBoundary.Instance != null)
         {
@@ -115,24 +144,88 @@ public class Projectile : MonoBehaviour
             float ny = offset.y / ry;
             if (nx * nx + ny * ny > 1f)
             {
+                if (TryBeginReturn())
+                    return;
+
                 Release();
                 return;
             }
+        }
+
+        if (isReturning && returnTarget == null)
+        {
+            Release();
+            return;
+        }
+
+        if (isReturning && returnTarget != null && rb != null)
+        {
+            Vector2 toOwner = (Vector2)returnTarget.position - rb.position;
+            if (toOwner.sqrMagnitude <= 0.04f)
+            {
+                Release();
+                return;
+            }
+
+            SetVelocity(toOwner.normalized, returnSpeed);
         }
     }
 
     public void Fire(Vector2 dir, float speed, int dmg)
     {
-        Fire(dir, speed, dmg, 0, 1f, 0, 0f);
+        Fire(dir, speed, dmg, 0, 1f, 0, 0f, null, false, 1f);
     }
 
-    public void Fire(Vector2 dir, float speed, int dmg, int pierceCount, float kbMultiplier, int scatterCount, float scatterAngle)
+    public void Fire(
+        Vector2 dir,
+        float speed,
+        int dmg,
+        int pierceCount,
+        float kbMultiplier,
+        int scatterCount,
+        float scatterAngle,
+        Transform owner,
+        bool enableReturn,
+        float returnSpeedMul)
     {
         damage = Mathf.Max(1, dmg);
         pierceRemaining = Mathf.Max(0, pierceCount);
         knockbackMultiplier = Mathf.Max(0f, kbMultiplier);
         onHitScatterCount = Mathf.Max(0, scatterCount);
         onHitScatterAngle = Mathf.Clamp(scatterAngle, 0f, 160f);
+        launchSpeed = Mathf.Max(0.1f, speed);
+        returnSpeedMultiplier = Mathf.Max(1f, returnSpeedMul);
+        returnSpeed = launchSpeed * returnSpeedMultiplier;
+        returnTarget = owner;
+        returnToOwnerEnabled = enableReturn && owner != null;
+        isReturning = false;
+        scatterTriggered = false;
+        isReturningToPool = false;
+        isOrbiting = false;
+        orbitHitCooldown = 0f;
+        RestoreDefaultPresentation();
+        orbitLastHitAt?.Clear();
+
+        if (hitEnemyIds == null)
+            hitEnemyIds = new HashSet<int>();
+        else
+            hitEnemyIds.Clear();
+
+        SetVelocity(dir, launchSpeed);
+
+        CancelInvoke();
+        Invoke(nameof(Expire), lifeSeconds);
+    }
+
+    public void BeginOrbit(int dmg, float kbMultiplier, int scatterCount, float scatterAngle, float hitCooldown)
+    {
+        ConfigureOrbitProfile(dmg, kbMultiplier, scatterCount, scatterAngle, hitCooldown);
+        launchSpeed = 0f;
+        returnSpeed = 0f;
+        returnSpeedMultiplier = 1f;
+        returnTarget = null;
+        returnToOwnerEnabled = false;
+        isReturning = false;
         scatterTriggered = false;
         isReturningToPool = false;
 
@@ -141,18 +234,71 @@ public class Projectile : MonoBehaviour
         else
             hitEnemyIds.Clear();
 
-        Vector2 velocity = dir.sqrMagnitude > 0.0001f ? dir.normalized * Mathf.Max(0.1f, speed) : Vector2.zero;
-        rb.linearVelocity = velocity;
+        if (orbitLastHitAt == null)
+            orbitLastHitAt = new Dictionary<int, float>();
+        else
+            orbitLastHitAt.Clear();
 
-        float angle = Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg - 90f;
-        transform.rotation = Quaternion.AngleAxis(angle, Vector3.forward);
+        if (rb != null)
+            rb.linearVelocity = Vector2.zero;
 
         CancelInvoke();
-        Invoke(nameof(Expire), lifeSeconds);
+    }
+
+    public void ConfigureOrbitProfile(int dmg, float kbMultiplier, int scatterCount, float scatterAngle, float hitCooldown)
+    {
+        damage = Mathf.Max(1, dmg);
+        pierceRemaining = 0;
+        knockbackMultiplier = Mathf.Max(0f, kbMultiplier);
+        onHitScatterCount = Mathf.Max(0, scatterCount);
+        onHitScatterAngle = Mathf.Clamp(scatterAngle, 0f, 160f);
+        isOrbiting = true;
+        orbitHitCooldown = Mathf.Max(0.01f, hitCooldown);
+    }
+
+    public void UpdateOrbitPose(Vector2 worldPosition, Vector2 worldVelocity, float rotationDegrees, Vector3 localScale, Color tint)
+    {
+        if (!isOrbiting)
+            return;
+
+        if (rb != null)
+        {
+            rb.linearVelocity = worldVelocity;
+            rb.MovePosition(worldPosition);
+        }
+        else
+        {
+            transform.position = worldPosition;
+        }
+
+        Vector2 facingVelocity = worldVelocity.sqrMagnitude > 0.0001f
+            ? worldVelocity
+            : Rotate(Vector2.up, rotationDegrees);
+        if (facingVelocity.sqrMagnitude > 0.0001f)
+        {
+            float angle = Mathf.Atan2(facingVelocity.y, facingVelocity.x) * Mathf.Rad2Deg - 90f;
+            transform.rotation = Quaternion.AngleAxis(angle, Vector3.forward);
+        }
+        else
+        {
+            transform.rotation = Quaternion.AngleAxis(rotationDegrees, Vector3.forward);
+        }
+
+        transform.localScale = localScale;
+        if (spriteRenderer != null)
+            spriteRenderer.color = tint;
+    }
+
+    public void Despawn()
+    {
+        Release();
     }
 
     private void Expire()
     {
+        if (TryBeginReturn())
+            return;
+
         Release();
     }
 
@@ -163,19 +309,35 @@ public class Projectile : MonoBehaviour
             return;
 
         int id = enemy.GetInstanceID();
-        if (hitEnemyIds.Contains(id))
-            return;
+        if (isOrbiting)
+        {
+            if (orbitLastHitAt == null)
+                orbitLastHitAt = new Dictionary<int, float>();
 
-        hitEnemyIds.Add(id);
+            float now = Time.time;
+            if (orbitLastHitAt.TryGetValue(id, out float lastHitAt) && now - lastHitAt < orbitHitCooldown)
+                return;
+
+            orbitLastHitAt[id] = now;
+            if (orbitLastHitAt.Count > 64)
+                PruneOrbitHitHistory(now);
+        }
+        else
+        {
+            if (hitEnemyIds.Contains(id))
+                return;
+
+            hitEnemyIds.Add(id);
+        }
 
         Vector2 hitDirection = rb != null && rb.linearVelocity.sqrMagnitude > 0.0001f
             ? rb.linearVelocity.normalized
             : ((Vector2)enemy.transform.position - (Vector2)transform.position).normalized;
 
-        enemy.TakeDamage(damage, hitDirection, knockbackMultiplier);
+        ApplyHit(enemy, hitDirection);
 
-        if (!scatterTriggered && onHitScatterCount > 0)
-            SpawnHitScatter(hitDirection, enemy);
+        if (isOrbiting)
+            return;
 
         if (pierceRemaining > 0)
         {
@@ -183,7 +345,23 @@ public class Projectile : MonoBehaviour
             return;
         }
 
+        if (TryBeginReturn())
+            return;
+
         Release();
+    }
+
+    private void ApplyHit(EnemyController enemy, Vector2 hitDirection)
+    {
+        enemy.TakeDamage(damage, hitDirection, knockbackMultiplier);
+
+        if ((!scatterTriggered || isOrbiting) && onHitScatterCount > 0)
+        {
+            if (!isOrbiting)
+                scatterTriggered = true;
+
+            SpawnHitScatter(hitDirection, enemy);
+        }
     }
 
     private void SpawnHitScatter(Vector2 baseDirection, EnemyController initialTarget)
@@ -253,7 +431,65 @@ public class Projectile : MonoBehaviour
             0,
             knockbackMultiplier * 0.8f,
             0,
-            onHitScatterAngle);
+            onHitScatterAngle,
+            null,
+            false,
+            1f);
+    }
+
+    private bool TryBeginReturn()
+    {
+        if (!returnToOwnerEnabled || isReturning || returnTarget == null)
+            return false;
+
+        isReturning = true;
+        returnSpeed = Mathf.Max(launchSpeed, launchSpeed * returnSpeedMultiplier);
+        CancelInvoke();
+        return true;
+    }
+
+    private void SetVelocity(Vector2 direction, float speed)
+    {
+        if (rb == null)
+            return;
+
+        Vector2 velocity = direction.sqrMagnitude > 0.0001f
+            ? direction.normalized * Mathf.Max(0.1f, speed)
+            : Vector2.zero;
+        rb.linearVelocity = velocity;
+
+        if (velocity.sqrMagnitude <= 0.0001f)
+            return;
+
+        float angle = Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg - 90f;
+        transform.rotation = Quaternion.AngleAxis(angle, Vector3.forward);
+    }
+
+    private void PruneOrbitHitHistory(float now)
+    {
+        if (orbitLastHitAt == null || orbitLastHitAt.Count == 0)
+            return;
+
+        staleOrbitHitKeys.Clear();
+        foreach (KeyValuePair<int, float> kvp in orbitLastHitAt)
+        {
+            if (now - kvp.Value > Mathf.Max(orbitHitCooldown, 1f))
+                staleOrbitHitKeys.Add(kvp.Key);
+        }
+
+        for (int i = 0; i < staleOrbitHitKeys.Count; i++)
+            orbitLastHitAt.Remove(staleOrbitHitKeys[i]);
+    }
+
+    private void RestoreDefaultPresentation()
+    {
+        transform.localScale = defaultLocalScale;
+        if (spriteRenderer == null)
+            return;
+
+        spriteRenderer.color = defaultColor;
+        spriteRenderer.sortingLayerName = defaultSortingLayerName;
+        spriteRenderer.sortingOrder = defaultSortingOrder;
     }
 
     private void Release()

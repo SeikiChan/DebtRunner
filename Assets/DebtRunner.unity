@@ -593,6 +593,47 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 28904288}
   m_CullTransparentMesh: 1
+--- !u!21 &43112335
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Runtime_FootShadow_Unlit
+  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    - _ZWrite: 0
+    m_Colors:
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &43335035
 GameObject:
   m_ObjectHideFlags: 0
@@ -1305,47 +1346,6 @@ MonoBehaviour:
   m_FillOrigin: 2
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!21 &93727647
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Runtime_FootShadow_Unlit
-  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - PixelSnap: 0
-    - _EnableExternalAlpha: 0
-    - _ZWrite: 0
-    m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &99485397
 GameObject:
   m_ObjectHideFlags: 0
@@ -15133,9 +15133,9 @@ MonoBehaviour:
   showRoundClearTransition: 1
   roundClearTitleMessage: YOU PASS!
   roundClearSubMessage: Round Cleared
-  roundClearSeconds: 1.2
-  roundClearFadeInSeconds: 0.12
-  roundClearFadeOutSeconds: 0.18
+  roundClearSeconds: 3
+  roundClearFadeInSeconds: 1
+  roundClearFadeOutSeconds: 1
   autoCollectDropsOnRoundClear: 1
   roundClearAutoCollectRadius: 4.5
   roundClearAutoCollectMoveSpeed: 15
@@ -15143,6 +15143,20 @@ MonoBehaviour:
   roundClearOverlayAlphaDuringCollect: 0.45
   roundClearCollectDelaySeconds: 0.12
   roundClearAutoCollectMaxWaitSeconds: 15
+  gameOverTransitionOverlay: {fileID: 0}
+  gameOverTransitionTitleText: {fileID: 0}
+  gameOverTransitionSubText: {fileID: 0}
+  showGameOverTransition: 1
+  gameOverTransitionTitleMessage: YOU LOSS
+  gameOverTransitionSubMessage: Run Failed
+  gameOverTransitionSeconds: 1.1
+  gameOverTransitionFadeInSeconds: 0.12
+  gameOverTransitionFadeOutSeconds: 0.18
+  pickupFunnelMinActiveCount: 25
+  pickupFunnelForwardOffset: 0.5
+  pickupFunnelHoldSeconds: 0.2
+  pickupFunnelSpeedMultiplier: 1.18
+  pickupFunnelArrivalDistance: 0.14
   healthUI: {fileID: 558048349}
   xpUI: {fileID: 352109575}
   levelUpPanel: {fileID: 0}
@@ -15514,6 +15528,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SFXManager
   source2D: {fileID: 0}
   masterVolume: 1
+  enablePickupComboPitchRamp: 1
+  pickupComboResetSeconds: 0.33
+  pickupComboPitchStep: 0.055
+  pickupComboMaxPitch: 1.45
+  pooled2DOneShotSources: 8
 --- !u!114 &1102755125
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -25497,7 +25516,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 93727647}
+  - {fileID: 43112335}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

@@ -2,81 +2,170 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Player hit feedback: flash color on hit and blink during invulnerability.
-/// Robustly resolves the visible player renderer (avoids picking FootShadow).
+/// Player hit feedback: flash color on hit, blink during invulnerability,
+/// and play a short death animation before the loss transition.
 /// </summary>
 [DisallowMultipleComponent]
 public class PlayerHitFeedback : MonoBehaviour
 {
-    [Header("Target Renderer / 目标渲染器")]
+    [Header("Target Renderer")]
     [SerializeField] private SpriteRenderer targetRenderer;
 
-    [Header("Flash / 闪白")]
-    [LocalizedLabel("闪白颜色")]
+    [Header("Flash")]
     [SerializeField] private Color flashColor = Color.white;
-    [LocalizedLabel("闪白持续时间")]
     [SerializeField, Min(0.01f)] private float flashDuration = 0.08f;
 
-    [Header("Blink / 闪烁")]
-    [LocalizedLabel("闪烁间隔")]
+    [Header("Blink")]
     [SerializeField, Min(0.01f)] private float blinkInterval = 0.1f;
 
+    [Header("Death")]
+    [SerializeField, Min(0.1f)] private float deathDuration = 1.1f;
+    [SerializeField, Range(0f, 1f)] private float deathEndScaleMultiplier = 0.08f;
+    [SerializeField, Min(0f)] private float deathDropDistance = 0.22f;
+    [SerializeField] private float deathSpinAngle = 95f;
+    [SerializeField, Range(0f, 1f)] private float deathEndAlpha = 0.1f;
+
     private SpriteRenderer spriteRenderer;
+    private Transform visualTarget;
+    private PlayerVisualAnim visualAnim;
     private Color originalColor;
     private bool hasOriginalColor;
+    private Vector3 defaultLocalPosition;
+    private Vector3 defaultLocalScale;
+    private Quaternion defaultLocalRotation;
+    private bool hasDefaultPose;
     private Coroutine flashRoutine;
     private Coroutine blinkRoutine;
+    private Coroutine deathRoutine;
+    private bool isDying;
+    private bool restoreVisualAnimEnabled;
 
     private void Awake()
     {
         ResolveTargetRenderer();
+        ResolveVisualAnim();
     }
 
     private void Start()
     {
         ResolveTargetRenderer();
+        ResolveVisualAnim();
     }
 
-    /// <summary>
-    /// Call on hit: quick color flash.
-    /// </summary>
     public void PlayHitFlash()
     {
         ResolveTargetRenderer();
-        if (spriteRenderer == null)
+        if (spriteRenderer == null || isDying)
             return;
 
         if (flashRoutine != null)
         {
             StopCoroutine(flashRoutine);
             flashRoutine = null;
-            // Ensure interrupted flash does not leave renderer tinted.
             spriteRenderer.color = originalColor;
         }
+
         flashRoutine = StartCoroutine(FlashRoutine());
     }
 
-    /// <summary>
-    /// Start blinking for invulnerability window.
-    /// </summary>
     public void StartBlink()
     {
         ResolveTargetRenderer();
-        if (spriteRenderer == null)
+        if (spriteRenderer == null || isDying)
             return;
 
         StopBlinkInternal();
         blinkRoutine = StartCoroutine(BlinkRoutine());
     }
 
-    /// <summary>
-    /// Stop blinking and restore visibility.
-    /// </summary>
     public void StopBlink()
     {
         StopBlinkInternal();
         if (spriteRenderer != null)
             spriteRenderer.enabled = true;
+    }
+
+    public float PlayDeath()
+    {
+        ResolveTargetRenderer();
+        ResolveVisualAnim();
+        if (spriteRenderer == null || visualTarget == null)
+            return 0f;
+
+        if (isDying)
+            return deathDuration;
+
+        isDying = true;
+
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        StopBlinkInternal();
+
+        if (deathRoutine != null)
+        {
+            StopCoroutine(deathRoutine);
+            deathRoutine = null;
+        }
+
+        spriteRenderer.color = originalColor;
+        spriteRenderer.enabled = true;
+
+        if (visualAnim != null)
+        {
+            restoreVisualAnimEnabled = visualAnim.enabled;
+            visualAnim.enabled = false;
+            visualAnim.ResetVisualPose();
+        }
+
+        deathRoutine = StartCoroutine(DeathRoutine());
+        return deathDuration;
+    }
+
+    public void ResetVisualState()
+    {
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        StopBlinkInternal();
+
+        if (deathRoutine != null)
+        {
+            StopCoroutine(deathRoutine);
+            deathRoutine = null;
+        }
+
+        ResolveTargetRenderer();
+        ResolveVisualAnim();
+
+        if (visualAnim != null)
+        {
+            bool shouldEnableVisualAnim = isDying ? restoreVisualAnimEnabled : visualAnim.enabled;
+            visualAnim.enabled = false;
+            visualAnim.ResetVisualPose();
+            visualAnim.enabled = shouldEnableVisualAnim;
+        }
+        else if (visualTarget != null && hasDefaultPose)
+        {
+            visualTarget.localPosition = defaultLocalPosition;
+            visualTarget.localRotation = defaultLocalRotation;
+            visualTarget.localScale = defaultLocalScale;
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = originalColor;
+            spriteRenderer.enabled = true;
+        }
+
+        isDying = false;
+        restoreVisualAnimEnabled = false;
     }
 
     private IEnumerator FlashRoutine()
@@ -103,6 +192,55 @@ public class PlayerHitFeedback : MonoBehaviour
         }
     }
 
+    private IEnumerator DeathRoutine()
+    {
+        Vector3 startPosition = visualTarget.localPosition;
+        Vector3 startScale = visualTarget.localScale;
+        Quaternion startRotation = visualTarget.localRotation;
+        Vector3 endPosition = startPosition + new Vector3(0f, -deathDropDistance, 0f);
+        Vector3 endScale = new Vector3(
+            startScale.x * Mathf.Max(0f, deathEndScaleMultiplier),
+            startScale.y * Mathf.Max(0f, deathEndScaleMultiplier * 0.72f),
+            startScale.z);
+        Quaternion endRotation = startRotation * Quaternion.Euler(0f, 0f, Random.value > 0.5f ? deathSpinAngle : -deathSpinAngle);
+        Color startColor = spriteRenderer.color;
+        Color endColor = startColor;
+        endColor.a = Mathf.Clamp01(deathEndAlpha);
+        float duration = Mathf.Max(0.1f, deathDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float ease = 1f - Mathf.Pow(1f - t, 3f);
+
+            if (visualTarget != null)
+            {
+                visualTarget.localPosition = Vector3.Lerp(startPosition, endPosition, ease);
+                visualTarget.localRotation = Quaternion.Lerp(startRotation, endRotation, ease);
+                visualTarget.localScale = Vector3.Lerp(startScale, endScale, ease);
+            }
+
+            if (spriteRenderer != null)
+                spriteRenderer.color = Color.Lerp(startColor, endColor, ease);
+
+            yield return null;
+        }
+
+        if (visualTarget != null)
+        {
+            visualTarget.localPosition = endPosition;
+            visualTarget.localRotation = endRotation;
+            visualTarget.localScale = endScale;
+        }
+
+        if (spriteRenderer != null)
+            spriteRenderer.color = endColor;
+
+        deathRoutine = null;
+    }
+
     private void StopBlinkInternal()
     {
         if (blinkRoutine != null)
@@ -114,19 +252,7 @@ public class PlayerHitFeedback : MonoBehaviour
 
     private void OnDisable()
     {
-        if (flashRoutine != null)
-        {
-            StopCoroutine(flashRoutine);
-            flashRoutine = null;
-        }
-
-        StopBlinkInternal();
-
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = originalColor;
-            spriteRenderer.enabled = true;
-        }
+        ResetVisualState();
     }
 
     private void ResolveTargetRenderer()
@@ -136,14 +262,17 @@ public class PlayerHitFeedback : MonoBehaviour
             if (spriteRenderer != targetRenderer)
             {
                 spriteRenderer = targetRenderer;
+                visualTarget = targetRenderer.transform;
                 originalColor = spriteRenderer.color;
                 hasOriginalColor = true;
+                CacheDefaultPose();
             }
             else if (!hasOriginalColor)
             {
                 originalColor = spriteRenderer.color;
                 hasOriginalColor = true;
             }
+
             return;
         }
 
@@ -161,8 +290,8 @@ public class PlayerHitFeedback : MonoBehaviour
                 continue;
 
             int score = 0;
-            string n = sr.gameObject.name;
-            bool isShadow = !string.IsNullOrEmpty(n) && n.ToLowerInvariant().Contains("shadow");
+            string nameLower = sr.gameObject.name.ToLowerInvariant();
+            bool isShadow = nameLower.Contains("shadow");
 
             if (isShadow)
                 score -= 2000;
@@ -172,7 +301,6 @@ public class PlayerHitFeedback : MonoBehaviour
             if (sr.enabled && sr.gameObject.activeInHierarchy)
                 score += 1000;
 
-            // Prefer child visual renderer over disabled root renderer.
             if (sr.transform == transform)
                 score -= 150;
 
@@ -185,19 +313,38 @@ public class PlayerHitFeedback : MonoBehaviour
             }
         }
 
-        if (best != null)
+        if (best == null)
+            return;
+
+        if (spriteRenderer != best)
         {
-            if (spriteRenderer != best)
-            {
-                spriteRenderer = best;
-                originalColor = best.color;
-                hasOriginalColor = true;
-            }
-            else if (!hasOriginalColor)
-            {
-                originalColor = best.color;
-                hasOriginalColor = true;
-            }
+            spriteRenderer = best;
+            visualTarget = best.transform;
+            originalColor = best.color;
+            hasOriginalColor = true;
+            CacheDefaultPose();
         }
+        else if (!hasOriginalColor)
+        {
+            originalColor = best.color;
+            hasOriginalColor = true;
+        }
+    }
+
+    private void ResolveVisualAnim()
+    {
+        if (visualAnim == null)
+            visualAnim = GetComponent<PlayerVisualAnim>();
+    }
+
+    private void CacheDefaultPose()
+    {
+        if (visualTarget == null)
+            return;
+
+        defaultLocalPosition = visualTarget.localPosition;
+        defaultLocalScale = visualTarget.localScale;
+        defaultLocalRotation = visualTarget.localRotation;
+        hasDefaultPose = true;
     }
 }

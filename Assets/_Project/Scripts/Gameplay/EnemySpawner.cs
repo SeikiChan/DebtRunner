@@ -294,6 +294,43 @@ public class EnemySpawner : MonoBehaviour
             SpawnEnemy(prefab, pos);
     }
 
+    public EnemyController SpawnTutorialEnemy()
+    {
+        if (enemiesRoot == null || player == null)
+        {
+            RunLogger.Warning("Tutorial enemy spawn skipped: EnemySpawner is missing player or enemiesRoot.");
+            return null;
+        }
+
+        int currentRound = GameFlowController.Instance != null ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound()) : 1;
+        if (currentRound != trackedRound)
+        {
+            trackedRound = currentRound;
+            bossSpawnedThisRound = false;
+            treasureSpawnsThisRound = 0;
+            pendingTreasureSpawnsThisRound = 0;
+            RefreshRuntimeEnemyPool(currentRound);
+        }
+
+        RefreshRuntimeSpawnSettings();
+
+        EnemyController prefab = FindPrefabByNameKeyword("\u8FD1\u6218", "melee");
+        if (prefab == null || LooksLikeTreasurePrefab(prefab))
+            prefab = FindFirstNonTreasurePrefab();
+
+        if (prefab == null)
+        {
+            RunLogger.Warning("Tutorial enemy spawn skipped: no suitable non-treasure enemy prefab found.");
+            return null;
+        }
+
+        Vector3 pos = ResolveSpawnPositionWithSpacing();
+        EnemyController spawned = SpawnEnemy(prefab, pos);
+        if (spawned != null)
+            RunLogger.Event($"Tutorial enemy spawned: {spawned.name} at {pos.x:F2},{pos.y:F2}.");
+        return spawned;
+    }
+
     private EnemyController PickWeightedPrefab()
     {
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return null;
@@ -424,9 +461,9 @@ public class EnemySpawner : MonoBehaviour
         return go;
     }
 
-    private void SpawnEnemy(EnemyController prefab, Vector3 pos)
+    private EnemyController SpawnEnemy(EnemyController prefab, Vector3 pos)
     {
-        if (prefab == null) return;
+        if (prefab == null) return null;
 
         if (IsTreasurePrefab(prefab))
         {
@@ -455,6 +492,8 @@ public class EnemySpawner : MonoBehaviour
         var shooter = e.GetComponent<EnemyShooter>();
         if (shooter != null)
             shooter.Init(player, projectilesRoot);
+
+        return e;
     }
 
     private void TrySpawnBossForRound()
@@ -744,10 +783,33 @@ public class EnemySpawner : MonoBehaviour
         return null;
     }
 
-    private void AddUniqueIfNotNull(EnemyController prefab)
+    private EnemyController FindFirstNonTreasurePrefab()
     {
-        if (prefab == null || runtimeEnemyPoolBuffer.Contains(prefab)) return;
-        runtimeEnemyPoolBuffer.Add(prefab);
+        if (runtimeEnemyPool != null && runtimeEnemyPool.Length > 0)
+        {
+            for (int i = 0; i < runtimeEnemyPool.Length; i++)
+            {
+                EnemyController prefab = runtimeEnemyPool[i];
+                if (prefab == null || LooksLikeTreasurePrefab(prefab))
+                    continue;
+
+                return prefab;
+            }
+        }
+
+        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
+            return null;
+
+        for (int i = 0; i < enemyPrefabs.Length; i++)
+        {
+            EnemyController prefab = enemyPrefabs[i];
+            if (prefab == null || LooksLikeTreasurePrefab(prefab))
+                continue;
+
+            return prefab;
+        }
+
+        return null;
     }
 
     private void AddUniquePrefabs(EnemyController[] prefabs)
@@ -764,6 +826,18 @@ public class EnemySpawner : MonoBehaviour
     private bool IsTreasurePrefab(EnemyController prefab)
     {
         return prefab != null && runtimeTreasurePrefab != null && prefab == runtimeTreasurePrefab;
+    }
+
+    private bool LooksLikeTreasurePrefab(EnemyController prefab)
+    {
+        if (prefab == null)
+            return false;
+
+        if (runtimeTreasurePrefab != null && prefab == runtimeTreasurePrefab)
+            return true;
+
+        string nameLower = prefab.name != null ? prefab.name.ToLowerInvariant() : string.Empty;
+        return nameLower.Contains("\u5B9D\u7BB1") || nameLower.Contains("treasure") || nameLower.Contains("chest");
     }
 
     private bool CanSpawnTreasureThisRound()

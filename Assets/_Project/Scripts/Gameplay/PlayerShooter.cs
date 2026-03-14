@@ -38,14 +38,11 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private int orbitProjectileCount = 0;
     [SerializeField] private float orbitRadius = 3.1f;
     [SerializeField] private float orbitAngularSpeed = 140f;
-    [SerializeField] private float orbitHitRadius = 0.35f;
     [SerializeField] private float orbitHitCooldown = 0.2f;
     [SerializeField] private float orbitDamageScale = 0.65f;
     [SerializeField] private float orbitVisualScale = 1f;
     [SerializeField] private float orbitVisualSizeMultiplier = DefaultOrbitVisualSizeMultiplier;
     [SerializeField, Min(0f)] private float orbitRadiusPadding = 0.32f;
-    [SerializeField, Min(0.01f)] private float orbitCollisionQueryInterval = 0.05f;
-    [SerializeField, Min(8)] private int orbitHitBufferSize = 64;
     [SerializeField] private Color orbitVisualTint = new Color(1f, 1f, 1f, 0.95f);
 
     [Header("Sweep Burst")]
@@ -53,6 +50,10 @@ public class PlayerShooter : MonoBehaviour
     [SerializeField] private float novaBurstInterval = 2.2f;
     [SerializeField] private float novaDamageScale = 0.75f;
     [SerializeField] private float novaProjectileSpeedScale = 0.85f;
+
+    [Header("Return Flight")]
+    [SerializeField] private bool returnProjectilesEnabled = false;
+    [SerializeField, Min(1f)] private float returnSpeedMultiplier = 1.35f;
 
     [Header("Optional")]
     [SerializeField] private Transform muzzle;
@@ -65,12 +66,8 @@ public class PlayerShooter : MonoBehaviour
     private float timer;
     private float orbitSpinAngle;
     private float novaTimer;
-    private float orbitCollisionTimer;
-    private readonly Dictionary<int, float> orbitLastHitAt = new Dictionary<int, float>();
-    private readonly List<SpriteRenderer> orbitVisuals = new List<SpriteRenderer>();
-    private readonly List<int> orbitStaleHitKeys = new List<int>(64);
+    private readonly List<Projectile> orbitProjectiles = new List<Projectile>();
     private Collider2D[] selfColliders;
-    private Collider2D[] orbitHitBuffer;
     private SpriteRenderer[] selfSpriteRenderers;
 
     private float baseFireInterval;
@@ -81,10 +78,9 @@ public class PlayerShooter : MonoBehaviour
     private float baseOrbitAngularSpeed;
     private float baseOrbitVisualScale;
     private float baseOrbitVisualSizeMultiplier;
-    private Sprite orbitVisualSprite;
-    private Material orbitVisualMaterial;
-    private string orbitSortingLayerName;
-    private int orbitSortingOrder;
+    private float baseNovaBurstInterval;
+    private bool baseReturnProjectilesEnabled;
+    private float baseReturnSpeedMultiplier;
     private Vector3 orbitVisualBaseScale = Vector3.one;
     private float orbitVisualExtent = 0.15f;
 
@@ -103,9 +99,11 @@ public class PlayerShooter : MonoBehaviour
         baseOrbitAngularSpeed = orbitAngularSpeed;
         baseOrbitVisualScale = orbitVisualScale;
         baseOrbitVisualSizeMultiplier = GetResolvedOrbitVisualSizeMultiplier();
+        baseNovaBurstInterval = novaBurstInterval;
+        baseReturnProjectilesEnabled = returnProjectilesEnabled;
+        baseReturnSpeedMultiplier = Mathf.Max(1f, returnSpeedMultiplier);
         selfColliders = GetComponentsInChildren<Collider2D>(true);
         selfSpriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
-        orbitHitBuffer = new Collider2D[Mathf.Max(8, orbitHitBufferSize)];
         CacheProjectileVisualTemplate();
     }
 
@@ -113,25 +111,23 @@ public class PlayerShooter : MonoBehaviour
     {
         timer = 0f;
         novaTimer = Mathf.Max(0.25f, novaBurstInterval);
-        orbitCollisionTimer = 0f;
-        SyncOrbitVisuals();
+        SyncOrbitProjectiles();
     }
 
     private void OnDisable()
     {
-        ClearOrbitVisuals();
+        ClearOrbitProjectiles();
     }
 
     private void OnDestroy()
     {
-        ClearOrbitVisuals();
+        ClearOrbitProjectiles();
     }
 
     private void Update()
     {
         if (motor == null || projectilePrefab == null) return;
 
-        HandleOrbitingProjectiles();
         EnemyController targetEnemy = GetAutoAimTarget();
         HandleNovaBurst(targetEnemy);
 
@@ -146,6 +142,14 @@ public class PlayerShooter : MonoBehaviour
 
         timer = fireInterval;
         FireSpread(dir);
+    }
+
+    private void FixedUpdate()
+    {
+        if (motor == null || projectilePrefab == null)
+            return;
+
+        HandleOrbitingProjectiles();
     }
 
     private EnemyController GetAutoAimTarget()
@@ -226,29 +230,56 @@ public class PlayerShooter : MonoBehaviour
     private void FireSpread(Vector2 baseDirection)
     {
         int shotCount = Mathf.Max(1, 1 + extraProjectiles);
-        float totalSpread = spreadAngleStep * (shotCount - 1);
-        float startAngle = -totalSpread * 0.5f;
+        int remaining = shotCount;
 
-        for (int i = 0; i < shotCount; i++)
+        // Keep a persistent center lane so adding shots expands outward instead of re-centering the whole fan.
+        FireSingleShot(baseDirection, 0f);
+        remaining -= 1;
+
+        if (remaining > 0 && (shotCount % 2) == 0)
         {
-            float angleOffset = shotCount == 1 ? 0f : startAngle + (spreadAngleStep * i);
-            Vector2 shotDirection = Rotate(baseDirection, angleOffset);
-            Vector3 spawnPos = ResolveProjectileSpawnPosition(shotDirection);
+            FireSingleShot(baseDirection, 0f);
+            remaining -= 1;
+        }
 
-            Projectile proj = Projectile.Spawn(projectilePrefab, spawnPos, Quaternion.identity, projectilesRoot);
-            if (proj == null) continue;
-            proj.Fire(
-                shotDirection,
-                projectileSpeed,
-                damage,
-                pierceCount,
-                GetAppliedKnockbackMultiplier(),
-                onHitScatterCount,
-                onHitScatterAngle);
+        int ring = 1;
+        while (remaining > 0)
+        {
+            float angleOffset = spreadAngleStep * ring;
+            FireSingleShot(baseDirection, -angleOffset);
+            remaining -= 1;
+
+            if (remaining <= 0)
+                break;
+
+            FireSingleShot(baseDirection, angleOffset);
+            remaining -= 1;
+            ring++;
         }
 
         if (sfxShoot != null && SFXManager.Instance != null)
             SFXManager.Instance.Play(sfxShoot, 0.5f);
+    }
+
+    private void FireSingleShot(Vector2 baseDirection, float angleOffset)
+    {
+        Vector2 shotDirection = Rotate(baseDirection, angleOffset);
+        Vector3 spawnPos = ResolveProjectileSpawnPosition(shotDirection);
+
+        Projectile proj = Projectile.Spawn(projectilePrefab, spawnPos, Quaternion.identity, projectilesRoot);
+        if (proj == null) return;
+
+        proj.Fire(
+            shotDirection,
+            projectileSpeed,
+            damage,
+            pierceCount,
+            GetAppliedKnockbackMultiplier(),
+            onHitScatterCount,
+            onHitScatterAngle,
+            transform,
+            returnProjectilesEnabled,
+            returnSpeedMultiplier);
     }
 
     private Vector2 Rotate(Vector2 value, float angleDegrees)
@@ -330,62 +361,40 @@ public class PlayerShooter : MonoBehaviour
     {
         if (orbitProjectileCount <= 0)
         {
-            ClearOrbitVisuals();
+            ClearOrbitProjectiles();
             return;
         }
 
-        orbitSpinAngle += orbitAngularSpeed * Time.deltaTime;
-        SyncOrbitVisuals();
+        SyncOrbitProjectiles();
+        if (orbitProjectiles.Count == 0)
+            return;
+
+        orbitSpinAngle = Mathf.Repeat(orbitSpinAngle + orbitAngularSpeed * Time.fixedDeltaTime, 360f);
         float resolvedOrbitRadius = ResolveOrbitRadius();
-        UpdateOrbitVisualPositions(resolvedOrbitRadius);
-
-        orbitCollisionTimer -= Time.deltaTime;
-        if (orbitCollisionTimer > 0f)
-            return;
-        orbitCollisionTimer = Mathf.Max(0.01f, orbitCollisionQueryInterval);
-
-        float now = Time.time;
         int orbitDamage = Mathf.Max(1, Mathf.RoundToInt(damage * orbitDamageScale));
-        EnsureOrbitHitBuffer();
-
-        for (int i = 0; i < orbitProjectileCount; i++)
+        float orbitKnockback = GetAppliedKnockbackMultiplier(0.65f);
+        Vector3 orbitScale = GetOrbitVisualScale();
+        int activeCount = orbitProjectiles.Count;
+        for (int i = 0; i < activeCount; i++)
         {
-            float angle = orbitSpinAngle + (360f / orbitProjectileCount) * i;
-            float rad = angle * Mathf.Deg2Rad;
-            Vector2 offset = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * resolvedOrbitRadius;
-            Vector2 orbitPos = (Vector2)transform.position + offset;
+            Projectile orbitProjectile = orbitProjectiles[i];
+            if (orbitProjectile == null)
+                continue;
 
-            int hitCount = Physics2D.OverlapCircleNonAlloc(orbitPos, orbitHitRadius, orbitHitBuffer);
-            for (int h = 0; h < hitCount; h++)
-            {
-                Collider2D hit = orbitHitBuffer[h];
-                EnemyController enemy = hit != null
-                    ? hit.GetComponent<EnemyController>() ?? hit.GetComponentInParent<EnemyController>()
-                    : null;
-                if (enemy == null) continue;
+            float angle = orbitSpinAngle + (360f / Mathf.Max(1, activeCount)) * i;
+            Vector2 position = GetOrbitWorldPosition(angle, resolvedOrbitRadius);
+            Vector2 currentPosition = orbitProjectile.transform.position;
+            Vector2 velocity = Time.fixedDeltaTime > 0f
+                ? (position - currentPosition) / Time.fixedDeltaTime
+                : Vector2.zero;
 
-                int id = enemy.GetInstanceID();
-                if (orbitLastHitAt.TryGetValue(id, out float lastTime) && now - lastTime < orbitHitCooldown)
-                    continue;
-
-                orbitLastHitAt[id] = now;
-                enemy.TakeDamage(orbitDamage, offset.normalized, GetAppliedKnockbackMultiplier(0.65f));
-            }
-        }
-
-        if (orbitLastHitAt.Count > 64)
-        {
-            orbitStaleHitKeys.Clear();
-            foreach (KeyValuePair<int, float> kvp in orbitLastHitAt)
-            {
-                if (now - kvp.Value > 5f)
-                    orbitStaleHitKeys.Add(kvp.Key);
-            }
-
-            for (int i = 0; i < orbitStaleHitKeys.Count; i++)
-            {
-                orbitLastHitAt.Remove(orbitStaleHitKeys[i]);
-            }
+            orbitProjectile.ConfigureOrbitProfile(
+                orbitDamage,
+                orbitKnockback,
+                onHitScatterCount,
+                onHitScatterAngle,
+                orbitHitCooldown);
+            orbitProjectile.UpdateOrbitPose(position, velocity, angle - 90f, orbitScale, orbitVisualTint);
         }
     }
 
@@ -426,7 +435,10 @@ public class PlayerShooter : MonoBehaviour
                 0,
                 GetAppliedKnockbackMultiplier(0.85f),
                 0,
-                0f);
+                0f,
+                transform,
+                returnProjectilesEnabled,
+                returnSpeedMultiplier);
         }
     }
 
@@ -436,16 +448,9 @@ public class PlayerShooter : MonoBehaviour
             return;
 
         SpriteRenderer projectileRenderer = projectilePrefab.GetComponent<SpriteRenderer>();
-        if (projectileRenderer == null)
-            return;
-
-        orbitVisualSprite = projectileRenderer.sprite;
-        orbitVisualMaterial = projectileRenderer.sharedMaterial;
-        orbitSortingLayerName = projectileRenderer.sortingLayerName;
-        orbitSortingOrder = projectileRenderer.sortingOrder - 1;
         orbitVisualBaseScale = projectilePrefab.transform.localScale;
 
-        if (projectileRenderer.sprite != null)
+        if (projectileRenderer != null && projectileRenderer.sprite != null)
         {
             Vector3 extents = projectileRenderer.sprite.bounds.extents;
             orbitVisualExtent = Mathf.Max(
@@ -454,70 +459,64 @@ public class PlayerShooter : MonoBehaviour
         }
     }
 
-    private void SyncOrbitVisuals()
+    private void SyncOrbitProjectiles()
     {
         if (orbitProjectileCount <= 0)
         {
-            ClearOrbitVisuals();
+            ClearOrbitProjectiles();
             return;
         }
 
-        if (orbitVisualSprite == null)
-            CacheProjectileVisualTemplate();
-        if (orbitVisualSprite == null)
-            return;
-
-        while (orbitVisuals.Count < orbitProjectileCount)
+        for (int i = orbitProjectiles.Count - 1; i >= 0; i--)
         {
-            GameObject go = new GameObject($"OrbitCard_{orbitVisuals.Count + 1}", typeof(SpriteRenderer));
-            go.transform.SetParent(transform, false);
-            SpriteRenderer sr = go.GetComponent<SpriteRenderer>();
-            sr.sprite = orbitVisualSprite;
-            sr.sharedMaterial = orbitVisualMaterial;
-            sr.sortingLayerName = orbitSortingLayerName;
-            sr.sortingOrder = orbitSortingOrder;
-            sr.color = orbitVisualTint;
-            go.transform.localScale = GetOrbitVisualScale();
-            orbitVisuals.Add(sr);
+            if (orbitProjectiles[i] == null)
+                orbitProjectiles.RemoveAt(i);
         }
 
-        while (orbitVisuals.Count > orbitProjectileCount)
+        while (orbitProjectiles.Count < orbitProjectileCount)
         {
-            int lastIndex = orbitVisuals.Count - 1;
-            SpriteRenderer sr = orbitVisuals[lastIndex];
-            orbitVisuals.RemoveAt(lastIndex);
-            if (sr != null)
-                Destroy(sr.gameObject);
+            Projectile orbitProjectile = Projectile.Spawn(projectilePrefab, transform.position, Quaternion.identity, projectilesRoot);
+            if (orbitProjectile == null)
+            {
+                RunLogger.Warning($"Orbit projectile spawn failed. requested={orbitProjectileCount}, existing={orbitProjectiles.Count}");
+                break;
+            }
+
+            orbitProjectile.BeginOrbit(
+                Mathf.Max(1, Mathf.RoundToInt(damage * orbitDamageScale)),
+                GetAppliedKnockbackMultiplier(0.65f),
+                onHitScatterCount,
+                onHitScatterAngle,
+                orbitHitCooldown);
+            orbitProjectiles.Add(orbitProjectile);
         }
-    }
 
-    private void UpdateOrbitVisualPositions(float resolvedOrbitRadius)
-    {
-        int count = Mathf.Min(orbitProjectileCount, orbitVisuals.Count);
-        for (int i = 0; i < count; i++)
+        while (orbitProjectiles.Count > orbitProjectileCount)
         {
-            SpriteRenderer sr = orbitVisuals[i];
-            if (sr == null)
-                continue;
-
-            float angle = orbitSpinAngle + (360f / orbitProjectileCount) * i;
-            float rad = angle * Mathf.Deg2Rad;
-            Vector3 localOffset = new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f) * resolvedOrbitRadius;
-            sr.transform.localScale = GetOrbitVisualScale();
-            sr.transform.localPosition = localOffset;
-            sr.transform.localRotation = Quaternion.AngleAxis(angle - 90f, Vector3.forward);
+            int lastIndex = orbitProjectiles.Count - 1;
+            Projectile orbitProjectile = orbitProjectiles[lastIndex];
+            orbitProjectiles.RemoveAt(lastIndex);
+            if (orbitProjectile != null)
+                orbitProjectile.Despawn();
         }
     }
 
-    private void ClearOrbitVisuals()
+    private Vector2 GetOrbitWorldPosition(float angleDegrees, float resolvedOrbitRadius)
     {
-        for (int i = 0; i < orbitVisuals.Count; i++)
+        float rad = angleDegrees * Mathf.Deg2Rad;
+        Vector2 offset = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * resolvedOrbitRadius;
+        return (Vector2)transform.position + offset;
+    }
+
+    private void ClearOrbitProjectiles()
+    {
+        for (int i = 0; i < orbitProjectiles.Count; i++)
         {
-            if (orbitVisuals[i] != null)
-                Destroy(orbitVisuals[i].gameObject);
+            if (orbitProjectiles[i] != null)
+                orbitProjectiles[i].Despawn();
         }
 
-        orbitVisuals.Clear();
+        orbitProjectiles.Clear();
     }
 
     public void ResetRuntimeStats()
@@ -538,18 +537,18 @@ public class PlayerShooter : MonoBehaviour
         orbitAngularSpeed = Mathf.Max(0f, baseOrbitAngularSpeed);
         orbitVisualScale = Mathf.Max(0.01f, baseOrbitVisualScale);
         orbitVisualSizeMultiplier = Mathf.Max(0.01f, baseOrbitVisualSizeMultiplier);
+        returnProjectilesEnabled = baseReturnProjectilesEnabled;
+        returnSpeedMultiplier = Mathf.Max(1f, baseReturnSpeedMultiplier);
         novaProjectileCount = 0;
+        novaBurstInterval = Mathf.Max(0.45f, baseNovaBurstInterval);
         novaTimer = Mathf.Max(0.25f, novaBurstInterval);
-        orbitCollisionTimer = 0f;
-        orbitLastHitAt.Clear();
-        ClearOrbitVisuals();
+        ClearOrbitProjectiles();
     }
 
     public void ApplyUpgrade(WeaponUpgrade upgrade)
     {
         if (upgrade == null) return;
 
-        upgrade.ConvertLegacyStatsToEffects();
         if (upgrade.effects == null || upgrade.effects.Count == 0)
             return;
 
@@ -599,6 +598,16 @@ public class PlayerShooter : MonoBehaviour
                 case WeaponUpgradeEffectType.NovaProjectileCountAdd:
                     novaProjectileCount += effect.intValue;
                     break;
+                case WeaponUpgradeEffectType.NovaIntervalAdd:
+                    novaBurstInterval += effect.floatValue;
+                    break;
+                case WeaponUpgradeEffectType.ReturnEnable:
+                    if (effect.intValue > 0)
+                        returnProjectilesEnabled = true;
+                    break;
+                case WeaponUpgradeEffectType.ReturnSpeedMultiplierAdd:
+                    returnSpeedMultiplier += effect.floatValue;
+                    break;
             }
         }
 
@@ -615,11 +624,14 @@ public class PlayerShooter : MonoBehaviour
         orbitRadius = Mathf.Max(0f, orbitRadius);
         orbitAngularSpeed = Mathf.Max(0f, orbitAngularSpeed);
         novaProjectileCount = Mathf.Max(0, novaProjectileCount);
-        SyncOrbitVisuals();
+        novaBurstInterval = Mathf.Max(0.45f, novaBurstInterval);
+        returnSpeedMultiplier = Mathf.Max(1f, returnSpeedMultiplier);
+        novaTimer = Mathf.Min(novaTimer, Mathf.Max(0.25f, novaBurstInterval));
+        SyncOrbitProjectiles();
 
         RunLogger.Event(
             $"Weapon upgraded: dmg={damage}, rate={1f / fireInterval:F2}/s, speed={projectileSpeed:F1}, " +
-            $"multi={1 + extraProjectiles}, pierce={pierceCount}, scatter={onHitScatterCount}, orbit={orbitProjectileCount}, nova={novaProjectileCount}");
+            $"multi={1 + extraProjectiles}, pierce={pierceCount}, scatter={onHitScatterCount}, orbit={orbitProjectileCount}, nova={novaProjectileCount}, return={returnProjectilesEnabled}");
     }
 
     public int GetDamage() => damage;
@@ -644,15 +656,8 @@ public class PlayerShooter : MonoBehaviour
             float angle = (360f / Mathf.Max(1, orbitProjectileCount)) * i;
             float rad = angle * Mathf.Deg2Rad;
             Vector3 pos = transform.position + new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f) * resolvedOrbitRadius;
-            Gizmos.DrawWireSphere(pos, orbitHitRadius);
+            Gizmos.DrawWireSphere(pos, Mathf.Max(0.05f, orbitVisualExtent * GetResolvedOrbitVisualScaleMultiplier()));
         }
-    }
-
-    private void EnsureOrbitHitBuffer()
-    {
-        int bufferSize = Mathf.Max(8, orbitHitBufferSize);
-        if (orbitHitBuffer == null || orbitHitBuffer.Length != bufferSize)
-            orbitHitBuffer = new Collider2D[bufferSize];
     }
 
     private float ResolveOrbitRadius()

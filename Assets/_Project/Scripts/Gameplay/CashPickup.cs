@@ -12,8 +12,9 @@ public class CashPickup : MonoBehaviour
 
     private static Transform cachedPlayer;
     private bool collected;
-    private float magnetRadiusSqr;
     private float autoCollectDistanceSqr;
+    private float funnelEndTime = -1f;
+    private bool denseFunnelCompleted;
 
     public void SetAmount(int value) => amount = Mathf.Max(1, value);
 
@@ -37,21 +38,20 @@ public class CashPickup : MonoBehaviour
         if (player == null)
             return;
 
-        Vector2 toPlayer = (Vector2)player.position - (Vector2)transform.position;
-        float sqrDist = toPlayer.sqrMagnitude;
-
         float effectiveRadius = magnetRadius;
         if (GameFlowController.Instance != null)
             effectiveRadius += GameFlowController.Instance.BonusXPMagnetRadius;
-        float effectiveRadiusSqr = effectiveRadius * effectiveRadius;
-
-        if (sqrDist > effectiveRadiusSqr)
-            return;
-
-        transform.position = Vector2.MoveTowards(transform.position, player.position, magnetSpeed * Time.deltaTime);
-
-        if (sqrDist <= autoCollectDistanceSqr)
+        if (PickupMagnetUtility.UpdateMagnetMotion(
+            transform,
+            player,
+            effectiveRadius,
+            magnetSpeed,
+            autoCollectDistanceSqr,
+            ref funnelEndTime,
+            ref denseFunnelCompleted))
+        {
             Collect();
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -86,7 +86,7 @@ public class CashPickup : MonoBehaviour
 
         RunLogger.Event($"Cash pickup collected: +{amount}");
         if (sfxCollect != null && SFXManager.Instance != null)
-            SFXManager.Instance.Play(sfxCollect, 0.4f);
+            SFXManager.Instance.PlayPickupCollect(sfxCollect, 0.4f);
 
         Destroy(gameObject);
     }
@@ -110,7 +110,6 @@ public class CashPickup : MonoBehaviour
         magnetSpeed = Mathf.Max(0f, magnetSpeed);
         autoCollectDistance = Mathf.Max(0f, autoCollectDistance);
 
-        magnetRadiusSqr = magnetRadius * magnetRadius;
         autoCollectDistanceSqr = autoCollectDistance * autoCollectDistance;
     }
 

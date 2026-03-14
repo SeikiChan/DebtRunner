@@ -122,6 +122,11 @@ public class PlayerVisualAnim : MonoBehaviour
         RestoreBaseTransform();
     }
 
+    public void ResetVisualPose()
+    {
+        RestoreBaseTransform();
+    }
+
     private void ResolveRefs()
     {
         if (motor == null)

@@ -290,7 +290,7 @@ public class SpinningWheelController : MonoBehaviour
     private void RefreshDrawLabel()
     {
         if (textDrawLabel != null)
-            textDrawLabel.text = IsFreeDrawAvailable() ? "ROLL\nFREE" : $"ROLL\n${drawCost}";
+            textDrawLabel.text = IsFreeDrawAvailable() ? "SPIN\nFREE" : $"SPIN\n${drawCost}";
     }
 
     private void OnDrawClicked()

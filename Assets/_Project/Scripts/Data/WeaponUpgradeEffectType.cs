@@ -13,4 +13,7 @@ public enum WeaponUpgradeEffectType
     OrbitRadiusAdd = 10,
     OrbitAngularSpeedAdd = 11,
     NovaProjectileCountAdd = 12,
+    NovaIntervalAdd = 13,
+    ReturnEnable = 14,
+    ReturnSpeedMultiplierAdd = 15,
 }

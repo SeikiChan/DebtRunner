@@ -196,11 +196,11 @@ MonoBehaviour:
   cashValue: 4
   xpDrop: 1
   cashPickupPrefab: {fileID: -2223663088653925849, guid: 579e178f9139359488de49e6b4271060, type: 3}
-  pickupDropScatterRadius: 0.26
-  pickupDropInnerRadiusRatio: 0.35
-  pickupDropVerticalOffset: 0.05
-  pickupDropMinSeparation: 0.28
-  pickupDropPositionAttempts: 12
+  pickupDropScatterRadius: 1
+  pickupDropInnerRadiusRatio: 0.5
+  pickupDropVerticalOffset: 1
+  pickupDropMinSeparation: 0.5
+  pickupDropPositionAttempts: 64
   damagePopupColor: {r: 0.17443931, g: 0.754717, b: 0.7084063, a: 1}
   damagePopupFont: {fileID: 0}
   damagePopupTextSize: 15

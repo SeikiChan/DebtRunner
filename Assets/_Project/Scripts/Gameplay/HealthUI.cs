@@ -58,9 +58,20 @@ public class HealthUI : MonoBehaviour
         if (!hideInShopState || seconds <= 0f)
             return;
 
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+
+        if (!isActiveAndEnabled || !gameObject.activeInHierarchy)
+        {
+            ResetHealthUI();
+            shopRevealCo = null;
+            return;
+        }
+
         if (shopRevealCo != null)
             StopCoroutine(shopRevealCo);
 
+        ResetHealthUI();
         shopRevealCo = StartCoroutine(RevealForShopFeedbackRoutine(seconds));
     }
 
@@ -328,10 +339,6 @@ public class HealthUI : MonoBehaviour
     private System.Collections.IEnumerator RevealForShopFeedbackRoutine(float seconds)
     {
         bool shouldHideAgain = GameFlowController.Instance != null && GameFlowController.Instance.IsInShopState;
-        if (!gameObject.activeSelf)
-            gameObject.SetActive(true);
-
-        ResetHealthUI();
         yield return new WaitForSecondsRealtime(seconds);
 
         if (shouldHideAgain && GameFlowController.Instance != null && GameFlowController.Instance.IsInShopState)

@@ -40,7 +40,6 @@ public class ShopSystem : MonoBehaviour
     {
         public ShopItemDefinition definition;
         public bool purchased;
-        public bool isFree;
     }
 
     [Header("SFX / 音效")]
@@ -54,8 +53,8 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private int gambleCost = 90;
     [LocalizedLabel("Refresh Base Cost / 刷新基础费用")]
     [SerializeField] private int refreshCost = 50;
-    [LocalizedLabel("Refresh Cost Increment / 每次刷新涨价")]
-    [SerializeField] private int refreshCostIncrement = 30;
+    [LocalizedLabel("Refresh Cost Multiplier / 刷新费用倍率")]
+    [SerializeField, Min(1f)] private float refreshCostMultiplier = 2f;
 
     [Header("Gamble Rewards / 赌博奖励")]
     [SerializeField] private int cashRewardMin = 180;
@@ -140,19 +139,18 @@ public class ShopSystem : MonoBehaviour
     private readonly ShopOffer[] currentOffers = new ShopOffer[3];
 
     private GameFlowController gameFlow;
-    private RunProgressionState runProgression;
     private bool uiReady;
     private bool eventsBound;
     private int pendingFreeItemCharges;
+    private int pendingFreeRefreshCharges;
     private int runtimeGambleCost;
     private int refreshTimesThisVisit;
     private Color[] defaultTitleColors;
     private Color[] defaultPriceColors;
 
-    public void Bind(GameFlowController flow, RunProgressionState progression)
+    public void Bind(GameFlowController flow)
     {
         gameFlow = flow;
-        runProgression = progression;
 
         EnsureUI();
         BindUiEvents();
@@ -165,6 +163,7 @@ public class ShopSystem : MonoBehaviour
         EnsureUI();
         BindUiEvents();
         pendingFreeItemCharges = 0;
+        pendingFreeRefreshCharges = 0;
         refreshTimesThisVisit = 0;
         GenerateOffers();
         BindSpinningWheel();
@@ -220,13 +219,19 @@ public class ShopSystem : MonoBehaviour
 
         if (textCash != null)
         {
-            if (runProgression != null && pendingFreeItemCharges > 0)
-                textCash.text = $"Cash: ${gameFlow.GetCashAmount()}    Free Item x{pendingFreeItemCharges}";
-            else
-                textCash.text = $"Cash: ${gameFlow.GetCashAmount()}";
+            List<string> extras = new List<string>(2);
+            if (pendingFreeItemCharges > 0)
+                extras.Add($"Free Item x{pendingFreeItemCharges}");
+            if (pendingFreeRefreshCharges > 0)
+                extras.Add($"Free Refresh x{pendingFreeRefreshCharges}");
+
+            textCash.text = extras.Count > 0
+                ? $"Cash: ${gameFlow.GetCashAmount()}    {string.Join("    ", extras)}"
+                : $"Cash: ${gameFlow.GetCashAmount()}";
         }
 
-        if (textRefreshLabel != null) textRefreshLabel.text = $"Refresh ${GetCurrentRefreshCost()}";
+        if (textRefreshLabel != null)
+            textRefreshLabel.text = pendingFreeRefreshCharges > 0 ? "Refresh FREE" : $"Refresh ${GetCurrentRefreshCost()}";
 
         runtimeGambleCost = ResolveRuntimeGambleCost();
 
@@ -315,25 +320,37 @@ public class ShopSystem : MonoBehaviour
 
     private int GetCurrentRefreshCost()
     {
-        int baseCost = refreshCost + refreshCostIncrement * refreshTimesThisVisit;
-        float scaledCost = baseCost * GetRefreshRoundMultiplier();
-        return Mathf.Max(0, Mathf.RoundToInt(scaledCost));
+        double baseCost = Mathf.Max(0, refreshCost);
+        double multiplier = Mathf.Max(1f, refreshCostMultiplier);
+        double visitScale = Math.Pow(multiplier, Mathf.Max(0, refreshTimesThisVisit));
+        double scaledCost = baseCost * visitScale * GetRefreshRoundMultiplier();
+
+        if (scaledCost >= int.MaxValue)
+            return int.MaxValue;
+
+        return Mathf.Max(0, Mathf.RoundToInt((float)scaledCost));
     }
 
     private void RefreshOffers()
     {
         MarkOtherShopInteraction();
         if (gameFlow == null) return;
-        int cost = GetCurrentRefreshCost();
+        int cost = pendingFreeRefreshCharges > 0 ? 0 : GetCurrentRefreshCost();
         if (!gameFlow.TrySpendCash(cost))
         {
             SetInfo("Not enough cash to refresh.");
             return;
         }
 
+        bool consumedFreeRefresh = pendingFreeRefreshCharges > 0;
+        if (consumedFreeRefresh)
+            pendingFreeRefreshCharges = Mathf.Max(0, pendingFreeRefreshCharges - 1);
+
         refreshTimesThisVisit++;
         GenerateOffers();
-        SetInfo($"Shop refreshed. Next refresh: ${GetCurrentRefreshCost()}");
+        SetInfo(consumedFreeRefresh
+            ? $"Free refresh used. Next refresh: ${GetCurrentRefreshCost()}."
+            : $"Shop refreshed. Next refresh: ${GetCurrentRefreshCost()}");
     }
 
     private void BuyOffer(int index)
@@ -371,6 +388,7 @@ public class ShopSystem : MonoBehaviour
             SetInfo($"{offer.definition.ItemTitle} acquired.");
         }
 
+        TryGrantDeadlockFreeRefresh(consumeFreeCharge);
         RefreshShopUI();
     }
 
@@ -399,7 +417,6 @@ public class ShopSystem : MonoBehaviour
                 {
                     definition = definition,
                     purchased = false,
-                    isFree = false,
                 };
         }
 
@@ -491,8 +508,6 @@ public class ShopSystem : MonoBehaviour
     {
         if (offer == null || offer.definition == null)
             return 0;
-        if (offer.isFree)
-            return 0;
 
         ShopRarityStyle style = ResolveRarityStyle(offer.definition.Rarity);
         float scaledPrice = Mathf.Max(0, offer.definition.Price) * GetItemPriceScaleForCurrentRound() * style.priceMultiplier;
@@ -509,6 +524,42 @@ public class ShopSystem : MonoBehaviour
     {
         int currentRound = gameFlow != null ? Mathf.Max(1, gameFlow.GetCurrentRound()) : 1;
         return 1f + Mathf.Max(0f, refreshRoundStepPercent) * (currentRound - 1);
+    }
+
+    private void TryGrantDeadlockFreeRefresh(bool purchasedByFreeItemCharge)
+    {
+        if (!purchasedByFreeItemCharge)
+            return;
+        if (pendingFreeRefreshCharges > 0)
+            return;
+        if (!AreAllOffersPurchased())
+            return;
+
+        int refreshCostNow = GetCurrentRefreshCost();
+        if (refreshCostNow <= 0)
+            return;
+        if (gameFlow == null || gameFlow.GetCashAmount() >= refreshCostNow)
+            return;
+
+        pendingFreeRefreshCharges = 1;
+        SetInfo("Deadlock protection: shop sold out after a FREE ITEM, so you get 1 FREE refresh.");
+    }
+
+    private bool AreAllOffersPurchased()
+    {
+        bool hasAnyOffer = false;
+        for (int i = 0; i < currentOffers.Length; i++)
+        {
+            ShopOffer offer = currentOffers[i];
+            if (offer == null || offer.definition == null)
+                continue;
+
+            hasAnyOffer = true;
+            if (!offer.purchased)
+                return false;
+        }
+
+        return hasAnyOffer;
     }
 
     private ShopRarityStyle ResolveRarityStyle(UpgradeRarity rarity)

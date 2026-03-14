@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using TMPro;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -59,12 +58,14 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private Transform pickupsRoot;
 
     [SerializeField] private PlayerMotor2D playerMotor;
+    [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private CameraFollow2D cameraFollow;
 
     [SerializeField] private TMP_Text textRound;
     [SerializeField] private TMP_Text textCash;
     [SerializeField] private TMP_Text textDebt;
     [SerializeField] private TMP_Text textCountdown;
+    [SerializeField] private bool autoCreateGameplayRoundText = true;
     [SerializeField] private bool isolateCountdownMaterialAtRuntime = true;
     [SerializeField] private float roundIntroSeconds = 2.5f;
 
@@ -93,6 +94,24 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float roundClearOverlayAlphaDuringCollect = 0.45f;
     [SerializeField, Min(0f)] private float roundClearCollectDelaySeconds = 0.12f;
     [SerializeField, Min(0f)] private float roundClearAutoCollectMaxWaitSeconds = 15f;
+
+    [SerializeField] private CanvasGroup gameOverTransitionOverlay;
+    [SerializeField] private TMP_Text gameOverTransitionTitleText;
+    [SerializeField] private TMP_Text gameOverTransitionSubText;
+    [SerializeField] private bool showGameOverTransition = true;
+    [SerializeField] private string gameOverTransitionTitleMessage = "YOU LOSS";
+    [SerializeField] private string gameOverTransitionSubMessage = "Run Failed";
+    [SerializeField, Min(0f)] private float gameOverTransitionSeconds = 1.1f;
+    [SerializeField, Min(0f)] private float gameOverTransitionFadeInSeconds = 0.12f;
+    [SerializeField, Min(0f)] private float gameOverTransitionFadeOutSeconds = 0.18f;
+    [SerializeField] private bool playPlayerDeathAnimationOnLoss = true;
+
+    [Header("Pickup Flow")]
+    [SerializeField, Min(0)] private int pickupFunnelMinActiveCount = 25;
+    [SerializeField, Min(0f)] private float pickupFunnelForwardOffset = 0.5f;
+    [SerializeField, Min(0.01f)] private float pickupFunnelHoldSeconds = 0.2f;
+    [SerializeField, Min(0.1f)] private float pickupFunnelSpeedMultiplier = 1.18f;
+    [SerializeField, Min(0f)] private float pickupFunnelArrivalDistance = 0.14f;
 
     [SerializeField] private HealthUI healthUI;
 
@@ -205,18 +224,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(1f)] private float xpRequirementMultiplierAtHighLevel = 2.3f;
 
     [Header("Weapon Upgrade Curve")]
-    [SerializeField] private bool gateWeaponUpgradeRarityByRound = true;
-    [SerializeField, Min(1)] private int uncommonUpgradeUnlockRound = 2;
-    [SerializeField, Min(1)] private int rareUpgradeUnlockRound = 4;
-    [SerializeField, Min(1)] private int epicUpgradeUnlockRound = 6;
-    [SerializeField, Min(1)] private int legendaryUpgradeUnlockRound = 8;
-    [SerializeField] private AnimationCurve commonUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 1.35f, 1f, 0.45f);
-    [SerializeField] private AnimationCurve uncommonUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.9f, 1f, 1.1f);
-    [SerializeField] private AnimationCurve rareUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.4f, 1f, 1.65f);
-    [SerializeField] private AnimationCurve epicUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.12f, 1f, 1.95f);
-    [SerializeField] private AnimationCurve legendaryUpgradeOfferWeightByRound = AnimationCurve.EaseInOut(0f, 0.03f, 1f, 1.4f);
-    [SerializeField, Min(0)] private int recentUpgradeOfferMemory = 6;
-    [SerializeField, Range(0.05f, 1f)] private float recentUpgradeOfferRepeatPenalty = 0.2f;
+    [SerializeField, Min(0.1f)] private float lockedModeOfferWeight = 1.35f;
+    [SerializeField, Min(0.1f)] private float lockedBaseOfferWeight = 0.8f;
+    [SerializeField, Min(0f)] private float lowerRankModeCatchUpWeightBonus = 0.3f;
 
     [Header("Enemy Pressure")]
     [SerializeField, Min(1f)] private float enemyHpPressureAtRound1 = 1.05f;
@@ -260,10 +270,15 @@ public class GameFlowController : MonoBehaviour
     private Coroutine roundTimerCo;
     private Coroutine roundIntroCo;
     private Coroutine roundClearCo;
+    private Coroutine gameOverTransitionCo;
+    private Coroutine playerLossPresentationCo;
     private bool roundIntroOverlayAutoCreated;
     private bool roundClearOverlayAutoCreated;
+    private bool gameOverTransitionOverlayAutoCreated;
     private bool roundIntroActive;
     private bool roundClearActive;
+    private bool gameOverTransitionActive;
+    private bool playerLossPresentationActive;
     private bool creditsOpen;
     private bool creditsPanelMissingWarned;
     private bool pauseMenuOpen;
@@ -282,7 +297,8 @@ public class GameFlowController : MonoBehaviour
     private bool startRunQueuedAfterStory;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
-    private readonly Queue<WeaponUpgradeDefinition> recentUpgradeOfferHistory = new Queue<WeaponUpgradeDefinition>();
+    private readonly Dictionary<WeaponModeId, int> weaponModeRanks = new Dictionary<WeaponModeId, int>();
+    private readonly Dictionary<WeaponBaseUpgradeId, int> weaponBaseUpgradeRanks = new Dictionary<WeaponBaseUpgradeId, int>();
     private DeathType currentDeathType = DeathType.KilledByMonster;
     private bool countdownStyleInitialized;
     private TMP_Text countdownStyleTarget;
@@ -296,6 +312,9 @@ public class GameFlowController : MonoBehaviour
     private int bonusXPPerKill;
     private float bonusXPMagnetRadius;
     private float cashBonusPercent;
+    private int weaponUpgradeSelectionCount;
+    private WeaponModeId modeA = WeaponModeId.None;
+    private WeaponModeId modeB = WeaponModeId.None;
 
     public int BonusXPPerKill => bonusXPPerKill;
     public float BonusXPMagnetRadius => bonusXPMagnetRadius;
@@ -325,6 +344,7 @@ public class GameFlowController : MonoBehaviour
     private bool gameplayTutorialFirstKillShown;
     private bool gameplayTutorialFirstPickupShown;
     private GameplayTutorialHintType activeGameplayTutorialHintType;
+    private GameplayTutorialStage gameplayTutorialStage;
 
     private enum GameplayTutorialHintType
     {
@@ -334,20 +354,80 @@ public class GameFlowController : MonoBehaviour
         Debt
     }
 
+    private enum GameplayTutorialStage
+    {
+        Inactive,
+        WaitingForMove,
+        WaitingForFirstKill,
+        WaitingForFirstPickup,
+        Complete
+    }
+
+    private sealed class GeneratedWeaponUpgradeOffer
+    {
+        public WeaponUpgrade Upgrade;
+        public float Weight;
+    }
+
+    private static readonly WeaponModeId[] AllWeaponModes =
+    {
+        WeaponModeId.OrbitRing,
+        WeaponModeId.NovaWave,
+        WeaponModeId.OnHitScatter,
+        WeaponModeId.FanSpread,
+        WeaponModeId.PierceLine,
+        WeaponModeId.ReturnFlight,
+    };
+
+    private static readonly WeaponBaseUpgradeId[] AllWeaponBaseUpgrades =
+    {
+        WeaponBaseUpgradeId.QuickStamp,
+        WeaponBaseUpgradeId.StampedLedger,
+        WeaponBaseUpgradeId.AirMail,
+    };
+
     public int RunTotalKills => runTotalKills;
     public int RunTotalCashEarned => runTotalCashEarned;
     public int RunTotalXPEarned => runTotalXPEarned;
     public int RunHighestRound => runHighestRound;
+
+    public bool TryGetPickupFunnelTarget(
+        out Vector3 target,
+        out float holdSeconds,
+        out float speedMultiplier,
+        out float arrivalDistance)
+    {
+        target = Vector3.zero;
+        holdSeconds = 0f;
+        speedMultiplier = 1f;
+        arrivalDistance = 0f;
+
+        if (pickupsRoot == null || playerMotor == null)
+            return false;
+
+        if (pickupsRoot.childCount <= Mathf.Max(0, pickupFunnelMinActiveCount))
+            return false;
+
+        Vector2 forward = playerMotor.LastMoveDir.sqrMagnitude > 0.001f
+            ? playerMotor.LastMoveDir.normalized
+            : Vector2.right;
+        target = playerMotor.transform.position + (Vector3)(forward * Mathf.Max(0f, pickupFunnelForwardOffset));
+        holdSeconds = Mathf.Max(0.01f, pickupFunnelHoldSeconds);
+        speedMultiplier = Mathf.Max(0.1f, pickupFunnelSpeedMultiplier);
+        arrivalDistance = Mathf.Max(0f, pickupFunnelArrivalDistance);
+        return true;
+    }
 
     /// <summary>敌人被击杀时调用（EnemyController.Die）</summary>
     public void NotifyEnemyKilled(Vector3 worldPosition)
     {
         runTotalKills++;
 
-        if (!enableGameplayTutorial || gameplayTutorialFirstKillShown || runTotalKills != 1)
+        if (!enableGameplayTutorial || gameplayTutorialStage != GameplayTutorialStage.WaitingForFirstKill)
             return;
 
         gameplayTutorialFirstKillShown = true;
+        gameplayTutorialStage = GameplayTutorialStage.WaitingForFirstPickup;
         StopGameplayTutorialSequence();
         ShowGameplayTutorialHint(
             gameplayTutorialPickupText,
@@ -358,10 +438,11 @@ public class GameFlowController : MonoBehaviour
 
     public void NotifyGameplayTutorialPickupCollected(Vector3 worldPosition)
     {
-        if (!enableGameplayTutorial || gameplayTutorialFirstPickupShown || !gameplayTutorialFirstKillShown)
+        if (!enableGameplayTutorial || gameplayTutorialStage != GameplayTutorialStage.WaitingForFirstPickup)
             return;
 
         gameplayTutorialFirstPickupShown = true;
+        gameplayTutorialStage = GameplayTutorialStage.Complete;
         bool completedPickupHint = TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Pickup);
 
         if (gameplayTutorialDebtFollowupCo != null)
@@ -372,6 +453,7 @@ public class GameFlowController : MonoBehaviour
             gameplayTutorialDebtFollowupCo = StartCoroutine(ShowDebtTutorialAfterDelay(
                 worldPosition + gameplayTutorialPickupOffset,
                 gameplayTutorialCompleteFadeDuration));
+            StartFormalGameplayAfterTutorial();
             return;
         }
 
@@ -380,6 +462,8 @@ public class GameFlowController : MonoBehaviour
             worldPosition + gameplayTutorialPickupOffset,
             gameplayTutorialPickupLifetime,
             GameplayTutorialHintType.Debt);
+
+        StartFormalGameplayAfterTutorial();
     }
 
     private void Awake()
@@ -410,10 +494,12 @@ public class GameFlowController : MonoBehaviour
         SettingsMenuController.ApplyStartupDisplaySettings();
         PrepareInitialMenuSafetyState();
         EnsureCountdownMaterialIsolated();
+        EnsureGameplayRoundTextBound();
         EnsureUIEventSystem();
 
         if (enemySpawner == null)
             enemySpawner = FindObjectOfType<EnemySpawner>();
+        ResolvePlayerHealth();
         if (playerShooter == null)
             playerShooter = FindObjectOfType<PlayerShooter>();
 
@@ -820,7 +906,7 @@ private bool TryShowLevelUpRewardPanelNow()
     WeaponUpgrade[] selectedUpgrades = SelectRandomUpgrades(3);
     if (selectedUpgrades.Length < 3)
     {
-        RunLogger.Error("Level up skipped: weapon upgrade pool has no valid entries.");
+        RunLogger.Error("Level up skipped: upgrade offer generator could not produce three valid entries.");
         return false;
     }
 
@@ -859,248 +945,419 @@ private void TryShowDeferredLevelUpRewardIfReady()
     /// </summary>
     private WeaponUpgrade[] SelectRandomUpgrades(int count)
     {
-        if (count <= 0) return new WeaponUpgrade[0];
+        if (count <= 0)
+            return new WeaponUpgrade[0];
+
+        if (weaponUpgradeSelectionCount <= 0 || modeA == WeaponModeId.None)
+            return SelectInitialModeOffers(count, null);
+
+        if (weaponUpgradeSelectionCount == 1 || modeB == WeaponModeId.None)
+            return SelectInitialModeOffers(count, modeA);
+
+        return SelectLockedModeAndBaseOffers(count);
+    }
+
+    private WeaponUpgrade[] SelectInitialModeOffers(int count, WeaponModeId? excludedMode)
+    {
+        List<WeaponModeId> eligibleModes = new List<WeaponModeId>(AllWeaponModes.Length);
+        for (int i = 0; i < AllWeaponModes.Length; i++)
+        {
+            WeaponModeId mode = AllWeaponModes[i];
+            if (excludedMode.HasValue && mode == excludedMode.Value)
+                continue;
+
+            eligibleModes.Add(mode);
+        }
+
+        if (eligibleModes.Count < count)
+            return new WeaponUpgrade[0];
+
+        List<WeaponModeId> pickedModes = PickRandomUniqueValues(eligibleModes, count);
+        WeaponUpgrade[] selected = new WeaponUpgrade[pickedModes.Count];
+        for (int i = 0; i < pickedModes.Count; i++)
+            selected[i] = CreateModeUpgrade(pickedModes[i]);
+
+        return selected;
+    }
+
+    private WeaponUpgrade[] SelectLockedModeAndBaseOffers(int count)
+    {
+        List<GeneratedWeaponUpgradeOffer> pool = new List<GeneratedWeaponUpgradeOffer>(AllWeaponBaseUpgrades.Length + 2);
+        pool.Add(CreateWeightedModeOffer(modeA));
+        pool.Add(CreateWeightedModeOffer(modeB));
+
+        for (int i = 0; i < AllWeaponBaseUpgrades.Length; i++)
+            pool.Add(CreateWeightedBaseOffer(AllWeaponBaseUpgrades[i]));
+
+        List<GeneratedWeaponUpgradeOffer> picked = WeightedPickerUtility.PickUnique(pool, count, offer => offer.Weight);
+        if (picked.Count < count)
+            return new WeaponUpgrade[0];
+
+        WeaponUpgrade[] selected = new WeaponUpgrade[count];
+        for (int i = 0; i < count; i++)
+            selected[i] = picked[i].Upgrade;
+
+        return selected;
+    }
+
+    private GeneratedWeaponUpgradeOffer CreateWeightedModeOffer(WeaponModeId mode)
+    {
+        int modeRank = GetModeRank(mode);
+        int siblingRank = mode == modeA ? GetModeRank(modeB) : GetModeRank(modeA);
+        float weight = Mathf.Max(0.1f, lockedModeOfferWeight);
+        if (modeRank < siblingRank)
+            weight += Mathf.Max(0f, lowerRankModeCatchUpWeightBonus);
+
+        return new GeneratedWeaponUpgradeOffer
+        {
+            Upgrade = CreateModeUpgrade(mode),
+            Weight = weight,
+        };
+    }
+
+    private GeneratedWeaponUpgradeOffer CreateWeightedBaseOffer(WeaponBaseUpgradeId baseUpgradeId)
+    {
+        int rank = GetBaseUpgradeRank(baseUpgradeId);
+        float weight = Mathf.Max(0.1f, lockedBaseOfferWeight - (rank * 0.06f));
+
+        return new GeneratedWeaponUpgradeOffer
+        {
+            Upgrade = CreateBaseUpgrade(baseUpgradeId),
+            Weight = weight,
+        };
+    }
+
+    private WeaponUpgrade CreateModeUpgrade(WeaponModeId mode)
+    {
+        int nextRank = GetModeRank(mode) + 1;
+        string title = GetModeUpgradeTitle(mode);
+        WeaponUpgrade upgrade = new WeaponUpgrade(title, GetModeUpgradeDescription(mode, nextRank), ResolveGeneratedUpgradeIcon(title))
+        {
+            rarity = GetModeUpgradeRarity(nextRank),
+            trackType = WeaponUpgradeTrackType.Mode,
+            modeId = mode,
+            rank = nextRank,
+            effects = BuildModeUpgradeEffects(mode, nextRank),
+        };
+
+        return upgrade;
+    }
+
+    private WeaponUpgrade CreateBaseUpgrade(WeaponBaseUpgradeId baseUpgradeId)
+    {
+        int nextRank = GetBaseUpgradeRank(baseUpgradeId) + 1;
+        string title = GetBaseUpgradeTitle(baseUpgradeId);
+        WeaponUpgrade upgrade = new WeaponUpgrade(title, GetBaseUpgradeDescription(baseUpgradeId, nextRank), ResolveGeneratedUpgradeIcon(title))
+        {
+            rarity = nextRank >= 4 ? UpgradeRarity.Uncommon : UpgradeRarity.Common,
+            trackType = WeaponUpgradeTrackType.Base,
+            baseUpgradeId = baseUpgradeId,
+            rank = nextRank,
+            effects = BuildBaseUpgradeEffects(baseUpgradeId, nextRank),
+        };
+
+        return upgrade;
+    }
+
+    private UpgradeRarity GetModeUpgradeRarity(int nextRank)
+    {
+        if (nextRank >= 5)
+            return UpgradeRarity.Epic;
+        if (nextRank >= 3)
+            return UpgradeRarity.Rare;
+        return UpgradeRarity.Uncommon;
+    }
+
+    private string GetModeUpgradeTitle(WeaponModeId mode)
+    {
+        switch (mode)
+        {
+            case WeaponModeId.OrbitRing:
+                return "Collection Ring";
+            case WeaponModeId.NovaWave:
+                return "Final Notice";
+            case WeaponModeId.OnHitScatter:
+                return "Fine Print";
+            case WeaponModeId.FanSpread:
+                return "Double Entry";
+            case WeaponModeId.PierceLine:
+                return "Hard Copy";
+            case WeaponModeId.ReturnFlight:
+                return "Return To Sender";
+            default:
+                return "Mode Shift";
+        }
+    }
+
+    private string GetModeUpgradeDescription(WeaponModeId mode, int nextRank)
+    {
+        switch (mode)
+        {
+            case WeaponModeId.OrbitRing:
+                return nextRank <= 1
+                    ? "A ring of collector cards starts circling you."
+                    : "The ring widens and picks up speed as more orbit joins in.";
+            case WeaponModeId.NovaWave:
+                return nextRank <= 1
+                    ? "A warning wave begins bursting out from your position."
+                    : "The wave pulses more often and throws more paper into the crowd.";
+            case WeaponModeId.OnHitScatter:
+                return nextRank <= 1
+                    ? "Direct hits bloom into chasing slips."
+                    : "The bloom throws out more slips and fans wider through nearby targets.";
+            case WeaponModeId.FanSpread:
+                return nextRank <= 1
+                    ? "Your shots begin to fan into a wider filing lane."
+                    : "The lane fills out with more cards and a broader spread.";
+            case WeaponModeId.PierceLine:
+                return nextRank <= 1
+                    ? "Your cards start punching through the front line."
+                    : "The line drive gets harder, faster, and keeps carrying forward.";
+            case WeaponModeId.ReturnFlight:
+                return nextRank <= 1
+                    ? "Thrown cards loop back through the lane after their first pass."
+                    : "The return flight gets quicker and more dangerous on the way home.";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private string GetBaseUpgradeTitle(WeaponBaseUpgradeId baseUpgradeId)
+    {
+        switch (baseUpgradeId)
+        {
+            case WeaponBaseUpgradeId.QuickStamp:
+                return "Quick Stamp";
+            case WeaponBaseUpgradeId.StampedLedger:
+                return "Stamped Ledger";
+            case WeaponBaseUpgradeId.AirMail:
+                return "Air Mail";
+            default:
+                return "Base Upgrade";
+        }
+    }
+
+    private string GetBaseUpgradeDescription(WeaponBaseUpgradeId baseUpgradeId, int nextRank)
+    {
+        switch (baseUpgradeId)
+        {
+            case WeaponBaseUpgradeId.QuickStamp:
+                return nextRank <= 1
+                    ? "Move your hand faster between shots."
+                    : "Shave more downtime off every attack cycle.";
+            case WeaponBaseUpgradeId.StampedLedger:
+                return nextRank <= 1
+                    ? "Make every card land with more weight."
+                    : "Push raw impact higher across both locked modes.";
+            case WeaponBaseUpgradeId.AirMail:
+                return nextRank <= 1
+                    ? "Drive cards across the arena with more speed."
+                    : "Tighten travel time and keep your pressure reaching farther.";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private Sprite ResolveGeneratedUpgradeIcon(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
 
         EnsureWeaponUpgradePool();
-        if (weaponUpgradePoolAsset == null || weaponUpgradePoolAsset.Entries == null || weaponUpgradePoolAsset.Entries.Count == 0)
-            return SelectFallbackRandomUpgrades(count);
+        if (weaponUpgradePoolAsset == null || weaponUpgradePoolAsset.Entries == null)
+            return null;
 
-        List<WeaponUpgradeDefinition> eligibleEntries = new List<WeaponUpgradeDefinition>();
         for (int i = 0; i < weaponUpgradePoolAsset.Entries.Count; i++)
         {
             WeaponUpgradeDefinition entry = weaponUpgradePoolAsset.Entries[i];
-            if (entry == null)
-                continue;
-            if (!IsUpgradeRarityUnlocked(entry.Rarity))
+            if (entry == null || string.IsNullOrWhiteSpace(entry.UpgradeTitle))
                 continue;
 
-            eligibleEntries.Add(entry);
+            if (string.Equals(entry.UpgradeTitle.Trim(), title.Trim(), System.StringComparison.OrdinalIgnoreCase))
+                return entry.Icon;
         }
 
-        IReadOnlyList<WeaponUpgradeDefinition> sourceEntries = eligibleEntries.Count >= count
-            ? eligibleEntries
-            : weaponUpgradePoolAsset.Entries;
-
-        System.Collections.Generic.List<WeaponUpgradeDefinition> pickedDefinitions =
-            PickUniqueUpgradeDefinitionsByFamily(sourceEntries, count);
-
-        if (pickedDefinitions.Count < count)
-            return new WeaponUpgrade[0];
-
-        RememberOfferedUpgrades(pickedDefinitions);
-
-        WeaponUpgrade[] selected = new WeaponUpgrade[count];
-        for (int i = 0; i < count; i++)
-            selected[i] = pickedDefinitions[i] != null ? pickedDefinitions[i].CreateRuntimeUpgrade() : null;
-
-        return selected;
+        return null;
     }
 
-    private bool IsUpgradeRarityUnlocked(UpgradeRarity rarity)
+    private List<WeaponUpgradeEffect> BuildModeUpgradeEffects(WeaponModeId mode, int nextRank)
     {
-        if (!gateWeaponUpgradeRarityByRound)
-            return true;
+        List<WeaponUpgradeEffect> effects = new List<WeaponUpgradeEffect>(4);
 
-        int unlockRound = GetUpgradeRarityUnlockRound(rarity);
-        return roundIndex >= unlockRound;
-    }
-
-    private int GetUpgradeRarityUnlockRound(UpgradeRarity rarity)
-    {
-        switch (rarity)
+        switch (mode)
         {
-            case UpgradeRarity.Uncommon:
-                return Mathf.Max(1, uncommonUpgradeUnlockRound);
-            case UpgradeRarity.Rare:
-                return Mathf.Max(1, rareUpgradeUnlockRound);
-            case UpgradeRarity.Epic:
-                return Mathf.Max(1, epicUpgradeUnlockRound);
-            case UpgradeRarity.Legendary:
-                return Mathf.Max(1, legendaryUpgradeUnlockRound);
-            default:
-                return 1;
-        }
-    }
-
-    private float GetUpgradeOfferWeight(WeaponUpgradeDefinition entry)
-    {
-        if (entry == null)
-            return 0f;
-
-        float baseWeight = weaponUpgradePoolAsset != null
-            ? weaponUpgradePoolAsset.GetEffectiveWeight(entry)
-            : Mathf.Max(0f, entry.WeightPercent);
-        if (baseWeight <= 0f)
-            return 0f;
-
-        float weight = baseWeight * GetUpgradeRarityRoundWeight(entry.Rarity);
-        int recentOfferCount = CountRecentUpgradeOffers(entry);
-        if (recentOfferCount > 0)
-            weight *= Mathf.Pow(Mathf.Clamp(recentUpgradeOfferRepeatPenalty, 0.05f, 1f), recentOfferCount);
-
-        return Mathf.Max(0.0001f, weight);
-    }
-
-    private List<WeaponUpgradeDefinition> PickUniqueUpgradeDefinitionsByFamily(IReadOnlyList<WeaponUpgradeDefinition> sourceEntries, int count)
-    {
-        List<WeaponUpgradeDefinition> results = new List<WeaponUpgradeDefinition>();
-        if (sourceEntries == null || count <= 0)
-            return results;
-
-        List<WeaponUpgradeDefinition> remaining = new List<WeaponUpgradeDefinition>();
-        for (int i = 0; i < sourceEntries.Count; i++)
-        {
-            WeaponUpgradeDefinition entry = sourceEntries[i];
-            if (entry != null)
-                remaining.Add(entry);
-        }
-
-        HashSet<string> usedFamilyKeys = new HashSet<string>();
-        while (results.Count < count && remaining.Count > 0)
-        {
-            List<WeaponUpgradeDefinition> familyEligible = new List<WeaponUpgradeDefinition>();
-            for (int i = 0; i < remaining.Count; i++)
-            {
-                WeaponUpgradeDefinition entry = remaining[i];
-                if (entry == null)
-                    continue;
-
-                string familyKey = GetUpgradeOfferFamilyKey(entry);
-                if (usedFamilyKeys.Contains(familyKey))
-                    continue;
-
-                if (GetUpgradeOfferWeight(entry) > 0f)
-                    familyEligible.Add(entry);
-            }
-
-            if (familyEligible.Count <= 0)
+            case WeaponModeId.OrbitRing:
+                if (nextRank == 1)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, 3));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitRadiusAdd, floatValue: 0.25f));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 14f));
+                }
+                else if (nextRank % 2 == 1)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, 1));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 12f));
+                }
+                else
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitRadiusAdd, floatValue: 0.1f));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 16f));
+                }
                 break;
 
-            List<WeaponUpgradeDefinition> pickedOne = WeightedPickerUtility.PickUnique(familyEligible, 1, GetUpgradeOfferWeight);
-            WeaponUpgradeDefinition picked = pickedOne.Count > 0 ? pickedOne[0] : null;
-            if (picked == null)
+            case WeaponModeId.NovaWave:
+                if (nextRank == 1)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.NovaProjectileCountAdd, 6));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.NovaIntervalAdd, floatValue: -0.2f));
+                }
+                else
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.NovaProjectileCountAdd, 2));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.NovaIntervalAdd, floatValue: -0.1f));
+                }
                 break;
 
-            results.Add(picked);
-            usedFamilyKeys.Add(GetUpgradeOfferFamilyKey(picked));
-            remaining.Remove(picked);
+            case WeaponModeId.OnHitScatter:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.OnHitScatterCountAdd, 1));
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.OnHitScatterAngleAdd, floatValue: nextRank <= 2 ? 10f : 8f));
+                break;
+
+            case WeaponModeId.FanSpread:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.ExtraProjectilesAdd, 1));
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.SpreadAngleAdd, floatValue: nextRank <= 2 ? 3f : 2f));
+                if (nextRank >= 3)
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: 0.008f));
+                break;
+
+            case WeaponModeId.PierceLine:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.PierceAdd, 1));
+                if (nextRank % 2 == 0)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: 1.5f));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.KnockbackMultiplierAdd, floatValue: 0.15f));
+                }
+                else if (nextRank >= 3)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, 6));
+                }
+                break;
+
+            case WeaponModeId.ReturnFlight:
+                if (nextRank == 1)
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ReturnEnable, 1));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ReturnSpeedMultiplierAdd, floatValue: 0.25f));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: 1f));
+                }
+                else
+                {
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ReturnSpeedMultiplierAdd, floatValue: 0.18f));
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: 1f));
+                    if (nextRank >= 3)
+                        effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, 4));
+                }
+                break;
         }
 
-        return results;
+        return effects;
     }
 
-    private float GetUpgradeRarityRoundWeight(UpgradeRarity rarity)
+    private List<WeaponUpgradeEffect> BuildBaseUpgradeEffects(WeaponBaseUpgradeId baseUpgradeId, int nextRank)
     {
-        float t = GetRoundCurveT(roundIndex);
-        switch (rarity)
+        List<WeaponUpgradeEffect> effects = new List<WeaponUpgradeEffect>(2);
+
+        switch (baseUpgradeId)
         {
-            case UpgradeRarity.Uncommon:
-                return Mathf.Max(0.01f, uncommonUpgradeOfferWeightByRound.Evaluate(t));
-            case UpgradeRarity.Rare:
-                return Mathf.Max(0.01f, rareUpgradeOfferWeightByRound.Evaluate(t));
-            case UpgradeRarity.Epic:
-                return Mathf.Max(0.01f, epicUpgradeOfferWeightByRound.Evaluate(t));
-            case UpgradeRarity.Legendary:
-                return Mathf.Max(0.01f, legendaryUpgradeOfferWeightByRound.Evaluate(t));
-            default:
-                return Mathf.Max(0.01f, commonUpgradeOfferWeightByRound.Evaluate(t));
+            case WeaponBaseUpgradeId.QuickStamp:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: nextRank <= 2 ? 0.015f : 0.012f));
+                break;
+            case WeaponBaseUpgradeId.StampedLedger:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, nextRank <= 2 ? 8 : 10));
+                break;
+            case WeaponBaseUpgradeId.AirMail:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: nextRank <= 2 ? 1.8f : 1.4f));
+                if (nextRank >= 3)
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.KnockbackMultiplierAdd, floatValue: 0.08f));
+                break;
         }
+
+        return effects;
     }
 
-    private int CountRecentUpgradeOffers(WeaponUpgradeDefinition entry)
+    private WeaponUpgradeEffect CreateEffect(WeaponUpgradeEffectType effectType, int intValue = 0, float floatValue = 0f)
     {
-        if (entry == null || recentUpgradeOfferHistory.Count == 0)
+        return new WeaponUpgradeEffect
+        {
+            effectType = effectType,
+            intValue = intValue,
+            floatValue = floatValue,
+        };
+    }
+
+    private int GetModeRank(WeaponModeId mode)
+    {
+        if (mode == WeaponModeId.None)
             return 0;
 
-        int count = 0;
-        foreach (WeaponUpgradeDefinition recent in recentUpgradeOfferHistory)
-        {
-            if (recent == entry)
-                count++;
-        }
-
-        return count;
+        return weaponModeRanks.TryGetValue(mode, out int rank) ? rank : 0;
     }
 
-    private string GetUpgradeOfferFamilyKey(WeaponUpgradeDefinition entry)
+    private int GetBaseUpgradeRank(WeaponBaseUpgradeId baseUpgradeId)
     {
-        if (entry == null)
-            return string.Empty;
+        if (baseUpgradeId == WeaponBaseUpgradeId.None)
+            return 0;
 
-        string explicitKey = entry.UpgradeFamilyKey;
-        if (!string.IsNullOrWhiteSpace(explicitKey))
-            return explicitKey.Trim().ToLowerInvariant();
-
-        return NormalizeUpgradeFamilyKey(entry.UpgradeTitle);
+        return weaponBaseUpgradeRanks.TryGetValue(baseUpgradeId, out int rank) ? rank : 0;
     }
 
-    private static string NormalizeUpgradeFamilyKey(string title)
+    private void RecordWeaponUpgradeSelection(WeaponUpgrade upgrade)
     {
-        if (string.IsNullOrWhiteSpace(title))
-            return string.Empty;
-
-        string normalized = title.Trim();
-        normalized = Regex.Replace(normalized, @"\s+(?:[ivx]+|\d+)$", string.Empty, RegexOptions.IgnoreCase);
-        normalized = Regex.Replace(normalized, @"\s+", " ");
-        return normalized.Trim().ToLowerInvariant();
-    }
-
-    private void RememberOfferedUpgrades(IReadOnlyList<WeaponUpgradeDefinition> pickedDefinitions)
-    {
-        if (pickedDefinitions == null || pickedDefinitions.Count == 0)
+        if (upgrade == null)
             return;
 
-        int memory = Mathf.Max(0, recentUpgradeOfferMemory);
-        if (memory <= 0)
+        if (upgrade.trackType == WeaponUpgradeTrackType.Mode)
+        {
+            weaponUpgradeSelectionCount += 1;
+
+            if (modeA == WeaponModeId.None)
+                modeA = upgrade.modeId;
+            else if (modeB == WeaponModeId.None && upgrade.modeId != modeA)
+                modeB = upgrade.modeId;
+
+            weaponModeRanks[upgrade.modeId] = GetModeRank(upgrade.modeId) + 1;
             return;
-
-        for (int i = 0; i < pickedDefinitions.Count; i++)
-        {
-            WeaponUpgradeDefinition entry = pickedDefinitions[i];
-            if (entry == null)
-                continue;
-
-            recentUpgradeOfferHistory.Enqueue(entry);
         }
 
-        while (recentUpgradeOfferHistory.Count > memory)
-            recentUpgradeOfferHistory.Dequeue();
-    }
-
-    private void ResetUpgradeOfferHistory()
-    {
-        recentUpgradeOfferHistory.Clear();
-    }
-
-    private WeaponUpgrade[] SelectFallbackRandomUpgrades(int count)
-    {
-        System.Collections.Generic.List<WeaponUpgrade> fallbackPool = CreateDefaultFallbackWeaponUpgrades();
-        if (fallbackPool.Count == 0)
-            return new WeaponUpgrade[0];
-
-        WeaponUpgrade[] selected = new WeaponUpgrade[count];
-        System.Collections.Generic.List<int> indices = new System.Collections.Generic.List<int>();
-        for (int i = 0; i < fallbackPool.Count; i++)
-            indices.Add(i);
-
-        for (int i = 0; i < count; i++)
+        if (upgrade.trackType == WeaponUpgradeTrackType.Base)
         {
-            WeaponUpgrade picked;
-            if (indices.Count > 0)
-            {
-                int randomIdx = Random.Range(0, indices.Count);
-                picked = fallbackPool[indices[randomIdx]];
-                indices.RemoveAt(randomIdx);
-            }
-            else
-            {
-                picked = fallbackPool[Random.Range(0, fallbackPool.Count)];
-            }
+            weaponUpgradeSelectionCount += 1;
+            weaponBaseUpgradeRanks[upgrade.baseUpgradeId] = GetBaseUpgradeRank(upgrade.baseUpgradeId) + 1;
+        }
+    }
 
-            selected[i] = picked;
+    private void ResetWeaponUpgradeModeState()
+    {
+        weaponUpgradeSelectionCount = 0;
+        modeA = WeaponModeId.None;
+        modeB = WeaponModeId.None;
+        weaponModeRanks.Clear();
+        weaponBaseUpgradeRanks.Clear();
+    }
+
+    private List<T> PickRandomUniqueValues<T>(IReadOnlyList<T> source, int count)
+    {
+        List<T> remaining = new List<T>(source);
+        List<T> picked = new List<T>(Mathf.Min(count, remaining.Count));
+
+        while (picked.Count < count && remaining.Count > 0)
+        {
+            int index = Random.Range(0, remaining.Count);
+            picked.Add(remaining[index]);
+            remaining.RemoveAt(index);
         }
 
-        return selected;
+        return picked;
     }
 
     /// <summary>
@@ -1108,10 +1365,22 @@ private void TryShowDeferredLevelUpRewardIfReady()
     /// </summary>
     private void OnUpgradeSelected(WeaponUpgrade upgrade)
     {
-        if (upgrade != null && playerShooter != null)
-            playerShooter.ApplyUpgrade(upgrade);
-        else if (upgrade == null)
+        if (upgrade == null)
+        {
             RunLogger.Warning("Upgrade selected callback received null upgrade.");
+        }
+        else
+        {
+            if (playerShooter == null)
+            {
+                RunLogger.Warning($"Upgrade selected but playerShooter is missing. upgrade={upgrade.title}");
+            }
+            else
+            {
+                RecordWeaponUpgradeSelection(upgrade);
+                playerShooter.ApplyUpgrade(upgrade);
+            }
+        }
 
     if (clearEnemyProjectilesAfterLevelUp)
         ClearEnemyProjectiles();
@@ -1124,10 +1393,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     if (postLevelUpSafetyInvulnSeconds > 0f)
     {
-        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
-        if (playerHealth != null)
-                playerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
-        }
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        if (resolvedPlayerHealth != null)
+            resolvedPlayerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
+    }
 
     string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
     RunLogger.Event($"Upgrade selected: {upgradeTitle}");
@@ -1164,7 +1433,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
     private void StartRunGameplayFlow()
     {
         // 鎭㈠娓告垙鏃堕棿锛堜互闃茶繕鍦ㄦ殏鍋滅姸鎬侊級
+        StopPlayerLossPresentation();
         StopRoundClearTransition(false);
+        StopGameOverTransition(false);
         Time.timeScale = 1f;
 
         // 鏂板紑灞€锛氶噸缃?
@@ -1182,20 +1453,21 @@ private void TryShowDeferredLevelUpRewardIfReady()
         previousRoundCashEarned = 0;
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
+        gameplayTutorialStage = enableGameplayTutorial ? GameplayTutorialStage.WaitingForMove : GameplayTutorialStage.Inactive;
         runProgression.Reset();
         runProgression.BeginRound();
-        ResetUpgradeOfferHistory();
+        ResetWeaponUpgradeModeState();
         LogCurrentEnemyDifficulty();
 
         RunLogger.Event($"Run started: rounds={totalRounds}, due={CalcDue(roundIndex)}, level={level}");
         Projectile.ResetPool();
 
         // 閲嶇疆鐜╁琛€閲忓拰琛€閲廢I
-        var playerHealth = FindObjectOfType<PlayerHealth>();
-        if (playerHealth != null)
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        if (resolvedPlayerHealth != null)
         {
-            playerHealth.ResetRuntimeStats();
-            playerHealth.RestoreHealth();
+            resolvedPlayerHealth.ResetRuntimeStats();
+            resolvedPlayerHealth.RestoreHealth();
         }
 
         if (playerMotor != null)
@@ -1228,7 +1500,6 @@ private void TryShowDeferredLevelUpRewardIfReady()
         SwitchState(GameState.Gameplay);
         if (cameraFollow != null)
             cameraFollow.SnapToTarget();
-        ShowRoundIntro();
 
         if (healthUI != null)
             healthUI.ResetHealthUI();
@@ -1236,9 +1507,17 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (xpUI != null)
             xpUI.UpdateXPDisplay();
 
-        StartRoundTimer();
         RefreshHUD();
-        BeginGameplayTutorialSequence();
+
+        if (enableGameplayTutorial)
+        {
+            BeginGameplayTutorialSequence();
+        }
+        else
+        {
+            ShowRoundIntro();
+            StartRoundTimer();
+        }
     }
 
     [ContextMenu("Debug/Jump To Boss Round")]
@@ -1249,8 +1528,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     public void DebugJumpToBossRound(bool resetStats)
     {
+        StopPlayerLossPresentation();
         StopRoundIntro();
         StopRoundClearTransition(false);
+        StopGameOverTransition(false);
         StopRoundTimer();
         Time.timeScale = 1f;
         pendingDeferredLevelUpChoices = 0;
@@ -1268,11 +1549,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
             xpToNext = CalculateXpToNext(level);
             runProgression.Reset();
 
-            PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
-            if (playerHealth != null)
+            PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+            if (resolvedPlayerHealth != null)
             {
-                playerHealth.ResetRuntimeStats();
-                playerHealth.RestoreHealth();
+                resolvedPlayerHealth.ResetRuntimeStats();
+                resolvedPlayerHealth.RestoreHealth();
             }
 
             if (playerMotor != null)
@@ -1284,13 +1565,14 @@ private void TryShowDeferredLevelUpRewardIfReady()
             bonusXPPerKill = 0;
             bonusXPMagnetRadius = 0f;
             cashBonusPercent = 0f;
+            ResetWeaponUpgradeModeState();
         }
 
         currentRoundCashEarned = 0;
         previousRoundCashEarned = 0;
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
-        ResetUpgradeOfferHistory();
+        gameplayTutorialStage = GameplayTutorialStage.Inactive;
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
         roundIndex = GetBossRoundIndex();
@@ -1354,6 +1636,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
     private void AutoCompleteBossRoundIfBossDefeated()
     {
         if (state != GameState.Gameplay)
+            return;
+
+        if (IsPlayerDeathPendingOrActive())
             return;
 
         if (bossVictorySequenceActive)
@@ -1536,7 +1821,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // 鐜╁娓告垙缁撴潫 - 鎸囧畾姝诲洜
     public void TriggerGameOver(DeathType deathType)
     {
-        if (state == GameState.GameOver) return; // 宸茬粡鏄疓ameOver鍒欏拷鐣ラ噸澶嶈Е鍙?
+        if (state == GameState.GameOver || playerLossPresentationActive) return; // 宸茬粡鏄疓ameOver鍒欏拷鐣ラ噸澶嶈Е鍙?
 
         if (deathType == DeathType.KilledByMonster && state != GameState.Gameplay)
         {
@@ -1550,36 +1835,48 @@ private void TryShowDeferredLevelUpRewardIfReady()
         currentDeathType = deathType;
         RunLogger.Warning($"Game over triggered. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
 
-        PlayFailAnimation();
+        CancelBossVictorySequenceForFailure();
         StopRoundClearTransition(false);
         StopRoundTimer();
+        StopGameOverTransition(false);
 
-        // 鏄剧ず瀵瑰簲姝诲洜鐨勬浜￠潰鏉匡紙骞舵殏鍋滀笘鐣岋級
-        RunSummaryPanel.EndingType ending = deathType == DeathType.FailedDebt
-            ? RunSummaryPanel.EndingType.FailedDebt
-            : RunSummaryPanel.EndingType.KilledByMonster;
-        ShowRunSummary(ending);
+        if (TryStartPlayerLossPresentation(deathType))
+            return;
 
-        // 鏆傚仠娓告垙涓栫晫锛屽喕缁撲竴鍒囧姩浣?
-        Time.timeScale = 0f;
-
-        SwitchState(GameState.GameOver);
+        ContinueGameOverFlow(deathType);
     }
 
     // 娓告垙缁撴潫 - 鏄剧ず姝讳骸闈㈡澘锛堢敤浜庨潪Gameplay鐘舵€侊級
     private void ShowGameOverWithDeathPanel(DeathType deathType)
     {
+        if (state == GameState.GameOver || playerLossPresentationActive)
+            return;
+
         currentDeathType = deathType;
         RunLogger.Warning($"Game over with death panel. round={roundIndex}, cash={cash}, due={CalcDue(roundIndex)}, level={level}, deathType={deathType}");
-        
-        RunSummaryPanel.EndingType ending = deathType == DeathType.FailedDebt
-            ? RunSummaryPanel.EndingType.FailedDebt
-            : RunSummaryPanel.EndingType.KilledByMonster;
-        ShowRunSummary(ending);
 
-        Time.timeScale = 0f;
+        CancelBossVictorySequenceForFailure();
+        StopGameOverTransition(false);
+        StopRoundClearTransition(false);
+        StopRoundTimer();
 
-        SwitchState(GameState.GameOver);
+        if (TryStartPlayerLossPresentation(deathType))
+            return;
+
+        ContinueGameOverFlow(deathType);
+    }
+
+    private void ContinueGameOverFlow(DeathType deathType)
+    {
+        PlayFailAnimation();
+
+        if (showGameOverTransition)
+        {
+            ShowGameOverTransition(deathType);
+            return;
+        }
+
+        FinalizeGameOver(deathType);
     }
 
     private DeathPanel GetDeathPanelForType(DeathType deathType)
@@ -1602,6 +1899,191 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (runSummaryPanel != null)
             runSummaryPanel.ShowPanel(ending, runTotalKills, runTotalCashEarned, runTotalXPEarned, runHighestRound, level);
+    }
+
+    private void FinalizeGameOver(DeathType deathType)
+    {
+        RunSummaryPanel.EndingType ending = deathType == DeathType.FailedDebt
+            ? RunSummaryPanel.EndingType.FailedDebt
+            : RunSummaryPanel.EndingType.KilledByMonster;
+        ShowRunSummary(ending);
+
+        Time.timeScale = 0f;
+        SwitchState(GameState.GameOver);
+    }
+
+    private void ShowGameOverTransition(DeathType deathType)
+    {
+        if (gameOverTransitionCo != null || gameOverTransitionActive)
+            StopGameOverTransition(false);
+
+        HideRunSummary();
+        UpdateGameOverTransitionText(deathType);
+        bool useOverlay = EnsureGameOverTransitionOverlay();
+
+        gameOverTransitionActive = true;
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+        ClearRoundEndTransientObjects();
+        ClearWorld();
+
+        if (useOverlay && gameOverTransitionOverlay != null)
+        {
+            gameOverTransitionOverlay.gameObject.SetActive(true);
+            gameOverTransitionOverlay.transform.SetAsLastSibling();
+            gameOverTransitionOverlay.alpha = 0f;
+        }
+
+        gameOverTransitionCo = StartCoroutine(GameOverTransitionRoutine(useOverlay, deathType));
+        RunLogger.Event($"Game over transition shown. overlay={useOverlay}, duration={gameOverTransitionSeconds:F2}s, deathType={deathType}");
+    }
+
+    private bool TryStartPlayerLossPresentation(DeathType deathType)
+    {
+        if (!playPlayerDeathAnimationOnLoss)
+            return false;
+
+        PlayerHitFeedback playerHitFeedback = ResolvePlayerHitFeedback();
+        if (playerHitFeedback == null)
+            return false;
+
+        float deathDuration = playerHitFeedback.PlayDeath();
+        if (deathDuration <= 0f)
+            return false;
+
+        playerLossPresentationActive = true;
+        Time.timeScale = 0f;
+        HidePanelsForLossPresentation();
+        SetGameplaySystemsActive(false);
+
+        if (playerLossPresentationCo != null)
+            StopCoroutine(playerLossPresentationCo);
+
+        playerLossPresentationCo = StartCoroutine(PlayerLossPresentationRoutine(deathType, deathDuration));
+        RunLogger.Event($"Player loss presentation started. duration={deathDuration:F2}s, deathType={deathType}");
+        return true;
+    }
+
+    private IEnumerator PlayerLossPresentationRoutine(DeathType deathType, float deathDuration)
+    {
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, deathDuration));
+        playerLossPresentationCo = null;
+        playerLossPresentationActive = false;
+        ContinueGameOverFlow(deathType);
+    }
+
+    private void StopPlayerLossPresentation()
+    {
+        if (playerLossPresentationCo != null)
+        {
+            StopCoroutine(playerLossPresentationCo);
+            playerLossPresentationCo = null;
+        }
+
+        playerLossPresentationActive = false;
+
+        PlayerHitFeedback playerHitFeedback = ResolvePlayerHitFeedback();
+        if (playerHitFeedback != null)
+            playerHitFeedback.ResetVisualState();
+    }
+
+    private PlayerHitFeedback ResolvePlayerHitFeedback()
+    {
+        if (playerMotor != null)
+        {
+            PlayerHitFeedback motorFeedback = playerMotor.GetComponent<PlayerHitFeedback>();
+            if (motorFeedback != null)
+                return motorFeedback;
+        }
+
+        return FindObjectOfType<PlayerHitFeedback>();
+    }
+
+    private void HidePanelsForLossPresentation()
+    {
+        HideRunSummary();
+
+        if (panelHUD != null)
+            panelHUD.SetActive(false);
+
+        if (levelUpPanel != null)
+            levelUpPanel.ForceHideImmediate();
+        else if (panelLevelUp != null)
+            panelLevelUp.SetActive(false);
+
+        if (panelSettlement != null)
+            panelSettlement.SetActive(false);
+
+        if (panelShop != null)
+            panelShop.SetActive(false);
+
+        if (panelPauseMenu != null)
+            panelPauseMenu.SetActive(false);
+
+        if (panelSettingsPlaceholder != null)
+            panelSettingsPlaceholder.SetActive(false);
+
+        pauseMenuOpen = false;
+        settingsReturnTarget = SettingsReturnTarget.None;
+        ClearGameplayTutorialHint();
+    }
+
+    private void StopGameOverTransition(bool finalizeIfNeeded)
+    {
+        if (gameOverTransitionCo != null)
+        {
+            StopCoroutine(gameOverTransitionCo);
+            gameOverTransitionCo = null;
+        }
+
+        if (gameOverTransitionOverlay != null)
+        {
+            gameOverTransitionOverlay.alpha = 0f;
+            gameOverTransitionOverlay.gameObject.SetActive(false);
+        }
+
+        if (!gameOverTransitionActive)
+            return;
+
+        gameOverTransitionActive = false;
+
+        if (finalizeIfNeeded)
+            FinalizeGameOver(currentDeathType);
+    }
+
+    private IEnumerator GameOverTransitionRoutine(bool useOverlay, DeathType deathType)
+    {
+        if (useOverlay && gameOverTransitionOverlay != null)
+        {
+            yield return FadeCanvasGroup(gameOverTransitionOverlay, 0f, 1f, gameOverTransitionFadeInSeconds);
+
+            float hold = Mathf.Max(0f, gameOverTransitionSeconds - gameOverTransitionFadeInSeconds - gameOverTransitionFadeOutSeconds);
+            if (hold > 0f)
+                yield return new WaitForSecondsRealtime(hold);
+
+            yield return FadeCanvasGroup(gameOverTransitionOverlay, gameOverTransitionOverlay.alpha, 0f, gameOverTransitionFadeOutSeconds);
+            gameOverTransitionOverlay.gameObject.SetActive(false);
+        }
+        else if (gameOverTransitionSeconds > 0f)
+        {
+            yield return new WaitForSecondsRealtime(gameOverTransitionSeconds);
+        }
+
+        gameOverTransitionCo = null;
+        gameOverTransitionActive = false;
+        FinalizeGameOver(deathType);
+    }
+
+    private void UpdateGameOverTransitionText(DeathType deathType)
+    {
+        if (gameOverTransitionTitleText != null)
+            gameOverTransitionTitleText.text = gameOverTransitionTitleMessage;
+
+        if (gameOverTransitionSubText == null)
+            return;
+
+        string causeText = deathType == DeathType.FailedDebt ? "Debt Unpaid" : "Killed by Monster";
+        gameOverTransitionSubText.text = $"{gameOverTransitionSubMessage}\n{causeText}";
     }
 
     private IEnumerator BossVictorySequenceRoutine(EnemyController defeatedBoss)
@@ -1708,6 +2190,48 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (victoryPresentationCo != null)
             StopCoroutine(victoryPresentationCo);
         victoryPresentationCo = StartCoroutine(VictoryPresentationRoutine());
+    }
+
+    private bool IsPlayerDeathPendingOrActive()
+    {
+        if (playerLossPresentationActive)
+            return true;
+
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        if (resolvedPlayerHealth == null)
+            return false;
+
+        return resolvedPlayerHealth.IsDead || resolvedPlayerHealth.CurrentHP <= 0;
+    }
+
+    private void CancelBossVictorySequenceForFailure()
+    {
+        if (!bossVictorySequenceActive && bossVictorySequenceCo == null)
+            return;
+
+        if (bossVictorySequenceCo != null)
+        {
+            StopCoroutine(bossVictorySequenceCo);
+            bossVictorySequenceCo = null;
+        }
+
+        bossVictorySequenceActive = false;
+
+        if (bossVictoryFlashOverlay != null)
+        {
+            bossVictoryFlashOverlay.alpha = 0f;
+            bossVictoryFlashOverlay.gameObject.SetActive(false);
+        }
+
+        RunLogger.Warning("Boss victory sequence cancelled because a failure state took priority.");
+    }
+
+    private PlayerHealth ResolvePlayerHealth()
+    {
+        if (playerHealth == null)
+            playerHealth = FindObjectOfType<PlayerHealth>();
+
+        return playerHealth;
     }
 
     private IEnumerator VictoryPresentationRoutine()
@@ -2299,7 +2823,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (playerMotor == null)
             playerMotor = FindObjectOfType<PlayerMotor2D>();
 
-        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
         bool purchasedShieldEffect = false;
 
         if (item.Effects != null)
@@ -2315,14 +2839,14 @@ private void TryShowDeferredLevelUpRewardIfReady()
                         if (playerMotor != null) playerMotor.AddMoveSpeedPercent(effect.floatValue);
                         break;
                     case ShopItemEffectType.MaxHealthAdd:
-                        if (playerHealth != null) playerHealth.AddMaxHealth(effect.intValue, true);
+                        if (resolvedPlayerHealth != null) resolvedPlayerHealth.AddMaxHealth(effect.intValue, true);
                         break;
                     case ShopItemEffectType.AddShieldCharges:
-                        if (playerHealth != null) playerHealth.AddShieldCharges(effect.intValue);
+                        if (resolvedPlayerHealth != null) resolvedPlayerHealth.AddShieldCharges(effect.intValue);
                         purchasedShieldEffect = true;
                         break;
                     case ShopItemEffectType.PeriodicShieldUpgrade:
-                        if (playerHealth != null) playerHealth.UpgradePeriodicShield(effect.floatValue);
+                        if (resolvedPlayerHealth != null) resolvedPlayerHealth.UpgradePeriodicShield(effect.floatValue);
                         purchasedShieldEffect = true;
                         break;
                     case ShopItemEffectType.XPPerKillAdd:
@@ -2398,7 +2922,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
-        shopSystem.Bind(this, runProgression);
+        shopSystem.Bind(this);
     }
 
     private void EnsurePauseSettingsBound()
@@ -2896,7 +3420,7 @@ private void SwitchState(GameState next)
 
     private void BeginGameplayTutorialSequence()
     {
-        if (!enableGameplayTutorial || !isActiveAndEnabled)
+        if (!enableGameplayTutorial || !isActiveAndEnabled || gameplayTutorialStage != GameplayTutorialStage.WaitingForMove)
             return;
 
         StopGameplayTutorialSequence();
@@ -2931,7 +3455,7 @@ private void SwitchState(GameState next)
 
         gameplayTutorialCo = null;
 
-        if (state != GameState.Gameplay || gameplayTutorialFirstKillShown || !enableGameplayTutorial)
+        if (state != GameState.Gameplay || gameplayTutorialStage != GameplayTutorialStage.WaitingForMove || !enableGameplayTutorial)
             yield break;
 
         ShowGameplayTutorialHint(
@@ -2989,12 +3513,14 @@ private void SwitchState(GameState next)
         if (!enableGameplayTutorial || state != GameState.Gameplay || activeGameplayTutorialHint == null)
             return;
 
-        if (activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
+        if (gameplayTutorialStage == GameplayTutorialStage.WaitingForMove &&
+            activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
             !activeGameplayTutorialHint.IsCompleting &&
             playerMotor != null &&
             playerMotor.CurrentMoveInput.sqrMagnitude > 0.001f)
         {
-            TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move);
+            if (TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move))
+                AdvanceGameplayTutorialAfterMovement();
         }
     }
 
@@ -3019,11 +3545,68 @@ private void SwitchState(GameState next)
         if (playerShooter != null)
             return playerShooter.transform.position;
 
-        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
-        if (playerHealth != null)
-            return playerHealth.transform.position;
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        if (resolvedPlayerHealth != null)
+            return resolvedPlayerHealth.transform.position;
 
         return Vector3.zero;
+    }
+
+    private void AdvanceGameplayTutorialAfterMovement()
+    {
+        if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove)
+            return;
+
+        gameplayTutorialStage = GameplayTutorialStage.WaitingForFirstKill;
+        gameplayTutorialSpawnPosition = ResolveGameplayTutorialAnchorPosition();
+
+        if (enemySpawner == null || enemySpawner.SpawnTutorialEnemy() == null)
+        {
+            RunLogger.Warning("Gameplay tutorial enemy spawn failed. Starting formal gameplay to avoid soft-lock.");
+            ForceStartFormalGameplayWithoutTutorialBlock();
+            return;
+        }
+
+        RefreshGameplaySystemsForCurrentState();
+    }
+
+    private void StartFormalGameplayAfterTutorial()
+    {
+        if (state != GameState.Gameplay || gameplayTutorialStage != GameplayTutorialStage.Complete)
+            return;
+
+        RefreshGameplaySystemsForCurrentState();
+
+        if (!IsCurrentRoundBoss() && roundTimerCo == null)
+            StartRoundTimer();
+
+        RunLogger.Event("Opening gameplay tutorial complete. Formal gameplay started.");
+    }
+
+    private void ForceStartFormalGameplayWithoutTutorialBlock()
+    {
+        gameplayTutorialStage = GameplayTutorialStage.Complete;
+        gameplayTutorialFirstKillShown = true;
+        gameplayTutorialFirstPickupShown = true;
+        ClearGameplayTutorialHint();
+        StopGameplayTutorialSequence();
+        StartFormalGameplayAfterTutorial();
+    }
+
+    private bool IsGameplayTutorialBlockingRoundStart()
+    {
+        if (!enableGameplayTutorial || state != GameState.Gameplay)
+            return false;
+
+        return gameplayTutorialStage == GameplayTutorialStage.WaitingForMove ||
+               gameplayTutorialStage == GameplayTutorialStage.WaitingForFirstKill ||
+               gameplayTutorialStage == GameplayTutorialStage.WaitingForFirstPickup;
+    }
+
+    private void RefreshGameplaySystemsForCurrentState()
+    {
+        bool gameplaySystemsActive = state == GameState.Gameplay && !roundIntroActive && !roundClearActive;
+        SetGameplaySystemsActive(gameplaySystemsActive);
     }
 
 private void RefreshTitleAndCreditsPanels()
@@ -3334,7 +3917,8 @@ private int CountChildren(Transform root)
 
 private void SetGameplaySystemsActive(bool active)
 {
-    if (enemySpawner != null) enemySpawner.enabled = active;
+    bool allowRegularEnemySpawns = active && !IsGameplayTutorialBlockingRoundStart();
+    if (enemySpawner != null) enemySpawner.enabled = allowRegularEnemySpawns;
     if (playerShooter != null) playerShooter.enabled = active;
 
     if (playerMotor != null)
@@ -3508,7 +4092,7 @@ private void SetPauseMenuVisible(bool visible)
 
     private void RefreshHUD()
     {
-        if (textRound) textRound.text = $"Round: {roundIndex}/{totalRounds}";
+        if (textRound) textRound.text = GetGameplayRoundHudText();
         if (textCash) textCash.text = $"$ {cash} / Debt {GetDebtDisplay(roundIndex)}";
         if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
         // 鍊掕鏃跺湪Update涓洿鏂帮紝杩欓噷鍙垵濮嬪寲
@@ -3520,6 +4104,13 @@ private void SetPauseMenuVisible(bool visible)
         UpdateRoundIntroText();
     }
 
+    private string GetGameplayRoundHudText()
+    {
+        return IsCurrentRoundBoss()
+            ? $"BOSS ROUND {roundIndex}/{GetBossRoundIndex()}"
+            : $"ROUND {roundIndex}/{totalRounds}";
+    }
+
     private void UpdateCountdownDisplay()
     {
         if (textCountdown == null)
@@ -3527,7 +4118,14 @@ private void SetPauseMenuVisible(bool visible)
 
         EnsureCountdownStyleInitialized();
 
-        if (state != GameState.Gameplay)
+        if (state != GameState.Gameplay || pauseMenuOpen)
+        {
+            textCountdown.text = string.Empty;
+            ResetCountdownStyle();
+            return;
+        }
+
+        if (IsGameplayTutorialBlockingRoundStart())
         {
             textCountdown.text = string.Empty;
             ResetCountdownStyle();
@@ -4380,7 +4978,7 @@ private void SetPauseMenuVisible(bool visible)
         if (state == GameState.Gameplay)
             SetGameplaySystemsActive(true);
 
-        SetRoundDebtVisible(false);
+        SetRoundDebtVisible(true);
     }
 
     private IEnumerator RoundIntroRoutine(bool useOverlay)
@@ -4432,7 +5030,7 @@ private void SetPauseMenuVisible(bool visible)
         }
 
         if (state == GameState.Gameplay)
-            SetRoundDebtVisible(false);
+            SetRoundDebtVisible(true);
 
         TryShowDeferredLevelUpRewardIfReady();
 
@@ -4507,6 +5105,64 @@ private void SetPauseMenuVisible(bool visible)
         roundClearSubText.text = $"{baseText}\nRound {roundIndex}/{totalRounds}";
     }
 
+    private bool EnsureGameOverTransitionOverlay()
+    {
+        if (gameOverTransitionOverlay != null && gameOverTransitionTitleText != null && gameOverTransitionSubText != null)
+            return true;
+
+        if (gameOverTransitionOverlayAutoCreated)
+            return false;
+
+        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
+        if (canvas == null)
+            return false;
+
+        Transform parent = panelHUD != null && panelHUD.transform.parent != null
+            ? panelHUD.transform.parent
+            : canvas.transform;
+
+        GameObject overlayRoot = new GameObject("GameOverTransitionOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(parent, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image bg = overlayRoot.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.78f);
+        bg.raycastTarget = false;
+
+        gameOverTransitionOverlay = overlayRoot.GetComponent<CanvasGroup>();
+        gameOverTransitionOverlay.alpha = 0f;
+        gameOverTransitionOverlay.interactable = false;
+        gameOverTransitionOverlay.blocksRaycasts = false;
+
+        Color accent = new Color(1f, 0.26f, 0.22f, 1f);
+
+        gameOverTransitionTitleText = CreateIntroText(
+            overlayRoot.transform,
+            "GameOverTransitionTitleText",
+            new Vector2(0f, 46f),
+            new Vector2(1000f, 180f),
+            96f,
+            accent);
+
+        gameOverTransitionSubText = CreateIntroText(
+            overlayRoot.transform,
+            "GameOverTransitionSubText",
+            new Vector2(0f, -110f),
+            new Vector2(1000f, 180f),
+            46f,
+            Color.white);
+        gameOverTransitionSubText.fontStyle = FontStyles.Normal;
+
+        gameOverTransitionOverlay.gameObject.SetActive(false);
+        gameOverTransitionOverlayAutoCreated = true;
+        UpdateGameOverTransitionText(currentDeathType);
+        return true;
+    }
+
     private int GetBossRoundIndex()
     {
         return totalRounds + 1;
@@ -4523,32 +5179,6 @@ private void SetPauseMenuVisible(bool visible)
         bossSeenInCurrentBossRound = false;
         // Give spawner a short grace window before first boss-defeat fallback check.
         nextBossDefeatCheckTime = Time.unscaledTime + 0.8f;
-    }
-
-    private System.Collections.Generic.List<WeaponUpgrade> CreateDefaultFallbackWeaponUpgrades()
-    {
-        return new System.Collections.Generic.List<WeaponUpgrade>
-        {
-            new WeaponUpgrade("Power Up I", "Increase damage +10", null, power: 10),
-            new WeaponUpgrade("Speed Up I", "Increase projectile speed +2", null, speed: 2f),
-            new WeaponUpgrade("Fire Rate Up I", "Increase fire rate +0.05/s", null, fireRate: 0.05f),
-            new WeaponUpgrade("Spread Shot", "Extra projectile +1, spread angle +4", null)
-            {
-                effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
-                {
-                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.ExtraProjectilesAdd, intValue = 1 },
-                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.SpreadAngleAdd, floatValue = 4f },
-                }
-            },
-            new WeaponUpgrade("Piercing Shot", "Pierce +1, knockback +0.2", null)
-            {
-                effects = new System.Collections.Generic.List<WeaponUpgradeEffect>
-                {
-                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.PierceAdd, intValue = 1 },
-                    new WeaponUpgradeEffect { effectType = WeaponUpgradeEffectType.KnockbackMultiplierAdd, floatValue = 0.2f },
-                }
-            },
-        };
     }
 
     private void LogCurrentEnemyDifficulty()
@@ -4877,11 +5507,51 @@ private void SetPauseMenuVisible(bool visible)
         return text;
     }
 
+    private void EnsureGameplayRoundTextBound()
+    {
+        if (textRound != null || !autoCreateGameplayRoundText || panelHUD == null)
+            return;
+
+        if (panelHUD.GetComponent<RectTransform>() == null)
+            return;
+
+        textRound = CreateGameplayHudCornerText(
+            panelHUD.transform,
+            "GameplayRoundTextAuto",
+            new Vector2(24f, -24f),
+            new Vector2(260f, 38f),
+            28f,
+            new Color(0.98f, 0.96f, 0.90f, 1f));
+
+        RunLogger.Event("Gameplay round HUD text auto-created.");
+    }
+
+    private TMP_Text CreateGameplayHudCornerText(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, float fontSize, Color color)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform rect = go.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = anchoredPosition;
+
+        TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+        text.fontSize = fontSize;
+        text.alignment = TextAlignmentOptions.TopLeft;
+        text.enableWordWrapping = false;
+        text.fontStyle = FontStyles.Bold;
+        text.color = color;
+        text.outlineColor = new Color(0f, 0f, 0f, 0.95f);
+        text.outlineWidth = 0.2f;
+        text.raycastTarget = false;
+        return text;
+    }
+
     private void SetRoundDebtVisible(bool visible)
     {
         if (textRound != null) textRound.gameObject.SetActive(visible);
         if (textDebt != null) textDebt.gameObject.SetActive(visible);
     }
 }
-
-

@@ -71,7 +71,9 @@ public class UpgradeCard : MonoBehaviour
         if (upgrade == null)
             return string.Empty;
 
-        upgrade.ConvertLegacyStatsToEffects();
+        if (!string.IsNullOrWhiteSpace(upgrade.description))
+            return upgrade.description;
+
         if (upgrade.effects == null || upgrade.effects.Count == 0)
             return upgrade.description ?? string.Empty;
 
@@ -120,7 +122,11 @@ public class UpgradeCard : MonoBehaviour
             case WeaponUpgradeEffectType.OrbitAngularSpeedAdd:
                 return "RING UP";
             case WeaponUpgradeEffectType.NovaProjectileCountAdd:
+            case WeaponUpgradeEffectType.NovaIntervalAdd:
                 return "WAVE+";
+            case WeaponUpgradeEffectType.ReturnEnable:
+            case WeaponUpgradeEffectType.ReturnSpeedMultiplierAdd:
+                return "RETURN";
             default:
                 return string.Empty;
         }

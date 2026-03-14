@@ -121,7 +121,7 @@ public class LevelUpPanel : MonoBehaviour
             StartFade(0f, dimTargetAlpha, dimFadeDuration);
     }
 
-    public void HideUpgradePanel()
+    public void HideUpgradePanel(Action onHidden = null)
     {
         isShowing = false;
         SetInputEnabled(false);
@@ -130,6 +130,7 @@ public class LevelUpPanel : MonoBehaviour
         if (!gameObject.activeInHierarchy)
         {
             ForceHideImmediate();
+            onHidden?.Invoke();
             return;
         }
 
@@ -138,15 +139,16 @@ public class LevelUpPanel : MonoBehaviour
             if (fadeCo != null)
                 StopCoroutine(fadeCo);
 
-            fadeCo = StartCoroutine(HideRoutine());
+            fadeCo = StartCoroutine(HideRoutine(onHidden));
         }
         else
         {
             ForceHideImmediate();
+            onHidden?.Invoke();
         }
     }
 
-    private IEnumerator HideRoutine()
+    private IEnumerator HideRoutine(Action onHidden)
     {
         yield return FadeDim(dimTargetAlpha, 0f, dimFadeDuration);
 
@@ -156,6 +158,7 @@ public class LevelUpPanel : MonoBehaviour
         SetVisible(false);
         SetInputEnabled(false);
         fadeCo = null;
+        onHidden?.Invoke();
     }
 
     private void OnCardSelected(WeaponUpgrade upgrade)
@@ -172,8 +175,7 @@ public class LevelUpPanel : MonoBehaviour
         var callback = onUpgradeSelected;
         onUpgradeSelected = null;
 
-        HideUpgradePanel();
-        callback?.Invoke(upgrade);
+        HideUpgradePanel(() => callback?.Invoke(upgrade));
     }
 
     private void StartFade(float from, float to, float duration)

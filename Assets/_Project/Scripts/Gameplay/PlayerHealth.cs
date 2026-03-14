@@ -38,6 +38,7 @@ public class PlayerHealth : MonoBehaviour
     private float periodicShieldTimer;
     private float invulnUntilUnscaledTime;
     private Coroutine invulnRoutine;
+    private bool isDead;
     private SpriteRenderer shieldAuraRenderer;
     private SpriteRenderer[] playerSpriteRenderers;
     private SpriteRenderer shieldOutlineRenderer;
@@ -48,6 +49,7 @@ public class PlayerHealth : MonoBehaviour
     public int ShieldCharges => shieldCharges;
     public bool PeriodicShieldEnabled => periodicShieldEnabled;
     public float PeriodicShieldInterval => periodicShieldInterval;
+    public bool IsDead => isDead;
 
     private void Awake()
     {
@@ -87,12 +89,19 @@ public class PlayerHealth : MonoBehaviour
     public void RestoreHealth()
     {
         hp = Mathf.Max(1, maxHP);
+        isDead = false;
         invuln = false;
         invulnUntilUnscaledTime = 0f;
         if (invulnRoutine != null)
         {
             StopCoroutine(invulnRoutine);
             invulnRoutine = null;
+        }
+
+        if (hitFeedback != null)
+        {
+            hitFeedback.StopBlink();
+            hitFeedback.ResetVisualState();
         }
 
         RunLogger.Event($"Player health restored: {hp}/{maxHP}");
@@ -191,7 +200,7 @@ public class PlayerHealth : MonoBehaviour
 
     public void TakeDamage(int dmg)
     {
-        if (invuln)
+        if (invuln || isDead)
             return;
 
         if (shieldCharges > 0)
@@ -217,6 +226,18 @@ public class PlayerHealth : MonoBehaviour
 
         if (hp <= 0)
         {
+            isDead = true;
+            invuln = false;
+            invulnUntilUnscaledTime = 0f;
+            if (invulnRoutine != null)
+            {
+                StopCoroutine(invulnRoutine);
+                invulnRoutine = null;
+            }
+
+            if (hitFeedback != null)
+                hitFeedback.StopBlink();
+
             if (sfxDeath != null && SFXManager.Instance != null)
                 SFXManager.Instance.Play(sfxDeath);
 
