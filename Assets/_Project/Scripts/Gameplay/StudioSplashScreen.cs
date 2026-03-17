@@ -59,7 +59,7 @@ public class StudioSplashScreen : MonoBehaviour
     {
         if (!finished && skipOnClick)
         {
-            if (Input.anyKeyDown || Input.GetMouseButtonDown(0))
+            if (Input.anyKeyDown || Input.GetMouseButtonDown(0) || GameInput.IsContinuePressed() || GameInput.IsBackPressed())
                 skipping = true;
         }
     }

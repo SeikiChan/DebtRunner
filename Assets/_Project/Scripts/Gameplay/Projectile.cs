@@ -161,7 +161,10 @@ public class Projectile : MonoBehaviour
         if (isReturning && returnTarget != null && rb != null)
         {
             Vector2 toOwner = (Vector2)returnTarget.position - rb.position;
-            if (toOwner.sqrMagnitude <= 0.04f)
+            float catchDistance = Mathf.Max(
+                0.12f,
+                Mathf.Max(0.02f, returnSpeed) * Time.fixedDeltaTime * 1.2f);
+            if (toOwner.sqrMagnitude <= catchDistance * catchDistance)
             {
                 Release();
                 return;

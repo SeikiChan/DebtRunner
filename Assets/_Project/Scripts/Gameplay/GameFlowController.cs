@@ -38,6 +38,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelPauseMenu;
     [SerializeField] private GameObject panelSettingsPlaceholder;
     [SerializeField] private SettingsMenuController pauseSettingsMenu;
+    [SerializeField] private QuitConfirmDialog quitConfirmDialog;
 
     [Header("Story Intro / 开场漫画")]
     [SerializeField] private bool enableStoryComicIntro = true;
@@ -130,6 +131,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool useWASDForUINavigation = true;
     [SerializeField] private bool useSpaceForUIConfirm = true;
     [SerializeField] private bool keyboardTabCyclesSelection = true;
+    [SerializeField, Range(0.1f, 1f)] private float gamepadUINavigationDeadzone = 0.55f;
+    [SerializeField, Min(0.01f)] private float gamepadUINavigationInitialRepeatDelay = 0.24f;
+    [SerializeField, Min(0.01f)] private float gamepadUINavigationRepeatInterval = 0.12f;
 
     [Header("Gameplay Tutorial")]
     [SerializeField] private bool enableGameplayTutorial = true;
@@ -282,10 +286,14 @@ public class GameFlowController : MonoBehaviour
     private bool creditsOpen;
     private bool creditsPanelMissingWarned;
     private bool pauseMenuOpen;
+    private bool pauseQuitConfirmed;
+    private bool titleQuitConfirmed;
     private SettingsReturnTarget settingsReturnTarget = SettingsReturnTarget.None;
     private float roundTimeRemaining;  // Remaining time in the current round
     private float lastUIButtonHoverSfxTime = -10f;
     private GameObject keyboardNavigationRoot;
+    private MoveDirection heldGamepadUIMoveDirection = MoveDirection.None;
+    private float nextGamepadUINavigationTime;
     private float nextBossDefeatCheckTime = -10f;
     private bool bossSeenInCurrentBossRound;
     private int trackedBossRoundIndex = -1;
@@ -508,6 +516,8 @@ public class GameFlowController : MonoBehaviour
 
         try { EnsurePauseSettingsBound(); }
         catch (System.Exception ex) { RunLogger.Error($"EnsurePauseSettingsBound failed: {ex.Message}"); }
+        EnsureQuitConfirmDialogBound();
+        EnsurePauseMenuButtonsBound();
 
         try { EnsureDeathPanelsBound(); }
         catch (System.Exception ex) { RunLogger.Error($"EnsureDeathPanelsBound failed: {ex.Message}"); }
@@ -751,11 +761,17 @@ public class GameFlowController : MonoBehaviour
 
         HandleKeyboardUINavigation();
 
-        if (Input.GetKeyDown(KeyCode.Escape))
+        bool pausePressed = GameInput.IsPausePressed();
+        bool backPressed = GameInput.IsBackPressed();
+        if (pausePressed || backPressed)
         {
             if (creditsOpen)
             {
                 CloseCredits();
+            }
+            else if (quitConfirmDialog != null && quitConfirmDialog.IsOpen && (pausePressed || backPressed))
+            {
+                ClosePauseQuitConfirm();
             }
             else
             if (panelSettingsPlaceholder != null && panelSettingsPlaceholder.activeSelf)
@@ -766,7 +782,7 @@ public class GameFlowController : MonoBehaviour
             {
                 ResumeFromPauseMenu();
             }
-            else if (CanOpenPauseMenu())
+            else if (pausePressed && CanOpenPauseMenu())
             {
                 OpenPauseMenu();
             }
@@ -1095,28 +1111,28 @@ private void TryShowDeferredLevelUpRewardIfReady()
         {
             case WeaponModeId.OrbitRing:
                 return nextRank <= 1
-                    ? "A ring of collector cards starts circling you."
-                    : "The ring widens and picks up speed as more orbit joins in.";
+                    ? "Collector cards orbit you."
+                    : "Orbit ↑ More cards. Wider ring. Faster spin.";
             case WeaponModeId.NovaWave:
                 return nextRank <= 1
-                    ? "A warning wave begins bursting out from your position."
-                    : "The wave pulses more often and throws more paper into the crowd.";
+                    ? "A warning pulse bursts out."
+                    : "Pulse ↑ Sooner. Wider. More paper.";
             case WeaponModeId.OnHitScatter:
                 return nextRank <= 1
-                    ? "Direct hits bloom into chasing slips."
-                    : "The bloom throws out more slips and fans wider through nearby targets.";
+                    ? "Hits burst into chasing slips."
+                    : "Slips ↑ More slips. Wider scatter. Better chase.";
             case WeaponModeId.FanSpread:
                 return nextRank <= 1
-                    ? "Your shots begin to fan into a wider filing lane."
-                    : "The lane fills out with more cards and a broader spread.";
+                    ? "One throw becomes a fan."
+                    : "Fan ↑ More cards. Wider fan.";
             case WeaponModeId.PierceLine:
                 return nextRank <= 1
-                    ? "Your cards start punching through the front line."
-                    : "The line drive gets harder, faster, and keeps carrying forward.";
+                    ? "Cards push through the line."
+                    : "Pierce ↑ Deeper carry.";
             case WeaponModeId.ReturnFlight:
                 return nextRank <= 1
-                    ? "Thrown cards loop back through the lane after their first pass."
-                    : "The return flight gets quicker and more dangerous on the way home.";
+                    ? "Cards loop back for a second pass."
+                    : "Return ↑ Faster return. Harder on the way back.";
             default:
                 return string.Empty;
         }
@@ -1143,16 +1159,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
         {
             case WeaponBaseUpgradeId.QuickStamp:
                 return nextRank <= 1
-                    ? "Move your hand faster between shots."
-                    : "Shave more downtime off every attack cycle.";
+                    ? "Faster hands between throws."
+                    : "Fire Rate ↑ Tighter rhythm.";
             case WeaponBaseUpgradeId.StampedLedger:
                 return nextRank <= 1
-                    ? "Make every card land with more weight."
-                    : "Push raw impact higher across both locked modes.";
+                    ? "Heavier hits on every card."
+                    : "Damage ↑ Boosts both locked modes.";
             case WeaponBaseUpgradeId.AirMail:
                 return nextRank <= 1
-                    ? "Drive cards across the arena with more speed."
-                    : "Tighten travel time and keep your pressure reaching farther.";
+                    ? "Cards fly faster and farther."
+                    : "Flight ↑ Faster travel. Longer reach.";
             default:
                 return string.Empty;
         }
@@ -2630,7 +2646,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Main Menu
     public void BackToMenu()
     {
-        PlayUIButtonClickSfx();
+        if (pauseMenuOpen && !pauseQuitConfirmed)
+        {
+            OpenPauseQuitConfirm();
+            return;
+        }
+
+        bool skipClickSfx = pauseQuitConfirmed;
+        pauseQuitConfirmed = false;
+        if (!skipClickSfx)
+            PlayUIButtonClickSfx();
         StopStoryIntroPresentation(true);
         HideRunSummary();
 
@@ -2687,7 +2712,23 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Quit
     public void QuitGame()
     {
-        PlayUIButtonClickSfx();
+        if (pauseMenuOpen && !pauseQuitConfirmed)
+        {
+            OpenPauseQuitConfirm();
+            return;
+        }
+
+        if (state == GameState.Title && !titleQuitConfirmed)
+        {
+            OpenTitleQuitConfirm();
+            return;
+        }
+
+        bool skipClickSfx = pauseQuitConfirmed || titleQuitConfirmed;
+        pauseQuitConfirmed = false;
+        titleQuitConfirmed = false;
+        if (!skipClickSfx)
+            PlayUIButtonClickSfx();
         RunLogger.Event("Quit game requested.");
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.ExitPlaymode();
@@ -2700,6 +2741,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (pauseMenuOpen || !CanOpenPauseMenu()) return;
 
+        EnsurePauseMenuButtonsBound();
         PlayUIButtonClickSfx();
         pauseMenuOpen = true;
         Time.timeScale = 0f;
@@ -2722,6 +2764,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (!EnsurePauseSettingsReady())
             return;
 
+        ClosePauseQuitConfirm(false);
         PlayUIButtonClickSfx();
         bool openFromPause = pauseMenuOpen || state == GameState.Gameplay || state == GameState.Shop;
         RunLogger.Event($"OpenPauseSettings requested. state={state}, fromPause={openFromPause}, pauseOpen={pauseMenuOpen}");
@@ -2780,8 +2823,66 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     public void QuitFromPauseMenu()
     {
-        ForceClosePauseMenu(true);
+        OpenPauseQuitConfirm();
+    }
+
+    public void ConfirmQuitFromPauseMenu()
+    {
+        pauseQuitConfirmed = true;
+        ClosePauseQuitConfirm(true);
         BackToMenu();
+    }
+
+    public void ConfirmExitGameFromTitle()
+    {
+        titleQuitConfirmed = true;
+        ClosePauseQuitConfirm(true);
+        QuitGame();
+    }
+
+    public void CancelQuitFromPauseMenu()
+    {
+        PlayUIButtonClickSfx();
+        ClosePauseQuitConfirm();
+    }
+
+    private void OpenPauseQuitConfirm()
+    {
+        if (!pauseMenuOpen)
+            return;
+        EnsureQuitConfirmDialogBound();
+        if (quitConfirmDialog == null)
+            return;
+
+        titleQuitConfirmed = false;
+        PlayUIButtonClickSfx();
+        if (quitConfirmDialog.OpenPauseQuitConfirm(ConfirmQuitFromPauseMenu, CancelQuitFromPauseMenu))
+            RunLogger.Event("Pause quit confirmation opened.");
+    }
+
+    private void OpenTitleQuitConfirm()
+    {
+        if (state != GameState.Title)
+            return;
+        EnsureQuitConfirmDialogBound();
+        if (quitConfirmDialog == null)
+            return;
+
+        pauseQuitConfirmed = false;
+        PlayUIButtonClickSfx();
+        if (quitConfirmDialog.OpenTitleExitConfirm(ConfirmExitGameFromTitle, CancelQuitFromPauseMenu))
+            RunLogger.Event("Title exit confirmation opened.");
+    }
+
+    private void ClosePauseQuitConfirm(bool playClickSfx = false)
+    {
+        if (quitConfirmDialog == null || !quitConfirmDialog.IsOpen)
+            return;
+
+        if (playClickSfx)
+            PlayUIButtonClickSfx();
+
+        quitConfirmDialog.Close();
     }
 
     public int GetCashAmount() => cash;
@@ -2960,6 +3061,18 @@ private void TryShowDeferredLevelUpRewardIfReady()
         return true;
     }
 
+    private void EnsureQuitConfirmDialogBound()
+    {
+        if (quitConfirmDialog == null)
+            quitConfirmDialog = GetComponent<QuitConfirmDialog>();
+
+        if (quitConfirmDialog == null)
+            quitConfirmDialog = gameObject.AddComponent<QuitConfirmDialog>();
+
+        if (quitConfirmDialog != null)
+            quitConfirmDialog.Bind(panelPauseMenu);
+    }
+
     private bool TryPlayStoryIntroBeforeRun()
     {
         if (!enableStoryComicIntro || state != GameState.Title)
@@ -3136,7 +3249,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
 
         bool allowSkip = storyIntroSkipButton != null && storyIntroSkipButton.gameObject.activeInHierarchy;
-        if (allowSkip && Input.GetKeyDown(KeyCode.Escape))
+        if (allowSkip && (GameInput.IsBackPressed() || GameInput.IsPausePressed()))
         {
             storySkipRequested = true;
             return;
@@ -3150,7 +3263,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         if (Input.GetMouseButtonDown(0))
             return true;
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+        if (GameInput.IsContinuePressed())
             return true;
         if (Input.touchCount > 0)
         {
@@ -3510,18 +3623,23 @@ private void SwitchState(GameState next)
 
     private void UpdateGameplayTutorialProgress()
     {
-        if (!enableGameplayTutorial || state != GameState.Gameplay || activeGameplayTutorialHint == null)
+        if (!enableGameplayTutorial || state != GameState.Gameplay)
             return;
 
-        if (gameplayTutorialStage == GameplayTutorialStage.WaitingForMove &&
+        if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove ||
+            playerMotor == null ||
+            playerMotor.CurrentMoveInput.sqrMagnitude <= 0.001f)
+            return;
+
+        // The move hint is only feedback. Its auto-expiry must not block tutorial progress.
+        if (activeGameplayTutorialHint != null &&
             activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
-            !activeGameplayTutorialHint.IsCompleting &&
-            playerMotor != null &&
-            playerMotor.CurrentMoveInput.sqrMagnitude > 0.001f)
+            !activeGameplayTutorialHint.IsCompleting)
         {
-            if (TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move))
-                AdvanceGameplayTutorialAfterMovement();
+            TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move);
         }
+
+        AdvanceGameplayTutorialAfterMovement();
     }
 
     private bool TryCompleteGameplayTutorialHint(GameplayTutorialHintType expectedType)
@@ -3745,6 +3863,16 @@ private void EnsureCreditsButtonsBound()
     BindButtonOnPanel(panelCredits, CloseCredits, "Btn_Back", "Btn_CreditsBack", "Btn_CloseCredits");
 }
 
+private void EnsurePauseMenuButtonsBound()
+{
+    if (panelPauseMenu == null)
+        return;
+
+    RebindButtonOnPanel(panelPauseMenu, ResumeFromPauseMenu, new[] { "Btn_BackToGame", "Btn_Resume" }, ResumeFromPauseMenu);
+    RebindButtonOnPanel(panelPauseMenu, OpenPauseSettings, new[] { "Btn_Settings", "Btn_Option", "Btn_Options" }, OpenPauseSettings);
+    RebindButtonOnPanel(panelPauseMenu, QuitFromPauseMenu, new[] { "Btn_Quit", "Btn_BackToMenu", "Btn_ReturnToTitle" }, BackToMenu, QuitGame, QuitFromPauseMenu);
+}
+
 private void BindButtonOnPanel(GameObject panel, UnityAction action, params string[] buttonNames)
 {
     if (panel == null || action == null || buttonNames == null || buttonNames.Length == 0)
@@ -3773,6 +3901,50 @@ private void BindButtonOnPanel(GameObject panel, UnityAction action, params stri
 
         if (!nameMatch)
             continue;
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+}
+
+private void RebindButtonOnPanel(GameObject panel, UnityAction action, string[] buttonNames, params UnityAction[] actionsToRemove)
+{
+    if (panel == null || action == null || buttonNames == null || buttonNames.Length == 0)
+        return;
+
+    Button[] buttons = panel.GetComponentsInChildren<Button>(true);
+    for (int i = 0; i < buttons.Length; i++)
+    {
+        Button button = buttons[i];
+        if (button == null)
+            continue;
+
+        bool nameMatch = false;
+        for (int j = 0; j < buttonNames.Length; j++)
+        {
+            string candidate = buttonNames[j];
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            if (button.name == candidate)
+            {
+                nameMatch = true;
+                break;
+            }
+        }
+
+        if (!nameMatch)
+            continue;
+
+        if (actionsToRemove != null)
+        {
+            for (int j = 0; j < actionsToRemove.Length; j++)
+            {
+                UnityAction removeAction = actionsToRemove[j];
+                if (removeAction != null)
+                    button.onClick.RemoveListener(removeAction);
+            }
+        }
 
         button.onClick.RemoveListener(action);
         button.onClick.AddListener(action);
@@ -3950,6 +4122,8 @@ private bool CanOpenPauseMenu()
 private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
 {
     pauseMenuOpen = false;
+    pauseQuitConfirmed = false;
+    titleQuitConfirmed = false;
     settingsReturnTarget = SettingsReturnTarget.None;
     SetPauseMenuVisible(false);
 
@@ -3974,6 +4148,8 @@ private void SetPauseMenuVisible(bool visible)
 
     if (!visible)
     {
+        ClosePauseQuitConfirm(false);
+
         if (pauseSettingsMenu != null)
             pauseSettingsMenu.HideMenu();
 
@@ -4346,6 +4522,7 @@ private void SetPauseMenuVisible(bool visible)
         if (root == null || !root.activeInHierarchy)
         {
             keyboardNavigationRoot = null;
+            ResetHeldGamepadUINavigation();
             return;
         }
 
@@ -4368,8 +4545,7 @@ private void SetPauseMenuVisible(bool visible)
         if (!hasValidSelected || rootChanged)
             SelectFirstKeyboardTarget(eventSystem, root);
 
-        if (useWASDForUINavigation)
-            TryMoveSelectionWithWASD(eventSystem, root);
+        TryMoveSelectionWithWASD(eventSystem, root);
 
         if (useSpaceForUIConfirm)
             TrySubmitSelectionWithSpace(eventSystem, root);
@@ -4377,6 +4553,8 @@ private void SetPauseMenuVisible(bool visible)
 
     private GameObject ResolveKeyboardNavigationRoot()
     {
+        if (quitConfirmDialog != null && quitConfirmDialog.NavigationRoot != null)
+            return quitConfirmDialog.NavigationRoot;
         if (pauseSettingsMenu != null && pauseSettingsMenu.gameObject.activeInHierarchy)
             return pauseSettingsMenu.gameObject;
         if (panelSettingsPlaceholder != null && panelSettingsPlaceholder.activeInHierarchy)
@@ -4504,29 +4682,8 @@ private void SetPauseMenuVisible(bool visible)
         if (eventSystem == null || root == null)
             return;
 
-        MoveDirection moveDir = MoveDirection.None;
-        Vector2 moveVector = Vector2.zero;
-
-        if (Input.GetKeyDown(KeyCode.W))
-        {
-            moveDir = MoveDirection.Up;
-            moveVector = Vector2.up;
-        }
-        else if (Input.GetKeyDown(KeyCode.S))
-        {
-            moveDir = MoveDirection.Down;
-            moveVector = Vector2.down;
-        }
-        else if (Input.GetKeyDown(KeyCode.A))
-        {
-            moveDir = MoveDirection.Left;
-            moveVector = Vector2.left;
-        }
-        else if (Input.GetKeyDown(KeyCode.D))
-        {
-            moveDir = MoveDirection.Right;
-            moveVector = Vector2.right;
-        }
+        MoveDirection moveDir = GetUISelectionMoveDirection();
+        Vector2 moveVector = GetMoveVector(moveDir);
 
         if (moveDir == MoveDirection.None)
             return;
@@ -4562,7 +4719,7 @@ private void SetPauseMenuVisible(bool visible)
     {
         if (eventSystem == null || root == null)
             return;
-        if (!IsKeyboardUIConfirmPressed())
+        if (!IsUIConfirmPressed())
             return;
 
         GameObject selected = eventSystem.currentSelectedGameObject;
@@ -4586,16 +4743,90 @@ private void SetPauseMenuVisible(bool visible)
         ExecuteEvents.Execute(selected, submitEvent, ExecuteEvents.submitHandler);
     }
 
-    private bool IsKeyboardUIConfirmPressed()
+    private bool IsUIConfirmPressed()
     {
-        if (useSpaceForUIConfirm && Input.GetKeyDown(KeyCode.Space))
+        if (useSpaceForUIConfirm && GameInput.IsKeyboardConfirmPressed())
             return true;
-        if (Input.GetKeyDown(KeyCode.Return))
-            return true;
-        if (Input.GetKeyDown(KeyCode.KeypadEnter))
+        if (GameInput.IsGamepadConfirmPressed())
             return true;
 
         return false;
+    }
+
+    private MoveDirection GetUISelectionMoveDirection()
+    {
+        if (useWASDForUINavigation)
+        {
+            if (GameInput.IsUIUpPressed())
+                return MoveDirection.Up;
+            if (GameInput.IsUIDownPressed())
+                return MoveDirection.Down;
+            if (GameInput.IsUILeftPressed())
+                return MoveDirection.Left;
+            if (GameInput.IsUIRightPressed())
+                return MoveDirection.Right;
+        }
+
+        float horizontal = GameInput.GetHorizontalAxisRaw();
+        float vertical = GameInput.GetVerticalAxisRaw();
+        float deadzone = Mathf.Clamp01(gamepadUINavigationDeadzone);
+
+        MoveDirection axisDirection = MoveDirection.None;
+        float absHorizontal = Mathf.Abs(horizontal);
+        float absVertical = Mathf.Abs(vertical);
+
+        if (absHorizontal >= deadzone || absVertical >= deadzone)
+        {
+            if (absVertical >= absHorizontal)
+                axisDirection = vertical >= 0f ? MoveDirection.Up : MoveDirection.Down;
+            else
+                axisDirection = horizontal >= 0f ? MoveDirection.Right : MoveDirection.Left;
+        }
+
+        if (axisDirection == MoveDirection.None)
+        {
+            ResetHeldGamepadUINavigation();
+            return MoveDirection.None;
+        }
+
+        float now = Time.unscaledTime;
+        if (axisDirection != heldGamepadUIMoveDirection)
+        {
+            heldGamepadUIMoveDirection = axisDirection;
+            nextGamepadUINavigationTime = now + Mathf.Max(0.01f, gamepadUINavigationInitialRepeatDelay);
+            return axisDirection;
+        }
+
+        if (now >= nextGamepadUINavigationTime)
+        {
+            nextGamepadUINavigationTime = now + Mathf.Max(0.01f, gamepadUINavigationRepeatInterval);
+            return axisDirection;
+        }
+
+        return MoveDirection.None;
+    }
+
+    private void ResetHeldGamepadUINavigation()
+    {
+        heldGamepadUIMoveDirection = MoveDirection.None;
+        nextGamepadUINavigationTime = 0f;
+    }
+
+    private static Vector2 GetMoveVector(MoveDirection direction)
+    {
+        switch (direction)
+        {
+            case MoveDirection.Up:
+                return Vector2.up;
+            case MoveDirection.Down:
+                return Vector2.down;
+            case MoveDirection.Left:
+                return Vector2.left;
+            case MoveDirection.Right:
+                return Vector2.right;
+            default:
+                return Vector2.zero;
+        }
     }
 
     private void CommitRoundCashEarnedToHistory()
@@ -5044,7 +5275,7 @@ private void SetPauseMenuVisible(bool visible)
 
         while (roundIntroActive && state == GameState.Gameplay)
         {
-            if (Input.anyKeyDown)
+            if (Input.anyKeyDown || GameInput.IsContinuePressed() || GameInput.IsBackPressed())
                 yield break;
 
             yield return null;

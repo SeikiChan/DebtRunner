@@ -177,12 +177,12 @@ MonoBehaviour:
   normalDuration: 7.2
   normalDurationJitter: 1.2
   telegraphDuration: 1.05
-  dashDuration: 0.34
+  dashDuration: 0.5
   cooldownDuration: 1.6
   dashSpeed: 11.5
-  telegraphColor: {r: 1, g: 0.2, b: 0.15, a: 0.45490196}
+  telegraphColor: {r: 0.9528302, g: 0.19223963, b: 0.13932894, a: 0.4627451}
   telegraphWidth: 0.35
-  telegraphLength: 8
+  telegraphLength: 5
   telegraphSortingOrder: 240
 --- !u!114 &2284842997876372299
 MonoBehaviour:

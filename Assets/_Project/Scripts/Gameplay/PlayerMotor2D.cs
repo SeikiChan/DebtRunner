@@ -37,12 +37,10 @@ public class PlayerMotor2D : MonoBehaviour
 
     private void Update()
     {
-        float x = Input.GetAxisRaw("Horizontal");
-        float y = Input.GetAxisRaw("Vertical");
-        moveInput = new Vector2(x, y).normalized;
+        moveInput = GameInput.ReadGameplayMoveInput();
 
         if (moveInput.sqrMagnitude > 0.001f)
-            lastMoveDir = moveInput;
+            lastMoveDir = moveInput.normalized;
     }
 
     private void FixedUpdate()

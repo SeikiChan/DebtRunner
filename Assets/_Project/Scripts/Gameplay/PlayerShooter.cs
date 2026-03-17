@@ -230,31 +230,27 @@ public class PlayerShooter : MonoBehaviour
     private void FireSpread(Vector2 baseDirection)
     {
         int shotCount = Mathf.Max(1, 1 + extraProjectiles);
-        int remaining = shotCount;
-
-        // Keep a persistent center lane so adding shots expands outward instead of re-centering the whole fan.
-        FireSingleShot(baseDirection, 0f);
-        remaining -= 1;
-
-        if (remaining > 0 && (shotCount % 2) == 0)
+        if ((shotCount % 2) == 1)
         {
+            // Odd counts keep a visible center lane, then expand outward in pairs.
             FireSingleShot(baseDirection, 0f);
-            remaining -= 1;
+
+            for (int ring = 1; ring <= shotCount / 2; ring++)
+            {
+                float angleOffset = spreadAngleStep * ring;
+                FireSingleShot(baseDirection, -angleOffset);
+                FireSingleShot(baseDirection, angleOffset);
+            }
         }
-
-        int ring = 1;
-        while (remaining > 0)
+        else
         {
-            float angleOffset = spreadAngleStep * ring;
-            FireSingleShot(baseDirection, -angleOffset);
-            remaining -= 1;
-
-            if (remaining <= 0)
-                break;
-
-            FireSingleShot(baseDirection, angleOffset);
-            remaining -= 1;
-            ring++;
+            // Even counts split around the center so the first multi-shot upgrade reads clearly.
+            for (int pair = 0; pair < shotCount / 2; pair++)
+            {
+                float angleOffset = spreadAngleStep * (pair + 0.5f);
+                FireSingleShot(baseDirection, -angleOffset);
+                FireSingleShot(baseDirection, angleOffset);
+            }
         }
 
         if (sfxShoot != null && SFXManager.Instance != null)
