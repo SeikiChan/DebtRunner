@@ -23,6 +23,16 @@ public static class GameInput
         KeyCode.JoystickButton3
     };
 
+    private static readonly KeyCode[] KeyboardActiveItemKeys =
+    {
+        KeyCode.Space
+    };
+
+    private static readonly KeyCode[] GamepadActiveItemKeys =
+    {
+        KeyCode.JoystickButton4
+    };
+
     private static readonly KeyCode[] BackKeys =
     {
         KeyCode.Escape,
@@ -112,6 +122,21 @@ public static class GameInput
         return IsConfirmPressed() || IsAlternateConfirmPressed() || IsPausePressed();
     }
 
+    public static bool IsActiveItemPressed()
+    {
+        return IsKeyboardActiveItemPressed() || IsGamepadActiveItemPressed();
+    }
+
+    public static bool IsKeyboardActiveItemPressed()
+    {
+        return IsAnyPressed(KeyboardActiveItemKeys);
+    }
+
+    public static bool IsGamepadActiveItemPressed()
+    {
+        return IsAnyPressed(GamepadActiveItemKeys);
+    }
+
     public static bool IsUIUpPressed()
     {
         return IsAnyPressed(UIUpKeys);
@@ -132,6 +157,14 @@ public static class GameInput
         return IsAnyPressed(UIRightKeys);
     }
 
+    public static bool IsAnyUIKeyboardDirectionHeld()
+    {
+        return IsAnyHeld(UIUpKeys) ||
+               IsAnyHeld(UIDownKeys) ||
+               IsAnyHeld(UILeftKeys) ||
+               IsAnyHeld(UIRightKeys);
+    }
+
     private static bool IsAnyPressed(KeyCode[] keys)
     {
         if (keys == null)
@@ -140,6 +173,20 @@ public static class GameInput
         for (int i = 0; i < keys.Length; i++)
         {
             if (Input.GetKeyDown(keys[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsAnyHeld(KeyCode[] keys)
+    {
+        if (keys == null)
+            return false;
+
+        for (int i = 0; i < keys.Length; i++)
+        {
+            if (Input.GetKey(keys[i]))
                 return true;
         }
 

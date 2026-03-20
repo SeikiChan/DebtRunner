@@ -869,10 +869,13 @@ public class EnemySpawner : MonoBehaviour
         float t = GetRoundCurveT();
         float hpMul = useRoundCurves ? EvaluateRoundCurve(hpMultiplierCurve, t) : 1f;
         float speedMul = useRoundCurves ? EvaluateRoundCurve(speedMultiplierCurve, t) : 1f;
+        float countMul = GameFlowController.Instance != null
+            ? Mathf.Max(1f, GameFlowController.Instance.GetCurrentEnemyCountMultiplier())
+            : 1f;
 
         runtimeSpawnInterval = Mathf.Max(0.05f, config.interval);
-        runtimeSpawnPerTick = Mathf.Max(1, config.perTick);
-        runtimeMaxAlive = Mathf.Max(1, config.maxAlive);
+        runtimeSpawnPerTick = Mathf.Max(1, Mathf.RoundToInt(config.perTick * countMul));
+        runtimeMaxAlive = Mathf.Max(1, Mathf.RoundToInt(config.maxAlive * countMul));
         runtimeEnemyHpMultiplier = Mathf.Max(0.1f, globalEnemyHpMultiplier * hpMul);
         runtimeEnemySpeedMultiplier = Mathf.Max(0.1f, globalEnemySpeedMultiplier * speedMul);
     }

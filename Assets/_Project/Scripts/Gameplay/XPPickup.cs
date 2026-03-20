@@ -23,6 +23,7 @@ public class XPPickup : MonoBehaviour
     private void Awake()
     {
         RebuildCachedValues();
+        PickupSortingUtility.ApplyGameplayPickupSorting(gameObject);
     }
 
     private void OnValidate()

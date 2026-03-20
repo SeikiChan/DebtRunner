@@ -67,15 +67,15 @@ public class SFXManager : MonoBehaviour
     {
         if (instance != null && instance != this)
         {
-            Destroy(gameObject);
+            if (CanOwnPersistentHost())
+                Destroy(gameObject);
+            else
+                Destroy(this);
             return;
         }
 
         instance = this;
-        if (transform.parent != null)
-            transform.SetParent(null, true);
-
-        if (gameObject.scene.IsValid() && gameObject.scene.name != "DontDestroyOnLoad")
+        if (CanOwnPersistentHost() && gameObject.scene.IsValid() && gameObject.scene.name != "DontDestroyOnLoad")
             DontDestroyOnLoad(gameObject);
 
         EnsureSourceReady();
@@ -228,5 +228,23 @@ public class SFXManager : MonoBehaviour
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
         audioSource.loop = false;
+    }
+
+    private bool CanOwnPersistentHost()
+    {
+        if (transform.parent != null)
+            return false;
+
+        Component[] components = GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
+        {
+            Component component = components[i];
+            if (component == null || component is Transform || component is AudioSource || component is SFXManager)
+                continue;
+
+            return false;
+        }
+
+        return true;
     }
 }

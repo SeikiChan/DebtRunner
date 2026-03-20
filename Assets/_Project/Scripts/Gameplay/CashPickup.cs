@@ -22,6 +22,7 @@ public class CashPickup : MonoBehaviour
     {
         RebuildCachedValues();
         EnsurePickupCollider();
+        PickupSortingUtility.ApplyGameplayPickupSorting(gameObject);
     }
 
     private void OnValidate()

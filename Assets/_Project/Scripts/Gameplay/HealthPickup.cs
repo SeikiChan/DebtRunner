@@ -35,6 +35,8 @@ public class HealthPickup : MonoBehaviour
             if (visualRenderer != null)
                 visualRenderer.color = tintColor;
         }
+
+        PickupSortingUtility.ApplyGameplayPickupSorting(gameObject, visualRenderer);
     }
 
     private void OnValidate()

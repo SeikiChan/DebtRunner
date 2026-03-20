@@ -39,6 +39,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private GameObject panelSettingsPlaceholder;
     [SerializeField] private SettingsMenuController pauseSettingsMenu;
     [SerializeField] private QuitConfirmDialog quitConfirmDialog;
+    [SerializeField] private RoundPresentationController roundPresentation;
+    [SerializeField] private BossHealthBarController bossHealthBar;
+    [SerializeField] private PlayerActiveItemController playerActiveItemController;
 
     [Header("Story Intro / 开场漫画")]
     [SerializeField] private bool enableStoryComicIntro = true;
@@ -68,43 +71,51 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private TMP_Text textCountdown;
     [SerializeField] private bool autoCreateGameplayRoundText = true;
     [SerializeField] private bool isolateCountdownMaterialAtRuntime = true;
-    [SerializeField] private float roundIntroSeconds = 2.5f;
+    [HideInInspector, SerializeField] private float roundIntroSeconds = 2.5f;
 
-    [SerializeField] private CanvasGroup roundIntroOverlay;
-    [SerializeField] private TMP_Text roundIntroRoundText;
-    [SerializeField] private TMP_Text roundIntroDebtText;
-    [SerializeField] private TMP_Text roundIntroContinueHintText;
-    [SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
-    [SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
-    [SerializeField] private float roundIntroFadeInSeconds = 0.15f;
-    [SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
+    [HideInInspector, SerializeField] private CanvasGroup roundIntroOverlay;
+    [HideInInspector, SerializeField] private TMP_Text roundIntroRoundText;
+    [HideInInspector, SerializeField] private TMP_Text roundIntroDebtText;
+    [HideInInspector, SerializeField] private TMP_Text roundIntroContinueHintText;
+    [HideInInspector, SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
+    [HideInInspector, SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
+    [HideInInspector, SerializeField] private float roundIntroFadeInSeconds = 0.15f;
+    [HideInInspector, SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
 
-    [SerializeField] private CanvasGroup roundClearOverlay;
-    [SerializeField] private TMP_Text roundClearTitleText;
-    [SerializeField] private TMP_Text roundClearSubText;
-    [SerializeField] private bool showRoundClearTransition = true;
-    [SerializeField] private string roundClearTitleMessage = "YOU PASS!";
-    [SerializeField] private string roundClearSubMessage = "Round Cleared";
-    [SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
-    [SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
-    [SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
+    [HideInInspector, SerializeField] private CanvasGroup roundClearOverlay;
+    [HideInInspector, SerializeField] private TMP_Text roundClearTitleText;
+    [HideInInspector, SerializeField] private TMP_Text roundClearSubText;
+    [HideInInspector, SerializeField] private bool showRoundClearTransition = true;
+    [HideInInspector, SerializeField] private string roundClearTitleMessage = "YOU PASS!";
+    [HideInInspector, SerializeField] private string roundClearSubMessage = "Round Cleared";
+    [HideInInspector, SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
+    [HideInInspector, SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
+    [HideInInspector, SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
     [SerializeField] private bool autoCollectDropsOnRoundClear = true;
     [SerializeField, Min(0f)] private float roundClearAutoCollectRadius = 4.5f;
     [SerializeField, Min(0f)] private float roundClearAutoCollectMoveSpeed = 15f;
     [SerializeField, Min(0f)] private float roundClearAutoCollectCollectDistance = 0.2f;
-    [SerializeField, Range(0f, 1f)] private float roundClearOverlayAlphaDuringCollect = 0.45f;
+    [HideInInspector, SerializeField, Range(0f, 1f)] private float roundClearOverlayAlphaDuringCollect = 0.45f;
     [SerializeField, Min(0f)] private float roundClearCollectDelaySeconds = 0.12f;
     [SerializeField, Min(0f)] private float roundClearAutoCollectMaxWaitSeconds = 15f;
 
-    [SerializeField] private CanvasGroup gameOverTransitionOverlay;
-    [SerializeField] private TMP_Text gameOverTransitionTitleText;
-    [SerializeField] private TMP_Text gameOverTransitionSubText;
-    [SerializeField] private bool showGameOverTransition = true;
-    [SerializeField] private string gameOverTransitionTitleMessage = "YOU LOSS";
-    [SerializeField] private string gameOverTransitionSubMessage = "Run Failed";
-    [SerializeField, Min(0f)] private float gameOverTransitionSeconds = 1.1f;
-    [SerializeField, Min(0f)] private float gameOverTransitionFadeInSeconds = 0.12f;
-    [SerializeField, Min(0f)] private float gameOverTransitionFadeOutSeconds = 0.18f;
+    [HideInInspector, SerializeField] private CanvasGroup timesUpOverlay;
+    [HideInInspector, SerializeField] private TMP_Text timesUpTitleText;
+    [HideInInspector, SerializeField] private bool showTimesUpTransition = true;
+    [HideInInspector, SerializeField] private string timesUpTitleMessage = "TIME'S UP";
+    [HideInInspector, SerializeField, Min(0f)] private float timesUpSeconds = 1f;
+    [HideInInspector, SerializeField, Min(0f)] private float timesUpFadeInSeconds = 0.08f;
+    [HideInInspector, SerializeField, Min(0f)] private float timesUpFadeOutSeconds = 0.12f;
+
+    [HideInInspector, SerializeField] private CanvasGroup gameOverTransitionOverlay;
+    [HideInInspector, SerializeField] private TMP_Text gameOverTransitionTitleText;
+    [HideInInspector, SerializeField] private TMP_Text gameOverTransitionSubText;
+    [HideInInspector, SerializeField] private bool showGameOverTransition = true;
+    [HideInInspector, SerializeField] private string gameOverTransitionTitleMessage = "YOU LOSS";
+    [HideInInspector, SerializeField] private string gameOverTransitionSubMessage = "Run Failed";
+    [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionSeconds = 1.1f;
+    [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionFadeInSeconds = 0.12f;
+    [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionFadeOutSeconds = 0.18f;
     [SerializeField] private bool playPlayerDeathAnimationOnLoss = true;
 
     [Header("Pickup Flow")]
@@ -139,6 +150,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool enableGameplayTutorial = true;
     [SerializeField] private TMP_FontAsset gameplayTutorialFont;
     [SerializeField, TextArea(2, 3)] private string gameplayTutorialMoveText = "MOVE WITH WASD";
+    [SerializeField, TextArea(1, 2)] private string gameplayTutorialDashText = "PRESS SPACE TO DASH";
     [SerializeField, TextArea(2, 4)] private string gameplayTutorialPickupText = "PICK UP DROPS FROM KILLS\nXP LEVELS YOU UP. CASH PAYS DEBT.";
     [SerializeField, TextArea(2, 4)] private string gameplayTutorialDebtText = "WORK HARD. PAY BACK.\nTHE COLLECTOR NEVER MISSES A PAYMENT.";
     [SerializeField] private Color gameplayTutorialTextColor = new Color(0.96f, 0.97f, 0.93f, 1f);
@@ -146,6 +158,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private Vector3 gameplayTutorialMoveOffset = new Vector3(0f, 2.55f, 0f);
     [SerializeField] private Vector3 gameplayTutorialPickupOffset = new Vector3(0f, 2.35f, 0f);
     [SerializeField, Min(0.5f)] private float gameplayTutorialMoveLifetime = 5.5f;
+    [SerializeField, Min(0.5f)] private float gameplayTutorialDashLifetime = 5.5f;
     [SerializeField, Min(0.5f)] private float gameplayTutorialPickupLifetime = 7.5f;
     [SerializeField, Min(0.1f)] private float gameplayTutorialFontSize = 5.4f;
     [SerializeField, Min(0.01f)] private float gameplayTutorialTextScale = 0.17f;
@@ -207,6 +220,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
     [SerializeField] private bool useIncomeScaledDebt = true;
     [SerializeField, Range(0f, 1f)] private float incomeScaledDebtRatio = 0.45f;
+    [SerializeField, Min(1)] private int lateRoundDebtPressureStartRound = 6;
+    [SerializeField, Range(0f, 0.25f)] private float lateRoundDebtRatioBonusPerRound = 0.06f;
 
     [SerializeField] private AnimationCurve enemyHpCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.75f);
     [SerializeField] private AnimationCurve enemySpeedCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 1.35f);
@@ -217,6 +232,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private AnimationCurve enemyDifficultyRamp = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
     [SerializeField, Min(1f)] private float maxNextRoundEnemyHpBuffMultiplier = 1.75f;
     [SerializeField, Min(1f)] private float maxNextRoundEnemySpeedBuffMultiplier = 1.4f;
+    [SerializeField, Min(1f)] private float maxNextRoundEnemyCountBuffMultiplier = 1.6f;
 
     [SerializeField] private int level = 1;
     [SerializeField] private int xp = 0;
@@ -231,6 +247,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(0.1f)] private float lockedModeOfferWeight = 1.35f;
     [SerializeField, Min(0.1f)] private float lockedBaseOfferWeight = 0.8f;
     [SerializeField, Min(0f)] private float lowerRankModeCatchUpWeightBonus = 0.3f;
+    [SerializeField, Min(1)] private int orbitRingProjectileCap = 8;
+    [SerializeField, Min(0)] private int orbitRingOverflowDamageAdd = 6;
+    [SerializeField, Min(0f)] private float orbitRingOverflowFireRateAdd = 0.01f;
 
     [Header("Enemy Pressure")]
     [SerializeField, Min(1f)] private float enemyHpPressureAtRound1 = 1.05f;
@@ -247,6 +266,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool enableBossRoundTestHotkey = true;
     [SerializeField] private KeyCode bossRoundTestHotkey = KeyCode.F6;
     [SerializeField] private KeyCode bossRoundTestAltHotkey = KeyCode.B;
+    [SerializeField] private bool enableShopRoundSkipHotkey = true;
+    [SerializeField] private KeyCode shopRoundSkipHotkey = KeyCode.F8;
 #endif
 
     [SerializeField] private EnemySpawner enemySpawner;
@@ -272,16 +293,10 @@ public class GameFlowController : MonoBehaviour
     private int roundIndex;          // 1-based
     private int cash;
     private Coroutine roundTimerCo;
-    private Coroutine roundIntroCo;
     private Coroutine roundClearCo;
-    private Coroutine gameOverTransitionCo;
+    private Coroutine timerEndResolutionCo;
     private Coroutine playerLossPresentationCo;
-    private bool roundIntroOverlayAutoCreated;
-    private bool roundClearOverlayAutoCreated;
-    private bool gameOverTransitionOverlayAutoCreated;
-    private bool roundIntroActive;
     private bool roundClearActive;
-    private bool gameOverTransitionActive;
     private bool playerLossPresentationActive;
     private bool creditsOpen;
     private bool creditsPanelMissingWarned;
@@ -318,6 +333,7 @@ public class GameFlowController : MonoBehaviour
 
     // Shop item bonuses, reset every run.
     private int bonusXPPerKill;
+    private float xpGainPercent;
     private float bonusXPMagnetRadius;
     private float cashBonusPercent;
     private int weaponUpgradeSelectionCount;
@@ -326,6 +342,26 @@ public class GameFlowController : MonoBehaviour
 
     public int BonusXPPerKill => bonusXPPerKill;
     public float BonusXPMagnetRadius => bonusXPMagnetRadius;
+    private bool IsRoundIntroActive => roundPresentation != null && roundPresentation.IsRoundIntroActive;
+    private bool IsTimesUpActive => roundPresentation != null && roundPresentation.IsTimesUpActive;
+
+    public bool HasEquippedActiveItem()
+    {
+        EnsurePlayerActiveItemControllerBound();
+        return playerActiveItemController != null && playerActiveItemController.HasEquippedItem;
+    }
+
+    public bool HasPurchasedActiveItem()
+    {
+        EnsurePlayerActiveItemControllerBound();
+        return playerActiveItemController != null && playerActiveItemController.HasPurchasedEquippedItem;
+    }
+
+    public ActiveItemId GetEquippedActiveItemId()
+    {
+        EnsurePlayerActiveItemControllerBound();
+        return playerActiveItemController != null ? playerActiveItemController.EquippedItem : ActiveItemId.None;
+    }
 
     // ====== 局内统计（每局重置） ======
     private int runTotalKills;
@@ -351,6 +387,7 @@ public class GameFlowController : MonoBehaviour
     private Vector3 gameplayTutorialSpawnPosition;
     private bool gameplayTutorialFirstKillShown;
     private bool gameplayTutorialFirstPickupShown;
+    private int gameplayTutorialObservedActiveItemUseCount;
     private GameplayTutorialHintType activeGameplayTutorialHintType;
     private GameplayTutorialStage gameplayTutorialStage;
 
@@ -358,6 +395,7 @@ public class GameFlowController : MonoBehaviour
     {
         None,
         Move,
+        ActiveItem,
         Pickup,
         Debt
     }
@@ -366,6 +404,7 @@ public class GameFlowController : MonoBehaviour
     {
         Inactive,
         WaitingForMove,
+        WaitingForActiveItem,
         WaitingForFirstKill,
         WaitingForFirstPickup,
         Complete
@@ -517,6 +556,9 @@ public class GameFlowController : MonoBehaviour
         try { EnsurePauseSettingsBound(); }
         catch (System.Exception ex) { RunLogger.Error($"EnsurePauseSettingsBound failed: {ex.Message}"); }
         EnsureQuitConfirmDialogBound();
+        EnsureRoundPresentationBound();
+        EnsureBossHealthBarBound();
+        EnsurePlayerActiveItemControllerBound();
         EnsurePauseMenuButtonsBound();
 
         try { EnsureDeathPanelsBound(); }
@@ -584,6 +626,36 @@ public class GameFlowController : MonoBehaviour
         BindHoverSfxToSceneButtons();
         BindKeyboardFocusIndicatorsToSceneSelectables();
         RefreshHUD();
+    }
+
+    private void OnValidate()
+    {
+        if (Application.isPlaying)
+            return;
+
+        if (roundPresentation == null)
+            roundPresentation = GetComponent<RoundPresentationController>();
+
+        if (bossHealthBar == null)
+            bossHealthBar = GetComponent<BossHealthBarController>();
+
+        if (roundPresentation != null)
+            SyncRoundPresentationConfig();
+
+        if (bossHealthBar != null)
+            bossHealthBar.BindCanvasSource(panelHUD);
+    }
+
+    [ContextMenu("Sync Round Presentation Config")]
+    private void EditorSyncRoundPresentationConfig()
+    {
+        if (roundPresentation == null)
+            roundPresentation = GetComponent<RoundPresentationController>();
+
+        if (roundPresentation == null)
+            return;
+
+        SyncRoundPresentationConfig();
     }
 
     private IEnumerator Start()
@@ -791,6 +863,7 @@ public class GameFlowController : MonoBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         TryHandleUpgradeTestHotkey();
         TryHandleBossRoundTestHotkey();
+        TryHandleShopRoundSkipHotkey();
 #endif
 
         UpdateCountdownDisplay();
@@ -806,7 +879,7 @@ public class GameFlowController : MonoBehaviour
         if (!enableUpgradeTestHotkey || !Input.GetKeyDown(upgradeTestHotkey))
             return;
 
-        if (state != GameState.Gameplay || pauseMenuOpen || creditsOpen || roundIntroActive || roundClearActive)
+        if (state != GameState.Gameplay || pauseMenuOpen || creditsOpen || IsRoundIntroActive || roundClearActive)
             return;
 
         if (IsLevelUpPanelOpen())
@@ -826,10 +899,21 @@ public class GameFlowController : MonoBehaviour
         if (!pressedPrimary && !pressedAlt)
             return;
 
-        if (storyIntroActive || pauseMenuOpen || creditsOpen)
+        if (storyIntroActive || pauseMenuOpen || creditsOpen || state == GameState.Title)
             return;
 
         DebugJumpToBossRound(false);
+    }
+
+    private void TryHandleShopRoundSkipHotkey()
+    {
+        if (!enableShopRoundSkipHotkey || !Input.GetKeyDown(shopRoundSkipHotkey))
+            return;
+
+        if (storyIntroActive || pauseMenuOpen || creditsOpen)
+            return;
+
+        DebugJumpToNextShopRound();
     }
 #endif
 
@@ -858,6 +942,9 @@ public class GameFlowController : MonoBehaviour
     {
         int v = Mathf.Max(0, amount);
         if (v == 0) return;
+
+        if (xpGainPercent > 0f)
+            v = Mathf.Max(v, Mathf.RoundToInt(v * (1f + xpGainPercent / 100f)));
 
         xp += v;
         runTotalXPEarned += v;
@@ -942,7 +1029,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     if (pendingDeferredLevelUpChoices <= 0)
         return;
 
-    if (state != GameState.Gameplay || roundIntroActive || roundClearActive)
+    if (state != GameState.Gameplay || IsRoundIntroActive || roundClearActive)
         return;
 
     if (IsLevelUpPanelOpen())
@@ -1110,8 +1197,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
         switch (mode)
         {
             case WeaponModeId.OrbitRing:
-                return nextRank <= 1
-                    ? "Collector cards orbit you."
+                if (nextRank <= 1)
+                    return "Collector cards orbit you.";
+
+                return IsOrbitRingAtProjectileCap()
+                    ? "Orbit ↑ Cap reached. Hits harder. Spins faster."
                     : "Orbit ↑ More cards. Wider ring. Faster spin.";
             case WeaponModeId.NovaWave:
                 return nextRank <= 1
@@ -1203,21 +1293,31 @@ private void TryShowDeferredLevelUpRewardIfReady()
         switch (mode)
         {
             case WeaponModeId.OrbitRing:
+                int currentOrbitCount = playerShooter != null ? playerShooter.GetOrbitProjectileCount() : 0;
+                int remainingOrbitSlots = Mathf.Max(0, Mathf.Max(1, orbitRingProjectileCap) - currentOrbitCount);
                 if (nextRank == 1)
                 {
-                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, 3));
+                    int addedProjectiles = Mathf.Min(3, remainingOrbitSlots);
+                    if (addedProjectiles > 0)
+                        effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, addedProjectiles));
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitRadiusAdd, floatValue: 0.25f));
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 14f));
+                    AddOrbitOverflowBonuses(effects, 3 - addedProjectiles, false);
                 }
                 else if (nextRank % 2 == 1)
                 {
-                    effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, 1));
+                    int addedProjectiles = Mathf.Min(1, remainingOrbitSlots);
+                    if (addedProjectiles > 0)
+                        effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitProjectileCountAdd, addedProjectiles));
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 12f));
+                    AddOrbitOverflowBonuses(effects, 1 - addedProjectiles, true);
                 }
                 else
                 {
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitRadiusAdd, floatValue: 0.1f));
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.OrbitAngularSpeedAdd, floatValue: 16f));
+                    if (remainingOrbitSlots <= 0)
+                        AddOrbitOverflowBonuses(effects, 1, true);
                 }
                 break;
 
@@ -1309,6 +1409,31 @@ private void TryShowDeferredLevelUpRewardIfReady()
             intValue = intValue,
             floatValue = floatValue,
         };
+    }
+
+    private bool IsOrbitRingAtProjectileCap()
+    {
+        if (playerShooter == null)
+            return false;
+
+        return playerShooter.GetOrbitProjectileCount() >= Mathf.Max(1, orbitRingProjectileCap);
+    }
+
+    private void AddOrbitOverflowBonuses(List<WeaponUpgradeEffect> effects, int overflowProjectileCount, bool includeFireRate)
+    {
+        if (effects == null || overflowProjectileCount <= 0)
+            return;
+
+        int damageAdd = Mathf.Max(0, orbitRingOverflowDamageAdd) * overflowProjectileCount;
+        if (damageAdd > 0)
+            effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, damageAdd));
+
+        if (!includeFireRate)
+            return;
+
+        float fireRateAdd = Mathf.Max(0f, orbitRingOverflowFireRateAdd) * overflowProjectileCount;
+        if (fireRateAdd > 0f)
+            effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: fireRateAdd));
     }
 
     private int GetModeRank(WeaponModeId mode)
@@ -1451,6 +1576,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         // 鎭㈠娓告垙鏃堕棿锛堜互闃茶繕鍦ㄦ殏鍋滅姸鎬侊級
         StopPlayerLossPresentation();
         StopRoundClearTransition(false);
+        StopTimesUpTransition(false);
         StopGameOverTransition(false);
         Time.timeScale = 1f;
 
@@ -1469,6 +1595,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         previousRoundCashEarned = 0;
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
+        gameplayTutorialObservedActiveItemUseCount = 0;
         gameplayTutorialStage = enableGameplayTutorial ? GameplayTutorialStage.WaitingForMove : GameplayTutorialStage.Inactive;
         runProgression.Reset();
         runProgression.BeginRound();
@@ -1492,8 +1619,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (playerShooter != null)
             playerShooter.ResetRuntimeStats();
 
+        EnsurePlayerActiveItemControllerBound();
+        if (playerActiveItemController != null)
+            playerActiveItemController.ResetRuntimeState();
+
         // 閲嶇疆鍟嗗簵閬撳叿鍔犳垚
         bonusXPPerKill = 0;
+        xpGainPercent = 0f;
         bonusXPMagnetRadius = 0f;
         cashBonusPercent = 0f;
 
@@ -1547,6 +1679,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopPlayerLossPresentation();
         StopRoundIntro();
         StopRoundClearTransition(false);
+        StopTimesUpTransition(false);
         StopGameOverTransition(false);
         StopRoundTimer();
         Time.timeScale = 1f;
@@ -1578,7 +1711,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
             if (playerShooter != null)
                 playerShooter.ResetRuntimeStats();
 
+            EnsurePlayerActiveItemControllerBound();
+            if (playerActiveItemController != null)
+                playerActiveItemController.ResetRuntimeState();
+
             bonusXPPerKill = 0;
+            xpGainPercent = 0f;
             bonusXPMagnetRadius = 0f;
             cashBonusPercent = 0f;
             ResetWeaponUpgradeModeState();
@@ -1588,6 +1726,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         previousRoundCashEarned = 0;
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
+        gameplayTutorialObservedActiveItemUseCount = 0;
         gameplayTutorialStage = GameplayTutorialStage.Inactive;
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
@@ -1606,6 +1745,57 @@ private void TryShowDeferredLevelUpRewardIfReady()
         RefreshHUD();
 
         RunLogger.Event($"Debug jump to boss round: round={roundIndex}/{totalRounds}, reset={resetStats}");
+    }
+
+    [ContextMenu("Debug/Jump To Next Shop Round")]
+    private void DebugJumpToNextShopRoundContextMenu()
+    {
+        DebugJumpToNextShopRound();
+    }
+
+    public void DebugJumpToNextShopRound()
+    {
+        int maxShopRound = Mathf.Max(1, GetBossRoundIndex() - 1);
+        int targetRound = Mathf.Clamp(roundIndex + 1, 1, maxShopRound);
+
+        if (targetRound == roundIndex && state == GameState.Shop)
+        {
+            RunLogger.Warning($"Already at the last shop round. round={roundIndex}, bossRound={GetBossRoundIndex()}");
+            return;
+        }
+
+        StopPlayerLossPresentation();
+        StopRoundIntro();
+        StopRoundClearTransition(false);
+        StopTimesUpTransition(false);
+        StopGameOverTransition(false);
+        StopRoundTimer();
+        Time.timeScale = 1f;
+        pendingDeferredLevelUpChoices = 0;
+
+        if (levelUpPanel != null)
+            levelUpPanel.ForceHideImmediate();
+
+        HideAllDeathPanels();
+        HideRunSummary();
+        ClearGameplayTutorialHint();
+        StopGameplayTutorialSequence();
+        gameplayTutorialStage = GameplayTutorialStage.Inactive;
+        gameplayTutorialFirstKillShown = false;
+        gameplayTutorialFirstPickupShown = false;
+
+        if (shopSystem != null)
+            shopSystem.OnShopClosed();
+
+        ClearWorld();
+
+        currentRoundCashEarned = 0;
+        previousRoundCashEarned = 0;
+        roundIndex = targetRound;
+        runHighestRound = Mathf.Max(runHighestRound, roundIndex);
+
+        EnterShop();
+        RunLogger.Event($"Debug jump to next shop round: round={roundIndex}/{totalRounds}, nextDue={CalcDue(roundIndex + 1)}");
     }
 
     // 鍥炲悎缁撴潫鍏ュ彛锛堟湭鏉ョ敱鍊掕鏃?浜嬩欢瑙﹀彂锛?
@@ -1663,7 +1853,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (!IsCurrentRoundBoss())
             return;
 
-        if (roundIntroActive || roundClearActive)
+        if (IsRoundIntroActive || roundClearActive)
             return;
 
         if (trackedBossRoundIndex != roundIndex)
@@ -1700,7 +1890,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void EndRound(bool triggeredByTimer)
     {
-        if (state != GameState.Gameplay || roundClearActive) return;
+        if (state != GameState.Gameplay || roundClearActive || IsTimesUpActive) return;
         Time.timeScale = 1f;
         StopRoundTimer();
 
@@ -1732,7 +1922,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
-        if (showRoundClearTransition)
+        EnsureRoundPresentationBound();
+        if (roundPresentation == null || roundPresentation.ShowRoundClearTransition)
         {
             ShowRoundClearTransition();
             return;
@@ -1751,15 +1942,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         int due = CalcDue(roundIndex);
         if (cash < due)
-        {
-            RunLogger.Warning($"Settlement failed: cash={cash}, due={due}");
-            ShowGameOverWithDeathPanel(DeathType.FailedDebt);
-            return;
-        }
+            RunLogger.Error($"Settlement entered without enough cash. This should be impossible now. cash={cash}, due={due}");
 
-        // 鏀粯鏈疆鍊哄姟
-        cash -= due;
-        RunLogger.Event($"Settlement passed: due={due}, paid={due}, cashLeft={cash}");
+        int paid = Mathf.Min(cash, due);
+        // Settlement is now success-only. If this invariant is somehow broken, clamp to avoid negative cash.
+        cash = Mathf.Max(0, cash - due);
+        RunLogger.Event($"Settlement passed: due={due}, paid={paid}, cashLeft={cash}");
 
         EnterShop();
     }
@@ -1886,7 +2074,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         PlayFailAnimation();
 
-        if (showGameOverTransition)
+        EnsureRoundPresentationBound();
+        if (roundPresentation != null)
         {
             ShowGameOverTransition(deathType);
             return;
@@ -1930,28 +2119,28 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void ShowGameOverTransition(DeathType deathType)
     {
-        if (gameOverTransitionCo != null || gameOverTransitionActive)
-            StopGameOverTransition(false);
-
-        HideRunSummary();
-        UpdateGameOverTransitionText(deathType);
-        bool useOverlay = EnsureGameOverTransitionOverlay();
-
-        gameOverTransitionActive = true;
-        Time.timeScale = 0f;
-        SetGameplaySystemsActive(false);
-        ClearRoundEndTransientObjects();
-        ClearWorld();
-
-        if (useOverlay && gameOverTransitionOverlay != null)
+        EnsureRoundPresentationBound();
+        if (roundPresentation == null)
         {
-            gameOverTransitionOverlay.gameObject.SetActive(true);
-            gameOverTransitionOverlay.transform.SetAsLastSibling();
-            gameOverTransitionOverlay.alpha = 0f;
+            FinalizeGameOver(deathType);
+            return;
         }
 
-        gameOverTransitionCo = StartCoroutine(GameOverTransitionRoutine(useOverlay, deathType));
-        RunLogger.Event($"Game over transition shown. overlay={useOverlay}, duration={gameOverTransitionSeconds:F2}s, deathType={deathType}");
+        roundPresentation.StopGameOverTransition();
+
+        HideRunSummary();
+        roundPresentation.PlayGameOverTransition(
+            deathType == DeathType.FailedDebt,
+            () =>
+            {
+                Time.timeScale = 0f;
+                SetGameplaySystemsActive(false);
+                ClearRoundEndTransientObjects();
+                ClearWorld();
+            },
+            () => FinalizeGameOver(deathType));
+
+        RunLogger.Event($"Game over transition shown. duration={gameOverTransitionSeconds:F2}s, deathType={deathType}");
     }
 
     private bool TryStartPlayerLossPresentation(DeathType deathType)
@@ -2046,60 +2235,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void StopGameOverTransition(bool finalizeIfNeeded)
     {
-        if (gameOverTransitionCo != null)
-        {
-            StopCoroutine(gameOverTransitionCo);
-            gameOverTransitionCo = null;
-        }
-
-        if (gameOverTransitionOverlay != null)
-        {
-            gameOverTransitionOverlay.alpha = 0f;
-            gameOverTransitionOverlay.gameObject.SetActive(false);
-        }
-
-        if (!gameOverTransitionActive)
-            return;
-
-        gameOverTransitionActive = false;
+        if (roundPresentation != null)
+            roundPresentation.StopGameOverTransition();
 
         if (finalizeIfNeeded)
             FinalizeGameOver(currentDeathType);
-    }
-
-    private IEnumerator GameOverTransitionRoutine(bool useOverlay, DeathType deathType)
-    {
-        if (useOverlay && gameOverTransitionOverlay != null)
-        {
-            yield return FadeCanvasGroup(gameOverTransitionOverlay, 0f, 1f, gameOverTransitionFadeInSeconds);
-
-            float hold = Mathf.Max(0f, gameOverTransitionSeconds - gameOverTransitionFadeInSeconds - gameOverTransitionFadeOutSeconds);
-            if (hold > 0f)
-                yield return new WaitForSecondsRealtime(hold);
-
-            yield return FadeCanvasGroup(gameOverTransitionOverlay, gameOverTransitionOverlay.alpha, 0f, gameOverTransitionFadeOutSeconds);
-            gameOverTransitionOverlay.gameObject.SetActive(false);
-        }
-        else if (gameOverTransitionSeconds > 0f)
-        {
-            yield return new WaitForSecondsRealtime(gameOverTransitionSeconds);
-        }
-
-        gameOverTransitionCo = null;
-        gameOverTransitionActive = false;
-        FinalizeGameOver(deathType);
-    }
-
-    private void UpdateGameOverTransitionText(DeathType deathType)
-    {
-        if (gameOverTransitionTitleText != null)
-            gameOverTransitionTitleText.text = gameOverTransitionTitleMessage;
-
-        if (gameOverTransitionSubText == null)
-            return;
-
-        string causeText = deathType == DeathType.FailedDebt ? "Debt Unpaid" : "Killed by Monster";
-        gameOverTransitionSubText.text = $"{gameOverTransitionSubMessage}\n{causeText}";
     }
 
     private IEnumerator BossVictorySequenceRoutine(EnemyController defeatedBoss)
@@ -2924,8 +3064,15 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (playerMotor == null)
             playerMotor = FindObjectOfType<PlayerMotor2D>();
 
+        if (playerShooter == null)
+            playerShooter = FindObjectOfType<PlayerShooter>();
+
         PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        EnsurePlayerActiveItemControllerBound();
         bool purchasedShieldEffect = false;
+        float nextRoundEnemyCountPercent = 0f;
+        float nextRoundEnemySpeedPercent = 0f;
+        float nextRoundRewardPercent = 0f;
 
         if (item.Effects != null)
         {
@@ -2954,6 +3101,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
                         bonusXPPerKill += Mathf.Max(0, effect.intValue);
                         RunLogger.Event($"Bonus XP per kill +{effect.intValue}, total={bonusXPPerKill}");
                         break;
+                    case ShopItemEffectType.XPGainPercentAdd:
+                        xpGainPercent += Mathf.Max(0f, effect.floatValue);
+                        RunLogger.Event($"XP gain bonus +{effect.floatValue:F1}%, total={xpGainPercent:F1}%");
+                        break;
                     case ShopItemEffectType.XPMagnetRadiusAdd:
                         bonusXPMagnetRadius += Mathf.Max(0f, effect.floatValue);
                         RunLogger.Event($"Bonus XP magnet radius +{effect.floatValue:F1}, total={bonusXPMagnetRadius:F1}");
@@ -2962,9 +3113,47 @@ private void TryShowDeferredLevelUpRewardIfReady()
                         cashBonusPercent += Mathf.Max(0f, effect.floatValue);
                         RunLogger.Event($"Cash on kill bonus +{effect.floatValue:F1}%, total={cashBonusPercent:F1}%");
                         break;
+                    case ShopItemEffectType.NextRoundEnemyCountPercentAdd:
+                        nextRoundEnemyCountPercent += Mathf.Max(0f, effect.floatValue);
+                        break;
+                    case ShopItemEffectType.NextRoundEnemySpeedPercentAdd:
+                        nextRoundEnemySpeedPercent += Mathf.Max(0f, effect.floatValue);
+                        break;
+                    case ShopItemEffectType.NextRoundRewardPercentAdd:
+                        nextRoundRewardPercent += Mathf.Max(0f, effect.floatValue);
+                        break;
+                    case ShopItemEffectType.DamagePercentAdd:
+                        if (playerShooter != null) playerShooter.AddDamagePercent(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.FireRatePercentAdd:
+                        if (playerShooter != null) playerShooter.AddFireRatePercent(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.ProjectileSpeedPercentAdd:
+                        if (playerShooter != null) playerShooter.AddProjectileSpeedPercent(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.IFrameSecondsAdd:
+                        if (resolvedPlayerHealth != null) resolvedPlayerHealth.AddInvulnerabilitySeconds(effect.floatValue);
+                        break;
+                    case ShopItemEffectType.ReviveChargesAdd:
+                        if (resolvedPlayerHealth != null) resolvedPlayerHealth.AddReviveCharges(effect.intValue);
+                        break;
+                    case ShopItemEffectType.EquipActiveItem:
+                        if (playerActiveItemController != null)
+                            playerActiveItemController.Equip((ActiveItemId)effect.intValue);
+                        break;
                 }
             }
         }
+
+        float nextRoundEnemyCountMultiplier = 1f + nextRoundEnemyCountPercent / 100f;
+        float nextRoundEnemySpeedMultiplier = 1f + nextRoundEnemySpeedPercent / 100f;
+        float nextRoundRewardMultiplier = 1f + nextRoundRewardPercent / 100f;
+
+        if (nextRoundEnemyCountMultiplier > 1f || nextRoundEnemySpeedMultiplier > 1f)
+            AddEnemyBuffToNextRound(1f, nextRoundEnemySpeedMultiplier, nextRoundEnemyCountMultiplier);
+
+        if (nextRoundRewardMultiplier > 1f)
+            AddRewardBuffToNextRound(nextRoundRewardMultiplier);
 
         if (healthUI != null)
         {
@@ -2986,11 +3175,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (shopSystem != null) shopSystem.RefreshShopUI();
     }
 
-    public void AddEnemyBuffToNextRound(float hpMultiplier, float speedMultiplier)
+    public void AddEnemyBuffToNextRound(float hpMultiplier, float speedMultiplier, float countMultiplier = 1f)
     {
-        runProgression.AddEnemyBuffToNextRound(hpMultiplier, speedMultiplier);
-        runProgression.ClampNextRoundEnemyBuff(maxNextRoundEnemyHpBuffMultiplier, maxNextRoundEnemySpeedBuffMultiplier);
-        RunLogger.Warning($"Next round enemy buff queued. hpX={runProgression.NextRoundEnemyHpMultiplier:F2}, speedX={runProgression.NextRoundEnemySpeedMultiplier:F2}");
+        runProgression.AddEnemyBuffToNextRound(hpMultiplier, speedMultiplier, countMultiplier);
+        runProgression.ClampNextRoundEnemyBuff(
+            maxNextRoundEnemyHpBuffMultiplier,
+            maxNextRoundEnemySpeedBuffMultiplier,
+            maxNextRoundEnemyCountBuffMultiplier);
+        RunLogger.Warning(
+            $"Next round enemy buff queued. hpX={runProgression.NextRoundEnemyHpMultiplier:F2}, " +
+            $"speedX={runProgression.NextRoundEnemySpeedMultiplier:F2}, countX={runProgression.NextRoundEnemyCountMultiplier:F2}");
         if (shopSystem != null) shopSystem.RefreshShopUI();
     }
 
@@ -3008,6 +3202,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
         GetBaseEnemyMultipliersForRound(roundIndex, out float baseHpMultiplier, out float baseSpeedMultiplier);
         hpMultiplier = Mathf.Max(0.2f, baseHpMultiplier * runProgression.CurrentRoundEnemyHpMultiplier);
         speedMultiplier = Mathf.Max(0.2f, baseSpeedMultiplier * runProgression.CurrentRoundEnemySpeedMultiplier);
+    }
+
+    public float GetCurrentEnemyCountMultiplier()
+    {
+        return runProgression != null ? Mathf.Max(1f, runProgression.CurrentRoundEnemyCountMultiplier) : 1f;
     }
 
     private void EnsureShopSystemBound()
@@ -3071,6 +3270,95 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         if (quitConfirmDialog != null)
             quitConfirmDialog.Bind(panelPauseMenu);
+    }
+
+    private void EnsureRoundPresentationBound()
+    {
+        if (roundPresentation == null)
+            roundPresentation = GetComponent<RoundPresentationController>();
+
+        if (roundPresentation == null)
+            roundPresentation = gameObject.AddComponent<RoundPresentationController>();
+
+        if (roundPresentation == null)
+            return;
+
+        SyncRoundPresentationConfig();
+    }
+
+    private void EnsureBossHealthBarBound()
+    {
+        if (bossHealthBar == null)
+            bossHealthBar = GetComponent<BossHealthBarController>();
+
+        if (bossHealthBar == null)
+            bossHealthBar = gameObject.AddComponent<BossHealthBarController>();
+
+        if (bossHealthBar != null)
+            bossHealthBar.BindCanvasSource(panelHUD);
+    }
+
+    private void EnsurePlayerActiveItemControllerBound()
+    {
+        if (playerActiveItemController == null)
+            playerActiveItemController = GetComponent<PlayerActiveItemController>();
+
+        if (playerActiveItemController == null)
+            playerActiveItemController = gameObject.AddComponent<PlayerActiveItemController>();
+
+        if (playerActiveItemController == null)
+            return;
+
+        playerActiveItemController.Bind(
+            this,
+            panelHUD,
+            playerMotor,
+            playerShooter,
+            ResolvePlayerHealth());
+    }
+
+    private void SyncRoundPresentationConfig()
+    {
+        if (roundPresentation == null)
+            return;
+
+        roundPresentation.BindCanvasSource(panelHUD);
+        roundPresentation.TryImportLegacyConfig(
+            roundIntroSeconds,
+            roundIntroOverlay,
+            roundIntroRoundText,
+            roundIntroDebtText,
+            roundIntroContinueHintText,
+            roundIntroRequireAnyKeyToContinue,
+            roundIntroContinueHintMessage,
+            roundIntroFadeInSeconds,
+            roundIntroFadeOutSeconds,
+            roundClearOverlay,
+            roundClearTitleText,
+            roundClearSubText,
+            showRoundClearTransition,
+            roundClearTitleMessage,
+            roundClearSubMessage,
+            roundClearSeconds,
+            roundClearFadeInSeconds,
+            roundClearFadeOutSeconds,
+            roundClearOverlayAlphaDuringCollect,
+            timesUpOverlay,
+            timesUpTitleText,
+            showTimesUpTransition,
+            timesUpTitleMessage,
+            timesUpSeconds,
+            timesUpFadeInSeconds,
+            timesUpFadeOutSeconds,
+            gameOverTransitionOverlay,
+            gameOverTransitionTitleText,
+            gameOverTransitionSubText,
+            showGameOverTransition,
+            gameOverTransitionTitleMessage,
+            gameOverTransitionSubMessage,
+            gameOverTransitionSeconds,
+            gameOverTransitionFadeInSeconds,
+            gameOverTransitionFadeOutSeconds);
     }
 
     private bool TryPlayStoryIntroBeforeRun()
@@ -3517,7 +3805,7 @@ private void SwitchState(GameState next)
         nextBossDefeatCheckTime = -10f;
     }
 
-    bool gameplaySystemsActive = inGameplay && !roundIntroActive && !roundClearActive;
+    bool gameplaySystemsActive = inGameplay && !IsRoundIntroActive && !roundClearActive;
     SetGameplaySystemsActive(gameplaySystemsActive);
 
     // Leave gameplay -> clean world objects (settlement/shop/gameover/title should be clean).
@@ -3563,7 +3851,7 @@ private void SwitchState(GameState next)
 
     private IEnumerator GameplayTutorialSequence()
     {
-        while (state == GameState.Gameplay && (roundIntroActive || roundClearActive || storyIntroActive))
+        while (state == GameState.Gameplay && (IsRoundIntroActive || roundClearActive || storyIntroActive))
             yield return null;
 
         gameplayTutorialCo = null;
@@ -3626,20 +3914,44 @@ private void SwitchState(GameState next)
         if (!enableGameplayTutorial || state != GameState.Gameplay)
             return;
 
-        if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove ||
-            playerMotor == null ||
-            playerMotor.CurrentMoveInput.sqrMagnitude <= 0.001f)
-            return;
-
-        // The move hint is only feedback. Its auto-expiry must not block tutorial progress.
-        if (activeGameplayTutorialHint != null &&
-            activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
-            !activeGameplayTutorialHint.IsCompleting)
+        if (gameplayTutorialStage == GameplayTutorialStage.WaitingForMove)
         {
-            TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move);
+            if (playerMotor == null || playerMotor.CurrentMoveInput.sqrMagnitude <= 0.001f)
+                return;
+
+            // The move hint is only feedback. Its auto-expiry must not block tutorial progress.
+            if (activeGameplayTutorialHint != null &&
+                activeGameplayTutorialHintType == GameplayTutorialHintType.Move &&
+                !activeGameplayTutorialHint.IsCompleting)
+            {
+                TryCompleteGameplayTutorialHint(GameplayTutorialHintType.Move);
+            }
+
+            AdvanceGameplayTutorialAfterMovement();
+            return;
         }
 
-        AdvanceGameplayTutorialAfterMovement();
+        if (gameplayTutorialStage != GameplayTutorialStage.WaitingForActiveItem)
+            return;
+
+        EnsurePlayerActiveItemControllerBound();
+        if (playerActiveItemController == null || !playerActiveItemController.IsStarterDashEquipped)
+        {
+            AdvanceGameplayTutorialAfterActiveItemUse();
+            return;
+        }
+
+        if (playerActiveItemController.TotalUses <= gameplayTutorialObservedActiveItemUseCount)
+            return;
+
+        if (activeGameplayTutorialHint != null &&
+            activeGameplayTutorialHintType == GameplayTutorialHintType.ActiveItem &&
+            !activeGameplayTutorialHint.IsCompleting)
+        {
+            TryCompleteGameplayTutorialHint(GameplayTutorialHintType.ActiveItem);
+        }
+
+        AdvanceGameplayTutorialAfterActiveItemUse();
     }
 
     private bool TryCompleteGameplayTutorialHint(GameplayTutorialHintType expectedType)
@@ -3674,6 +3986,33 @@ private void SwitchState(GameState next)
     {
         if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove)
             return;
+
+        EnsurePlayerActiveItemControllerBound();
+        if (playerActiveItemController != null &&
+            playerActiveItemController.IsStarterDashEquipped &&
+            !string.IsNullOrWhiteSpace(gameplayTutorialDashText))
+        {
+            gameplayTutorialStage = GameplayTutorialStage.WaitingForActiveItem;
+            gameplayTutorialObservedActiveItemUseCount = playerActiveItemController.TotalUses;
+            gameplayTutorialSpawnPosition = ResolveGameplayTutorialAnchorPosition();
+            ShowGameplayTutorialHint(
+                gameplayTutorialDashText,
+                gameplayTutorialSpawnPosition + gameplayTutorialMoveOffset,
+                gameplayTutorialDashLifetime,
+                GameplayTutorialHintType.ActiveItem);
+            return;
+        }
+
+        AdvanceGameplayTutorialAfterActiveItemUse();
+    }
+
+    private void AdvanceGameplayTutorialAfterActiveItemUse()
+    {
+        if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove &&
+            gameplayTutorialStage != GameplayTutorialStage.WaitingForActiveItem)
+        {
+            return;
+        }
 
         gameplayTutorialStage = GameplayTutorialStage.WaitingForFirstKill;
         gameplayTutorialSpawnPosition = ResolveGameplayTutorialAnchorPosition();
@@ -3717,13 +4056,14 @@ private void SwitchState(GameState next)
             return false;
 
         return gameplayTutorialStage == GameplayTutorialStage.WaitingForMove ||
+               gameplayTutorialStage == GameplayTutorialStage.WaitingForActiveItem ||
                gameplayTutorialStage == GameplayTutorialStage.WaitingForFirstKill ||
                gameplayTutorialStage == GameplayTutorialStage.WaitingForFirstPickup;
     }
 
     private void RefreshGameplaySystemsForCurrentState()
     {
-        bool gameplaySystemsActive = state == GameState.Gameplay && !roundIntroActive && !roundClearActive;
+        bool gameplaySystemsActive = state == GameState.Gameplay && !IsRoundIntroActive && !roundClearActive;
         SetGameplaySystemsActive(gameplaySystemsActive);
     }
 
@@ -4040,6 +4380,7 @@ private void ClearRoundEndTransientObjects()
     for (int i = 0; i < popupTexts.Length; i++)
     {
         if (popupTexts[i] == null) continue;
+        popupTexts[i].gameObject.SetActive(false);
         Destroy(popupTexts[i].gameObject);
         popupCount++;
     }
@@ -4079,7 +4420,11 @@ private void ClearChildren(Transform root)
 {
     if (root == null) return;
     for (int i = root.childCount - 1; i >= 0; i--)
-        Destroy(root.GetChild(i).gameObject);
+    {
+        GameObject child = root.GetChild(i).gameObject;
+        child.SetActive(false);
+        Destroy(child);
+    }
 }
 
 private int CountChildren(Transform root)
@@ -4113,7 +4458,7 @@ private bool CanOpenPauseMenu()
     if (!canPauseState)
         return false;
 
-    if (state == GameState.Gameplay && (roundIntroActive || roundClearActive))
+    if (state == GameState.Gameplay && (IsRoundIntroActive || roundClearActive))
         return false;
 
     return Time.timeScale > 0.01f;
@@ -4130,7 +4475,7 @@ private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
     if (!resumeGameplayIfNeeded)
         return;
 
-    if (state == GameState.Gameplay && !roundIntroActive && !roundClearActive)
+    if (state == GameState.Gameplay && !IsRoundIntroActive && !roundClearActive)
     {
         Time.timeScale = 1f;
         SetGameplaySystemsActive(true);
@@ -4197,8 +4542,62 @@ private void SetPauseMenuVisible(bool visible)
         {
             roundTimeRemaining = 0f;
             RunLogger.Event($"Round {roundIndex} timer reached 0.");
-            EndRound(true);
+            roundTimerCo = null;
+            bool timesUpStarted = false;
+            EnsureRoundPresentationBound();
+            if (roundPresentation == null || roundPresentation.ShowTimesUpTransition)
+            {
+                if (roundPresentation != null)
+                {
+                    timesUpStarted = roundPresentation.PlayTimesUp(
+                        () =>
+                        {
+                            Time.timeScale = 0f;
+                            SetGameplaySystemsActive(false);
+                        },
+                        StartTimerEndResolution);
+                }
+            }
+
+            if (!timesUpStarted)
+                StartTimerEndResolution();
         }
+    }
+
+    private void StopTimesUpTransition(bool restoreTimeScale)
+    {
+        if (roundPresentation != null)
+            roundPresentation.StopTimesUp();
+        StopTimerEndResolution();
+        if (restoreTimeScale)
+            Time.timeScale = 1f;
+    }
+
+    private void StartTimerEndResolution()
+    {
+        StopTimerEndResolution();
+        timerEndResolutionCo = StartCoroutine(TimerEndResolutionRoutine());
+    }
+
+    private void StopTimerEndResolution()
+    {
+        if (timerEndResolutionCo == null)
+            return;
+
+        StopCoroutine(timerEndResolutionCo);
+        timerEndResolutionCo = null;
+    }
+
+    private IEnumerator TimerEndResolutionRoutine()
+    {
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+
+        yield return PlayRoundEndAutoCollectAnimationRealtime(false);
+        yield return WaitForLevelUpPanelToCloseRealtime();
+
+        timerEndResolutionCo = null;
+        EndRound(true);
     }
 
     private int CalcDue(int round)
@@ -4215,7 +4614,7 @@ private void SetPauseMenuVisible(bool visible)
         }
 
         if (useIncomeScaledDebt)
-            due = Mathf.Max(due, Mathf.RoundToInt(GetGrossCashForDebtRound(round) * Mathf.Max(0f, incomeScaledDebtRatio)));
+            due = Mathf.Max(due, Mathf.RoundToInt(GetGrossCashForDebtRound(round) * GetIncomeScaledDebtRatioForRound(round)));
 
         if (round == roundIndex)
             due += runProgression.CurrentRoundDebtIncrease;
@@ -4277,7 +4676,6 @@ private void SetPauseMenuVisible(bool visible)
             textCountdown.text = "";
             ResetCountdownStyle();
         }
-        UpdateRoundIntroText();
     }
 
     private string GetGameplayRoundHudText()
@@ -4765,6 +5163,11 @@ private void SetPauseMenuVisible(bool visible)
                 return MoveDirection.Left;
             if (GameInput.IsUIRightPressed())
                 return MoveDirection.Right;
+            if (GameInput.IsAnyUIKeyboardDirectionHeld())
+            {
+                ResetHeldGamepadUINavigation();
+                return MoveDirection.None;
+            }
         }
 
         float horizontal = GameInput.GetHorizontalAxisRaw();
@@ -4849,6 +5252,17 @@ private void SetPauseMenuVisible(bool visible)
         return Mathf.Max(0, currentRoundCashEarned);
     }
 
+    private float GetIncomeScaledDebtRatioForRound(int round)
+    {
+        float ratio = Mathf.Max(0f, incomeScaledDebtRatio);
+        int startRound = Mathf.Max(1, lateRoundDebtPressureStartRound);
+        int lateSteps = Mathf.Max(0, round - startRound + 1);
+        if (lateSteps > 0)
+            ratio += lateSteps * Mathf.Max(0f, lateRoundDebtRatioBonusPerRound);
+
+        return Mathf.Clamp01(ratio);
+    }
+
     private void ShowRoundClearTransition()
     {
         if (roundClearCo != null || roundClearActive)
@@ -4857,22 +5271,16 @@ private void SetPauseMenuVisible(bool visible)
         if (BGMManager.Instance != null)
             BGMManager.Instance.PlayVictoryBGM();
 
-        UpdateRoundClearText();
-        bool useOverlay = EnsureRoundClearOverlay();
+        EnsureRoundPresentationBound();
+        bool useOverlay = roundPresentation != null && roundPresentation.PrepareRoundClearOverlay(roundIndex, totalRounds);
 
         roundClearActive = true;
         Time.timeScale = 0f;
         SetGameplaySystemsActive(false);
 
-        if (useOverlay && roundClearOverlay != null)
-        {
-            roundClearOverlay.gameObject.SetActive(true);
-            roundClearOverlay.transform.SetAsLastSibling();
-            roundClearOverlay.alpha = 0f;
-        }
-
         roundClearCo = StartCoroutine(RoundClearRoutine(useOverlay));
-        RunLogger.Event($"Round clear transition shown. overlay={useOverlay}, duration={roundClearSeconds:F2}s");
+        float duration = roundPresentation != null ? roundPresentation.RoundClearSeconds : roundClearSeconds;
+        RunLogger.Event($"Round clear transition shown. overlay={useOverlay}, duration={duration:F2}s");
     }
 
     private void StopRoundClearTransition(bool resumeGameplayIfNeeded)
@@ -4883,17 +5291,14 @@ private void SetPauseMenuVisible(bool visible)
             roundClearCo = null;
         }
 
-        if (roundClearOverlay != null)
-        {
-            roundClearOverlay.alpha = 0f;
-            roundClearOverlay.gameObject.SetActive(false);
-        }
+        if (roundPresentation != null)
+            roundPresentation.StopRoundClearOverlay();
 
         if (!roundClearActive)
             return;
 
         roundClearActive = false;
-        if (resumeGameplayIfNeeded && state == GameState.Gameplay && !roundIntroActive)
+        if (resumeGameplayIfNeeded && state == GameState.Gameplay && !IsRoundIntroActive)
         {
             Time.timeScale = 1f;
             SetGameplaySystemsActive(true);
@@ -4902,25 +5307,21 @@ private void SetPauseMenuVisible(bool visible)
 
     private IEnumerator RoundClearRoutine(bool useOverlay)
     {
-        if (useOverlay && roundClearOverlay != null)
-        {
-            yield return FadeCanvasGroup(roundClearOverlay, 0f, 1f, roundClearFadeInSeconds);
-        }
+        if (useOverlay && roundPresentation != null)
+            yield return roundPresentation.FadeRoundClearOverlayIn();
 
         float collectStartedAt = Time.unscaledTime;
-        yield return PlayRoundClearAutoCollectAnimationRealtime(useOverlay);
+        yield return PlayRoundEndAutoCollectAnimationRealtime(useOverlay);
 
-        float remainHold = Mathf.Max(0f, roundClearSeconds - (Time.unscaledTime - collectStartedAt));
+        float holdSeconds = roundPresentation != null ? roundPresentation.RoundClearSeconds : roundClearSeconds;
+        float remainHold = Mathf.Max(0f, holdSeconds - (Time.unscaledTime - collectStartedAt));
         if (remainHold > 0f)
             yield return new WaitForSecondsRealtime(remainHold);
 
         yield return WaitForLevelUpPanelToCloseRealtime();
 
-        if (useOverlay && roundClearOverlay != null)
-        {
-            yield return FadeCanvasGroup(roundClearOverlay, roundClearOverlay.alpha, 0f, roundClearFadeOutSeconds);
-            roundClearOverlay.gameObject.SetActive(false);
-        }
+        if (useOverlay && roundPresentation != null)
+            yield return roundPresentation.FadeRoundClearOverlayOut();
 
         roundClearCo = null;
         roundClearActive = false;
@@ -4929,7 +5330,7 @@ private void SetPauseMenuVisible(bool visible)
         EnterSettlementAfterRoundEnd();
     }
 
-    private IEnumerator PlayRoundClearAutoCollectAnimationRealtime(bool useOverlay)
+    private IEnumerator PlayRoundEndAutoCollectAnimationRealtime(bool useOverlay)
     {
         if (!autoCollectDropsOnRoundClear)
             yield break;
@@ -4991,8 +5392,8 @@ private void SetPauseMenuVisible(bool visible)
         if (xpTargets.Count == 0 && hpTargets.Count == 0 && cashTargets.Count == 0)
             yield break;
 
-        if (useOverlay && roundClearOverlay != null)
-            roundClearOverlay.alpha = Mathf.Clamp01(Mathf.Min(roundClearOverlay.alpha, roundClearOverlayAlphaDuringCollect));
+        if (useOverlay && roundPresentation != null)
+            roundPresentation.ClampRoundClearOverlayAlphaDuringCollect();
 
         float timeoutAt = Time.unscaledTime + roundClearAutoCollectMaxWaitSeconds;
         int xpCollected = 0;
@@ -5167,231 +5568,53 @@ private void SetPauseMenuVisible(bool visible)
     private void ShowRoundIntro()
     {
         RefreshHUD();
-        bool canUseOverlay = EnsureRoundIntroOverlay();
-        if (canUseOverlay)
-            SetRoundDebtVisible(false);
-        else
+        EnsureRoundPresentationBound();
+        if (roundPresentation == null)
+        {
             SetRoundDebtVisible(true);
+            Time.timeScale = 1f;
+            SetGameplaySystemsActive(true);
+            TryShowDeferredLevelUpRewardIfReady();
+            return;
+        }
 
-        if (roundIntroCo != null || roundIntroActive)
-            StopRoundIntro();
+        roundPresentation.PlayRoundIntro(
+            roundIndex,
+            totalRounds,
+            GetDebtDisplay(roundIndex),
+            canUseOverlay =>
+            {
+                SetRoundDebtVisible(!canUseOverlay);
+                Time.timeScale = 0f;
+                SetGameplaySystemsActive(false);
+            },
+            () =>
+            {
+                Time.timeScale = 1f;
+                if (state == GameState.Gameplay)
+                    SetGameplaySystemsActive(true);
 
-        roundIntroActive = true;
-        Time.timeScale = 0f;
-        SetGameplaySystemsActive(false);
+                if (state == GameState.Gameplay)
+                    SetRoundDebtVisible(true);
 
-        roundIntroCo = StartCoroutine(RoundIntroRoutine(canUseOverlay));
-        RunLogger.Event($"Round intro shown. overlay={canUseOverlay}, requireAnyKey={roundIntroRequireAnyKeyToContinue}, duration={roundIntroSeconds:F1}s");
+                TryShowDeferredLevelUpRewardIfReady();
+                RunLogger.Event("Round intro finished. Gameplay resumed.");
+            });
+
+        RunLogger.Event($"Round intro shown. requireAnyKey={roundIntroRequireAnyKeyToContinue}, duration={roundIntroSeconds:F1}s");
     }
 
     private void StopRoundIntro()
     {
-        if (roundIntroCo != null)
-        {
-            StopCoroutine(roundIntroCo);
-            roundIntroCo = null;
-        }
+        if (roundPresentation != null)
+            roundPresentation.StopRoundIntro();
 
-        if (roundIntroOverlay != null)
-        {
-            roundIntroOverlay.alpha = 0f;
-            roundIntroOverlay.gameObject.SetActive(false);
-        }
-
-        SetRoundIntroHintVisible(false);
-
-        if (roundIntroActive)
-        {
-            roundIntroActive = false;
-            Time.timeScale = 1f;
-        }
+        Time.timeScale = 1f;
 
         if (state == GameState.Gameplay)
             SetGameplaySystemsActive(true);
 
         SetRoundDebtVisible(true);
-    }
-
-    private IEnumerator RoundIntroRoutine(bool useOverlay)
-    {
-        if (useOverlay && roundIntroOverlay != null)
-        {
-            roundIntroOverlay.gameObject.SetActive(true);
-            roundIntroOverlay.transform.SetAsLastSibling();
-            roundIntroOverlay.alpha = 0f;
-
-            yield return FadeCanvasGroup(roundIntroOverlay, 0f, 1f, roundIntroFadeInSeconds);
-
-            if (roundIntroRequireAnyKeyToContinue)
-            {
-                SetRoundIntroHintVisible(true);
-                yield return WaitForRoundIntroContinueInput();
-                SetRoundIntroHintVisible(false);
-            }
-            else
-            {
-                float hold = Mathf.Max(0f, roundIntroSeconds - roundIntroFadeInSeconds - roundIntroFadeOutSeconds);
-                if (hold > 0f)
-                    yield return new WaitForSecondsRealtime(hold);
-            }
-
-            yield return FadeCanvasGroup(roundIntroOverlay, 1f, 0f, roundIntroFadeOutSeconds);
-            roundIntroOverlay.gameObject.SetActive(false);
-        }
-        else
-        {
-            if (roundIntroRequireAnyKeyToContinue)
-            {
-                yield return WaitForRoundIntroContinueInput();
-            }
-            else if (roundIntroSeconds > 0f)
-            {
-                yield return new WaitForSecondsRealtime(roundIntroSeconds);
-            }
-        }
-
-        roundIntroCo = null;
-
-        if (roundIntroActive)
-        {
-            roundIntroActive = false;
-            Time.timeScale = 1f;
-            if (state == GameState.Gameplay)
-                SetGameplaySystemsActive(true);
-        }
-
-        if (state == GameState.Gameplay)
-            SetRoundDebtVisible(true);
-
-        TryShowDeferredLevelUpRewardIfReady();
-
-        RunLogger.Event("Round intro finished. Gameplay resumed.");
-    }
-
-    private IEnumerator WaitForRoundIntroContinueInput()
-    {
-        // Skip one frame to avoid consuming the click/key that started the round.
-        yield return null;
-
-        while (roundIntroActive && state == GameState.Gameplay)
-        {
-            if (Input.anyKeyDown || GameInput.IsContinuePressed() || GameInput.IsBackPressed())
-                yield break;
-
-            yield return null;
-        }
-    }
-
-    private void SetRoundIntroHintVisible(bool visible)
-    {
-        if (roundIntroContinueHintText == null)
-            return;
-
-        roundIntroContinueHintText.gameObject.SetActive(visible);
-    }
-
-    private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
-    {
-        if (group == null) yield break;
-        if (duration <= 0f)
-        {
-            group.alpha = to;
-            yield break;
-        }
-
-        float elapsed = 0f;
-        group.alpha = from;
-        while (elapsed < duration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            group.alpha = Mathf.Lerp(from, to, t);
-            yield return null;
-        }
-
-        group.alpha = to;
-    }
-
-    private void UpdateRoundIntroText()
-    {
-        if (roundIntroRoundText != null)
-            roundIntroRoundText.text = $"ROUND {roundIndex}/{totalRounds}";
-
-        if (roundIntroDebtText != null)
-            roundIntroDebtText.text = $"DEBT   OWED\n{GetDebtDisplay(roundIndex)}";
-
-        if (roundIntroContinueHintText != null)
-            roundIntroContinueHintText.text = roundIntroContinueHintMessage;
-    }
-
-    private void UpdateRoundClearText()
-    {
-        if (roundClearTitleText != null)
-            roundClearTitleText.text = roundClearTitleMessage;
-
-        if (roundClearSubText == null)
-            return;
-
-        string baseText = string.IsNullOrWhiteSpace(roundClearSubMessage) ? "Round Cleared" : roundClearSubMessage;
-        roundClearSubText.text = $"{baseText}\nRound {roundIndex}/{totalRounds}";
-    }
-
-    private bool EnsureGameOverTransitionOverlay()
-    {
-        if (gameOverTransitionOverlay != null && gameOverTransitionTitleText != null && gameOverTransitionSubText != null)
-            return true;
-
-        if (gameOverTransitionOverlayAutoCreated)
-            return false;
-
-        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
-        if (canvas == null)
-            return false;
-
-        Transform parent = panelHUD != null && panelHUD.transform.parent != null
-            ? panelHUD.transform.parent
-            : canvas.transform;
-
-        GameObject overlayRoot = new GameObject("GameOverTransitionOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
-        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
-        overlayRect.SetParent(parent, false);
-        overlayRect.anchorMin = Vector2.zero;
-        overlayRect.anchorMax = Vector2.one;
-        overlayRect.offsetMin = Vector2.zero;
-        overlayRect.offsetMax = Vector2.zero;
-
-        Image bg = overlayRoot.GetComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.78f);
-        bg.raycastTarget = false;
-
-        gameOverTransitionOverlay = overlayRoot.GetComponent<CanvasGroup>();
-        gameOverTransitionOverlay.alpha = 0f;
-        gameOverTransitionOverlay.interactable = false;
-        gameOverTransitionOverlay.blocksRaycasts = false;
-
-        Color accent = new Color(1f, 0.26f, 0.22f, 1f);
-
-        gameOverTransitionTitleText = CreateIntroText(
-            overlayRoot.transform,
-            "GameOverTransitionTitleText",
-            new Vector2(0f, 46f),
-            new Vector2(1000f, 180f),
-            96f,
-            accent);
-
-        gameOverTransitionSubText = CreateIntroText(
-            overlayRoot.transform,
-            "GameOverTransitionSubText",
-            new Vector2(0f, -110f),
-            new Vector2(1000f, 180f),
-            46f,
-            Color.white);
-        gameOverTransitionSubText.fontStyle = FontStyles.Normal;
-
-        gameOverTransitionOverlay.gameObject.SetActive(false);
-        gameOverTransitionOverlayAutoCreated = true;
-        UpdateGameOverTransitionText(currentDeathType);
-        return true;
     }
 
     private int GetBossRoundIndex()
@@ -5417,11 +5640,13 @@ private void SetPauseMenuVisible(bool visible)
         GetBaseEnemyMultipliersForRound(roundIndex, out float baseHpMultiplier, out float baseSpeedMultiplier);
         float finalHpMultiplier = baseHpMultiplier * runProgression.CurrentRoundEnemyHpMultiplier;
         float finalSpeedMultiplier = baseSpeedMultiplier * runProgression.CurrentRoundEnemySpeedMultiplier;
+        float finalCountMultiplier = runProgression.CurrentRoundEnemyCountMultiplier;
 
         RunLogger.Event(
             $"Enemy scaling round {roundIndex}: baseHPx={baseHpMultiplier:F2}, baseSpeedx={baseSpeedMultiplier:F2}, " +
             $"buffHPx={runProgression.CurrentRoundEnemyHpMultiplier:F2}, buffSpeedx={runProgression.CurrentRoundEnemySpeedMultiplier:F2}, " +
-            $"finalHPx={finalHpMultiplier:F2}, finalSpeedx={finalSpeedMultiplier:F2}");
+            $"buffCountx={runProgression.CurrentRoundEnemyCountMultiplier:F2}, finalHPx={finalHpMultiplier:F2}, " +
+            $"finalSpeedx={finalSpeedMultiplier:F2}, finalCountx={finalCountMultiplier:F2}");
     }
 
     private void GetBaseEnemyMultipliersForRound(int round, out float hpMultiplier, out float speedMultiplier)
@@ -5533,135 +5758,6 @@ private void SetPauseMenuVisible(bool visible)
         return $"${CalcDue(round)}";
     }
 
-    private bool EnsureRoundIntroOverlay()
-    {
-        if (roundIntroOverlay != null && roundIntroRoundText != null && roundIntroDebtText != null)
-            return true;
-
-        if (roundIntroOverlayAutoCreated)
-            return false;
-
-        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
-        if (canvas == null)
-            return false;
-
-        Transform parent = panelHUD != null && panelHUD.transform.parent != null
-            ? panelHUD.transform.parent
-            : canvas.transform;
-
-        GameObject overlayRoot = new GameObject("RoundIntroOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
-        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
-        overlayRect.SetParent(parent, false);
-        overlayRect.anchorMin = Vector2.zero;
-        overlayRect.anchorMax = Vector2.one;
-        overlayRect.offsetMin = Vector2.zero;
-        overlayRect.offsetMax = Vector2.zero;
-
-        Image bg = overlayRoot.GetComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.82f);
-        bg.raycastTarget = false;
-
-        roundIntroOverlay = overlayRoot.GetComponent<CanvasGroup>();
-        roundIntroOverlay.alpha = 0f;
-        roundIntroOverlay.interactable = false;
-        roundIntroOverlay.blocksRaycasts = false;
-
-        Color gold = new Color(0.95f, 0.80f, 0.12f, 1f);
-
-        CreateIntroLine(overlayRoot.transform, 70f, gold);
-        CreateIntroLine(overlayRoot.transform, -190f, gold);
-
-        roundIntroRoundText = CreateIntroText(
-            overlayRoot.transform,
-            "RoundText",
-            new Vector2(0f, 165f),
-            new Vector2(980f, 120f),
-            88f,
-            gold);
-
-        roundIntroDebtText = CreateIntroText(
-            overlayRoot.transform,
-            "DebtText",
-            new Vector2(0f, -55f),
-            new Vector2(980f, 300f),
-            90f,
-            gold);
-
-        roundIntroContinueHintText = CreateIntroText(
-            overlayRoot.transform,
-            "ContinueHintText",
-            new Vector2(0f, -250f),
-            new Vector2(980f, 80f),
-            36f,
-            Color.white);
-        roundIntroContinueHintText.fontStyle = FontStyles.Normal;
-        roundIntroContinueHintText.text = roundIntroContinueHintMessage;
-        roundIntroContinueHintText.gameObject.SetActive(false);
-
-        roundIntroOverlay.gameObject.SetActive(false);
-        roundIntroOverlayAutoCreated = true;
-        UpdateRoundIntroText();
-        return true;
-    }
-
-    private bool EnsureRoundClearOverlay()
-    {
-        if (roundClearOverlay != null && roundClearTitleText != null && roundClearSubText != null)
-            return true;
-
-        if (roundClearOverlayAutoCreated)
-            return false;
-
-        Canvas canvas = panelHUD != null ? panelHUD.GetComponentInParent<Canvas>() : null;
-        if (canvas == null)
-            return false;
-
-        Transform parent = panelHUD != null && panelHUD.transform.parent != null
-            ? panelHUD.transform.parent
-            : canvas.transform;
-
-        GameObject overlayRoot = new GameObject("RoundClearOverlayAuto", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
-        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
-        overlayRect.SetParent(parent, false);
-        overlayRect.anchorMin = Vector2.zero;
-        overlayRect.anchorMax = Vector2.one;
-        overlayRect.offsetMin = Vector2.zero;
-        overlayRect.offsetMax = Vector2.zero;
-
-        Image bg = overlayRoot.GetComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.72f);
-        bg.raycastTarget = false;
-
-        roundClearOverlay = overlayRoot.GetComponent<CanvasGroup>();
-        roundClearOverlay.alpha = 0f;
-        roundClearOverlay.interactable = false;
-        roundClearOverlay.blocksRaycasts = false;
-
-        Color accent = new Color(0.20f, 1f, 0.72f, 1f);
-
-        roundClearTitleText = CreateIntroText(
-            overlayRoot.transform,
-            "RoundClearTitleText",
-            new Vector2(0f, 46f),
-            new Vector2(1000f, 180f),
-            96f,
-            accent);
-
-        roundClearSubText = CreateIntroText(
-            overlayRoot.transform,
-            "RoundClearSubText",
-            new Vector2(0f, -110f),
-            new Vector2(1000f, 180f),
-            46f,
-            Color.white);
-        roundClearSubText.fontStyle = FontStyles.Normal;
-
-        roundClearOverlay.gameObject.SetActive(false);
-        roundClearOverlayAutoCreated = true;
-        UpdateRoundClearText();
-        return true;
-    }
-
     private bool EnsureBossVictoryFlashOverlay()
     {
         if (bossVictoryFlashOverlay != null && bossVictoryFlashImage != null)
@@ -5699,21 +5795,6 @@ private void SetPauseMenuVisible(bool visible)
 
         bossVictoryFlashOverlayAutoCreated = true;
         return true;
-    }
-
-    private void CreateIntroLine(Transform parent, float y, Color color)
-    {
-        GameObject line = new GameObject("Line", typeof(RectTransform), typeof(Image));
-        RectTransform rect = line.GetComponent<RectTransform>();
-        rect.SetParent(parent, false);
-        rect.anchorMin = new Vector2(0.5f, 0.5f);
-        rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(820f, 4f);
-        rect.anchoredPosition = new Vector2(0f, y);
-
-        Image image = line.GetComponent<Image>();
-        image.color = color;
-        image.raycastTarget = false;
     }
 
     private TMP_Text CreateIntroText(Transform parent, string name, Vector2 pos, Vector2 size, float fontSize, Color color)

@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 3
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Training Contract
-  description: +1 XP per kill
+  itemTitle: Collections Training
+  description: +5% XP gained.
   icon: {fileID: 6308577348484473773, guid: bc242bde632ccb841969e7d620e74380, type: 3}
-  price: 140
-  rarity: 1
-  weightPercent: 9
+  price: 100
+  rarity: 0
+  weightPercent: 11
   effects:
-  - effectType: 6
-    intValue: 1
-    floatValue: 0
+  - effectType: 10
+    intValue: 0
+    floatValue: 5

@@ -40,8 +40,9 @@ public class Projectile : MonoBehaviour
     private Color defaultColor = Color.white;
     private string defaultSortingLayerName;
     private int defaultSortingOrder;
+    private bool countsTowardSpawnCap = true;
 
-    public static Projectile Spawn(Projectile prefab, Vector3 position, Quaternion rotation, Transform parent)
+    public static Projectile Spawn(Projectile prefab, Vector3 position, Quaternion rotation, Transform parent, bool countTowardCap = true)
     {
         if (prefab == null)
             return null;
@@ -56,7 +57,7 @@ public class Projectile : MonoBehaviour
 
         // Refuse new spawns before reusing/instantiating anything, otherwise a freshly
         // instantiated projectile can remain visible in-scene when we early-out at cap.
-        if (activeCount >= MaxActiveProjectiles)
+        if (countTowardCap && activeCount >= MaxActiveProjectiles)
             return null;
 
         Projectile projectile = null;
@@ -69,10 +70,12 @@ public class Projectile : MonoBehaviour
         projectile.sourcePrefab = source;
         projectile.poolKey = key;
         projectile.isReturningToPool = false;
+        projectile.countsTowardSpawnCap = countTowardCap;
         projectile.transform.SetParent(parent, false);
         projectile.transform.SetPositionAndRotation(position, rotation);
         projectile.gameObject.SetActive(true);
-        activeCount++;
+        if (countTowardCap)
+            activeCount++;
         return projectile;
     }
 
@@ -124,6 +127,7 @@ public class Projectile : MonoBehaviour
         isOrbiting = false;
         orbitHitCooldown = 0f;
         orbitLastHitAt?.Clear();
+        countsTowardSpawnCap = true;
         RestoreDefaultPresentation();
     }
 
@@ -408,7 +412,7 @@ public class Projectile : MonoBehaviour
             if (dirToEnemy.sqrMagnitude <= 0.0001f)
                 continue;
 
-            SpawnScatterProjectile(dirToEnemy.normalized, speed, splitDamage);
+            SpawnScatterProjectile(dirToEnemy.normalized, speed, splitDamage, initialTarget);
             spawned++;
         }
 
@@ -419,14 +423,21 @@ public class Projectile : MonoBehaviour
         {
             float angle = count == 1 ? 0f : startAngle + onHitScatterAngle * i;
             Vector2 dir = Rotate(baseDirection, angle);
-            SpawnScatterProjectile(dir, speed, splitDamage);
+            SpawnScatterProjectile(dir, speed, splitDamage, initialTarget);
         }
     }
 
-    private void SpawnScatterProjectile(Vector2 dir, float speed, int splitDamage)
+    private void SpawnScatterProjectile(Vector2 dir, float speed, int splitDamage, EnemyController ignoredEnemy)
     {
-        Projectile split = Spawn(sourcePrefab != null ? sourcePrefab : this, transform.position, Quaternion.identity, transform.parent);
-        if (split == null) return;
+        Vector2 spawnPosition = ResolveScatterSpawnPosition(dir, ignoredEnemy);
+        Projectile split = Spawn(
+            sourcePrefab != null ? sourcePrefab : this,
+            spawnPosition,
+            Quaternion.identity,
+            transform.parent);
+        if (split == null)
+            return;
+
         split.Fire(
             dir,
             speed,
@@ -438,6 +449,33 @@ public class Projectile : MonoBehaviour
             null,
             false,
             1f);
+        split.IgnoreEnemy(ignoredEnemy);
+    }
+
+    private Vector2 ResolveScatterSpawnPosition(Vector2 dir, EnemyController ignoredEnemy)
+    {
+        Vector2 normalizedDir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.up;
+        Vector2 origin = transform.position;
+
+        if (ignoredEnemy != null && ignoredEnemy.TargetCollider != null)
+        {
+            Vector2 colliderEdge = ignoredEnemy.TargetCollider.ClosestPoint(origin - (normalizedDir * 0.35f));
+            if ((colliderEdge - origin).sqrMagnitude > 0.000001f)
+                origin = colliderEdge;
+        }
+
+        return origin + (normalizedDir * 0.18f);
+    }
+
+    private void IgnoreEnemy(EnemyController enemy)
+    {
+        if (enemy == null)
+            return;
+
+        if (hitEnemyIds == null)
+            hitEnemyIds = new HashSet<int>();
+
+        hitEnemyIds.Add(enemy.GetInstanceID());
     }
 
     private bool TryBeginReturn()
@@ -501,7 +539,8 @@ public class Projectile : MonoBehaviour
             return;
 
         isReturningToPool = true;
-        activeCount = Mathf.Max(0, activeCount - 1);
+        if (countsTowardSpawnCap)
+            activeCount = Mathf.Max(0, activeCount - 1);
         CancelInvoke();
         if (rb != null)
             rb.linearVelocity = Vector2.zero;

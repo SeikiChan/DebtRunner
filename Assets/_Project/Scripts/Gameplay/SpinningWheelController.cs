@@ -176,6 +176,16 @@ public class SpinningWheelController : MonoBehaviour
         cashOutcomeRefundsDrawCost = cashRefundByCost;
     }
 
+    public void SetWheelUIVisible(bool visible)
+    {
+        GameObject wheelArea = ResolveWheelAreaRoot();
+        if (wheelArea != null && wheelArea.activeSelf != visible)
+            wheelArea.SetActive(visible);
+
+        if (btnDraw != null && btnDraw.gameObject.activeSelf != visible)
+            btnDraw.gameObject.SetActive(visible);
+    }
+
     public void CancelAndReset(bool settlePendingResult)
     {
         if (settlePendingResult)
@@ -188,6 +198,15 @@ public class SpinningWheelController : MonoBehaviour
 
         if (btnDraw != null)
             btnDraw.interactable = true;
+    }
+
+    private GameObject ResolveWheelAreaRoot()
+    {
+        if (wheelTransform == null)
+            return null;
+
+        Transform parent = wheelTransform.parent;
+        return parent != null ? parent.gameObject : wheelTransform.gameObject;
     }
 
     /// <summary>

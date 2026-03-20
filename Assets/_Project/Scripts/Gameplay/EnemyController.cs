@@ -52,7 +52,7 @@ public class EnemyController : MonoBehaviour
     [FormerlySerializedAs("cashPopupFadeOutDuration")]
     [SerializeField, Min(0.01f)] private float damagePopupFadeOutDuration = 0.35f;
     [SerializeField, Range(0f, 1f)] private float hpDropChance = 0.12f;
-    [SerializeField] private int hpHealAmount = 10;
+    [SerializeField] private int hpHealAmount = 1;
     [SerializeField] private HealthPickup hpPickupPrefab;
 
     private Rigidbody2D rb;

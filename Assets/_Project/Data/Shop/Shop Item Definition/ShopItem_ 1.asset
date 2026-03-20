@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 1
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Emergency Shield
-  description: Every 25s Got a shield
+  itemTitle: Insurance Clause
+  description: Builds a shield over time. Grants 1 now.
   icon: {fileID: 7294035110781882441, guid: c1bf643d66c90aa40b2f4a77a834a7dd, type: 3}
-  price: 120
-  rarity: 0
-  weightPercent: 11
+  price: 125
+  rarity: 1
+  weightPercent: 8
   effects:
   - effectType: 9
     intValue: 0

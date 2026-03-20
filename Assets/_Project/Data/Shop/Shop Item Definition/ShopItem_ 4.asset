@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 4
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Runner Shoes
-  description: +10% move speed
+  itemTitle: Skiptrace Soles
+  description: +10% move speed.
   icon: {fileID: -6613299857926580617, guid: ea7180d6abfef8d4db93d0c4c74f7892, type: 3}
-  price: 130
-  rarity: 1
-  weightPercent: 9
+  price: 110
+  rarity: 0
+  weightPercent: 10
   effects:
   - effectType: 1
     intValue: 0

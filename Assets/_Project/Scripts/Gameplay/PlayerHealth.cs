@@ -5,6 +5,16 @@ public class PlayerHealth : MonoBehaviour
 {
     [SerializeField] private int maxHP = 60;
     [SerializeField] private float iFrameSeconds = 0.7f;
+    [SerializeField, Range(0.1f, 1f)] private float reviveRestoreHealthPercent = 0.5f;
+    [SerializeField, Min(0f)] private float reviveInvulnerabilitySeconds = 2f;
+
+    [Header("Hurtbox")]
+    [SerializeField] private bool autoConfigureHurtbox = true;
+    [SerializeField] private bool fitHurtboxToPrimarySprite = true;
+    [SerializeField] private Vector2 hurtboxSpriteScale = new Vector2(0.88f, 0.88f);
+    [SerializeField] private Vector2 hurtboxSize = new Vector2(1.8f, 2.8f);
+    [SerializeField] private Vector2 hurtboxOffset = new Vector2(0f, -0.06f);
+    [SerializeField] private CapsuleDirection2D hurtboxDirection = CapsuleDirection2D.Vertical;
 
     [Header("Shield Visual")]
     [SerializeField] private Color shieldAuraColor = new Color(0.35f, 0.72f, 1f, 0.42f);
@@ -29,9 +39,11 @@ public class PlayerHealth : MonoBehaviour
 
     private int hp;
     private bool invuln;
+    private float baseIFrameSeconds;
 
     private PlayerHitFeedback hitFeedback;
     private int shieldCharges;
+    private int reviveCharges;
     private bool periodicShieldEnabled;
     private float periodicShieldInterval = 25f;
     private int periodicShieldMaxCharges = 1;
@@ -39,6 +51,7 @@ public class PlayerHealth : MonoBehaviour
     private float invulnUntilUnscaledTime;
     private Coroutine invulnRoutine;
     private bool isDead;
+    private CapsuleCollider2D hurtboxCollider;
     private SpriteRenderer shieldAuraRenderer;
     private SpriteRenderer[] playerSpriteRenderers;
     private SpriteRenderer shieldOutlineRenderer;
@@ -47,17 +60,71 @@ public class PlayerHealth : MonoBehaviour
     public int CurrentHP => hp;
     public int MaxHP => maxHP;
     public int ShieldCharges => shieldCharges;
+    public int ReviveCharges => reviveCharges;
     public bool PeriodicShieldEnabled => periodicShieldEnabled;
     public float PeriodicShieldInterval => periodicShieldInterval;
     public bool IsDead => isDead;
 
     private void Awake()
     {
+        hurtboxCollider = GetComponent<CapsuleCollider2D>();
+        ConfigureHurtbox();
         hp = Mathf.Max(1, maxHP);
+        baseIFrameSeconds = Mathf.Max(0f, iFrameSeconds);
         hitFeedback = GetComponent<PlayerHitFeedback>();
         playerSpriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         EnsureShieldAura();
         UpdateShieldAura(false);
+    }
+
+    private void ConfigureHurtbox()
+    {
+        if (!autoConfigureHurtbox)
+            return;
+
+        if (hurtboxCollider == null)
+            hurtboxCollider = GetComponent<CapsuleCollider2D>();
+        if (hurtboxCollider == null)
+            return;
+
+        Vector2 resolvedSize = new Vector2(
+            Mathf.Max(0.05f, hurtboxSize.x),
+            Mathf.Max(0.05f, hurtboxSize.y));
+
+        if (fitHurtboxToPrimarySprite)
+        {
+            SpriteRenderer reference = GetPrimarySpriteRenderer();
+            if (reference != null)
+            {
+                Vector2 spriteSize = ResolvePrimarySpriteLocalSize(reference);
+                if (spriteSize.sqrMagnitude > 0.0001f)
+                {
+                    resolvedSize = Vector2.Scale(
+                        spriteSize,
+                        new Vector2(
+                            Mathf.Max(0.1f, hurtboxSpriteScale.x),
+                            Mathf.Max(0.1f, hurtboxSpriteScale.y)));
+                }
+            }
+        }
+
+        hurtboxCollider.size = resolvedSize;
+        hurtboxCollider.offset = hurtboxOffset;
+        hurtboxCollider.direction = hurtboxDirection;
+    }
+
+    private static Vector2 ResolvePrimarySpriteLocalSize(SpriteRenderer reference)
+    {
+        if (reference == null)
+            return Vector2.zero;
+
+        if (reference.drawMode != SpriteDrawMode.Simple)
+            return reference.size;
+
+        if (reference.sprite != null)
+            return reference.sprite.bounds.size;
+
+        return reference.size;
     }
 
     private void Update()
@@ -111,6 +178,8 @@ public class PlayerHealth : MonoBehaviour
     public void ResetRuntimeStats()
     {
         shieldCharges = 0;
+        reviveCharges = 0;
+        iFrameSeconds = Mathf.Max(0f, baseIFrameSeconds);
         periodicShieldEnabled = false;
         periodicShieldInterval = Mathf.Max(0.1f, periodicShieldUnlockInterval);
         periodicShieldMaxCharges = Mathf.Max(1, periodicShieldDefaultMaxCharges);
@@ -153,6 +222,26 @@ public class PlayerHealth : MonoBehaviour
         shieldCharges += add;
         RunLogger.Event($"Shield charges +{add}. current={shieldCharges}");
         UpdateShieldAura(true);
+    }
+
+    public void AddReviveCharges(int amount)
+    {
+        int add = Mathf.Max(0, amount);
+        if (add == 0)
+            return;
+
+        reviveCharges += add;
+        RunLogger.Event($"Revive charges +{add}. current={reviveCharges}");
+    }
+
+    public void AddInvulnerabilitySeconds(float amount)
+    {
+        float add = Mathf.Max(0f, amount);
+        if (add <= 0f)
+            return;
+
+        iFrameSeconds = Mathf.Max(0f, iFrameSeconds + add);
+        RunLogger.Event($"Player hit invulnerability +{add:F2}s. current={iFrameSeconds:F2}s");
     }
 
     public void EnablePeriodicShield(float intervalSeconds, int maxCharges)
@@ -226,6 +315,9 @@ public class PlayerHealth : MonoBehaviour
 
         if (hp <= 0)
         {
+            if (TryConsumeRevive())
+                return;
+
             isDead = true;
             invuln = false;
             invulnUntilUnscaledTime = 0f;
@@ -250,6 +342,28 @@ public class PlayerHealth : MonoBehaviour
             SFXManager.Instance.Play(sfxHurt);
 
         ApplyInvulnerabilityFor(iFrameSeconds);
+    }
+
+    private bool TryConsumeRevive()
+    {
+        if (reviveCharges <= 0)
+            return false;
+
+        reviveCharges -= 1;
+        hp = Mathf.Clamp(Mathf.RoundToInt(maxHP * Mathf.Clamp01(reviveRestoreHealthPercent)), 1, maxHP);
+        invuln = false;
+        invulnUntilUnscaledTime = 0f;
+
+        if (hitFeedback != null)
+        {
+            hitFeedback.PlayHitFlash();
+            hitFeedback.StopBlink();
+        }
+
+        GrantTemporaryInvulnerability(Mathf.Max(0f, reviveInvulnerabilitySeconds));
+        RunLogger.Warning($"Revive triggered. hp={hp}/{maxHP}, remainingRevives={reviveCharges}");
+        UpdateShieldAura(true);
+        return true;
     }
 
     public void GrantTemporaryInvulnerability(float seconds)

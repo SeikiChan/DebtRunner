@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 5
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Debt Magnet
-  description: +1.2 XP magnet radius
+  itemTitle: Claim Hook
+  description: Pickup range +1.2.
   icon: {fileID: 5707218116961789024, guid: 8311856230cdb2b44afe6ec1840a5596, type: 3}
-  price: 120
+  price: 95
   rarity: 0
-  weightPercent: 10
+  weightPercent: 11
   effects:
   - effectType: 7
     intValue: 0

@@ -75,11 +75,19 @@ public class ShopSystem : MonoBehaviour
     [Header("Shop Item Pool / 商品池")]
     [LocalizedLabel("Shop Item Pool Asset / 商品池资源")]
     [SerializeField] private ShopItemPoolAsset shopItemPoolAsset;
+    [SerializeField] private ShopItemPoolAsset preBossInvestmentPoolAsset;
 
     [Header("Price Scaling / Price Curve")]
     [SerializeField, Min(0.01f)] private float itemBasePriceMultiplier = 1f;
-    [SerializeField, Min(0f)] private float itemRoundStepPercent = 0f;
+    [SerializeField, Min(0f)] private float itemRoundStepPercent = 0.12f;
     [SerializeField, Min(0f)] private float refreshRoundStepPercent = 0f;
+    [SerializeField, Min(1)] private int lateRoundPriceSurgeStartRound = 6;
+    [SerializeField, Min(0f)] private float lateRoundPriceSurgePercent = 0.25f;
+    [SerializeField, Min(1)] private int lateRoundRefreshSurgeStartRound = 6;
+    [SerializeField, Min(0f)] private float lateRoundRefreshSurgePercent = 0.18f;
+    [SerializeField] private bool usePreBossInvestmentShop = true;
+    [SerializeField] private string preBossShopInfoMessage = "INVEST IN YOURSELF. BURN THE CASH BEFORE THE BOSS.";
+    [SerializeField] private string preBossRoundLabel = "BOSS PREP";
     [SerializeField] private List<ShopRarityStyle> rarityStyles = new List<ShopRarityStyle>
     {
         new ShopRarityStyle
@@ -143,6 +151,7 @@ public class ShopSystem : MonoBehaviour
     private bool eventsBound;
     private int pendingFreeItemCharges;
     private int pendingFreeRefreshCharges;
+    private bool receivedFreeItemThisVisit;
     private int runtimeGambleCost;
     private int refreshTimesThisVisit;
     private Color[] defaultTitleColors;
@@ -164,11 +173,21 @@ public class ShopSystem : MonoBehaviour
         BindUiEvents();
         pendingFreeItemCharges = 0;
         pendingFreeRefreshCharges = 0;
+        receivedFreeItemThisVisit = false;
         refreshTimesThisVisit = 0;
         GenerateOffers();
-        BindSpinningWheel();
-        spinningWheel?.OnShopOpened();
-        if (gameFlow != null && gameFlow.GetCurrentRound() == 1)
+        bool isPreBossShop = IsPreBossInvestmentShopActive();
+        ShopItemPoolAsset activePool = GetActiveShopPool();
+        SetSpinningWheelVisible(!isPreBossShop);
+        if (!isPreBossShop)
+        {
+            BindSpinningWheel();
+            spinningWheel?.OnShopOpened();
+        }
+        RunLogger.Event($"Shop opened. round={gameFlow?.GetCurrentRound() ?? -1}, bossPrep={isPreBossShop}, pool={(activePool != null ? activePool.name : "<null>")}");
+        if (isPreBossShop)
+            SetInfo(preBossShopInfoMessage);
+        else if (gameFlow != null && gameFlow.GetCurrentRound() == 1)
             SetInfo("Spend cash to upgrade. Your first roll this shop is FREE.");
         else
             SetInfo($"Spend cash to upgrade. Roll costs ${ResolveRuntimeGambleCost()} — big rewards await!");
@@ -179,7 +198,10 @@ public class ShopSystem : MonoBehaviour
     {
         MarkOtherShopInteraction();
         if (spinningWheel != null)
+        {
             spinningWheel.CancelAndReset(true);
+            SetSpinningWheelVisible(true);
+        }
     }
 
     public void MarkOtherShopInteraction()
@@ -203,6 +225,8 @@ public class ShopSystem : MonoBehaviour
         if (v == 0) return pendingFreeItemCharges;
 
         pendingFreeItemCharges += v;
+        receivedFreeItemThisVisit = true;
+        TryGrantDeadlockFreeRefresh();
         RefreshShopUI();
         return pendingFreeItemCharges;
     }
@@ -214,7 +238,9 @@ public class ShopSystem : MonoBehaviour
         if (textRoundInfo != null)
         {
             string nextDebt = gameFlow.GetNextRoundDebtDisplay();
-            textRoundInfo.text = $"Round {gameFlow.GetCurrentRound()}/{gameFlow.GetTotalRounds()}    Next Debt: {nextDebt}";
+            textRoundInfo.text = IsPreBossInvestmentShopActive()
+                ? $"{preBossRoundLabel}    Next: BOSS ROUND"
+                : $"Round {gameFlow.GetCurrentRound()}/{gameFlow.GetTotalRounds()}    Next Debt: {nextDebt}";
         }
 
         if (textCash != null)
@@ -388,13 +414,17 @@ public class ShopSystem : MonoBehaviour
             SetInfo($"{offer.definition.ItemTitle} acquired.");
         }
 
-        TryGrantDeadlockFreeRefresh(consumeFreeCharge);
+        if (consumeFreeCharge)
+            receivedFreeItemThisVisit = true;
+
+        TryGrantDeadlockFreeRefresh();
         RefreshShopUI();
     }
 
     private void GenerateOffers()
     {
-        if (shopItemPoolAsset == null || shopItemPoolAsset.Entries == null || shopItemPoolAsset.Entries.Count == 0)
+        ShopItemPoolAsset activePool = GetActiveShopPool();
+        if (activePool == null || activePool.Entries == null || activePool.Entries.Count == 0)
         {
             SetInfo("Shop item pool asset is empty.");
             for (int i = 0; i < currentOffers.Length; i++)
@@ -403,14 +433,47 @@ public class ShopSystem : MonoBehaviour
             return;
         }
 
-        List<ShopItemDefinition> picks = WeightedPickerUtility.PickUnique(
-            shopItemPoolAsset.Entries,
-            currentOffers.Length,
-            shopItemPoolAsset.GetEffectiveWeight);
+        List<ShopItemDefinition> picks = new List<ShopItemDefinition>(currentOffers.Length);
+        List<ShopItemDefinition> remainingEntries = new List<ShopItemDefinition>(activePool.Entries.Count);
+        ActiveItemId equippedActiveItem = gameFlow != null ? gameFlow.GetEquippedActiveItemId() : ActiveItemId.None;
+        for (int i = 0; i < activePool.Entries.Count; i++)
+        {
+            ShopItemDefinition entry = activePool.Entries[i];
+            if (entry != null && !ShouldExcludeDefinitionFromOfferPool(entry, equippedActiveItem))
+                remainingEntries.Add(entry);
+        }
+
+        if (ShouldGuaranteeActiveItemOffer())
+        {
+            List<ShopItemDefinition> activeCandidates = remainingEntries.FindAll(IsActiveItemDefinition);
+            List<ShopItemDefinition> guaranteedActivePick = WeightedPickerUtility.PickUnique(
+                activeCandidates,
+                1,
+                activePool.GetEffectiveWeight);
+
+            if (guaranteedActivePick.Count > 0)
+            {
+                picks.Add(guaranteedActivePick[0]);
+                remainingEntries.Remove(guaranteedActivePick[0]);
+            }
+        }
+
+        if (picks.Count < currentOffers.Length)
+        {
+            List<ShopItemDefinition> extraPicks = WeightedPickerUtility.PickUnique(
+                remainingEntries,
+                currentOffers.Length - picks.Count,
+                activePool.GetEffectiveWeight);
+            picks.AddRange(extraPicks);
+            for (int i = 0; i < extraPicks.Count; i++)
+                remainingEntries.Remove(extraPicks[i]);
+        }
 
         for (int i = 0; i < currentOffers.Length; i++)
         {
-            ShopItemDefinition definition = i < picks.Count ? picks[i] : PickSingleItemByWeight();
+            ShopItemDefinition definition = i < picks.Count ? picks[i] : PickSingleItemByWeight(remainingEntries, activePool);
+            if (definition != null)
+                remainingEntries.Remove(definition);
             currentOffers[i] = definition == null
                 ? null
                 : new ShopOffer
@@ -423,12 +486,50 @@ public class ShopSystem : MonoBehaviour
         RefreshShopUI();
     }
 
-    private ShopItemDefinition PickSingleItemByWeight()
+    private bool ShouldGuaranteeActiveItemOffer()
     {
-        if (shopItemPoolAsset == null || shopItemPoolAsset.Entries == null || shopItemPoolAsset.Entries.Count == 0)
+        return !IsPreBossInvestmentShopActive()
+            && gameFlow != null
+            && !gameFlow.HasPurchasedActiveItem();
+    }
+
+    private static bool IsActiveItemDefinition(ShopItemDefinition definition)
+    {
+        return TryGetActiveItemId(definition, out _);
+    }
+
+    private static bool TryGetActiveItemId(ShopItemDefinition definition, out ActiveItemId itemId)
+    {
+        itemId = ActiveItemId.None;
+        if (definition == null || definition.Effects == null)
+            return false;
+
+        for (int i = 0; i < definition.Effects.Count; i++)
+        {
+            ShopItemEffect effect = definition.Effects[i];
+            if (effect != null && effect.effectType == ShopItemEffectType.EquipActiveItem)
+            {
+                itemId = (ActiveItemId)effect.intValue;
+                return itemId != ActiveItemId.None;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ShouldExcludeDefinitionFromOfferPool(ShopItemDefinition definition, ActiveItemId equippedActiveItem)
+    {
+        return equippedActiveItem != ActiveItemId.None
+            && TryGetActiveItemId(definition, out ActiveItemId definitionItemId)
+            && definitionItemId == equippedActiveItem;
+    }
+
+    private static ShopItemDefinition PickSingleItemByWeight(List<ShopItemDefinition> candidates, ShopItemPoolAsset activePool)
+    {
+        if (activePool == null || candidates == null || candidates.Count == 0)
             return null;
 
-        List<ShopItemDefinition> one = WeightedPickerUtility.PickUnique(shopItemPoolAsset.Entries, 1, shopItemPoolAsset.GetEffectiveWeight);
+        List<ShopItemDefinition> one = WeightedPickerUtility.PickUnique(candidates, 1, activePool.GetEffectiveWeight);
         return one.Count > 0 ? one[0] : null;
     }
 
@@ -452,6 +553,37 @@ public class ShopSystem : MonoBehaviour
             enforceWheelRiskModel,
             wheelPositiveOutcomeChance,
             wheelCashRefundByCost);
+        SetSpinningWheelVisible(!IsPreBossInvestmentShopActive());
+    }
+
+    private ShopItemPoolAsset GetActiveShopPool()
+    {
+        if (IsPreBossInvestmentShopActive()
+            && preBossInvestmentPoolAsset != null
+            && preBossInvestmentPoolAsset.Entries != null
+            && preBossInvestmentPoolAsset.Entries.Count > 0)
+        {
+            return preBossInvestmentPoolAsset;
+        }
+
+        return shopItemPoolAsset;
+    }
+
+    private bool IsPreBossInvestmentShopActive()
+    {
+        if (!usePreBossInvestmentShop || gameFlow == null)
+            return false;
+
+        int nextRound = gameFlow.GetCurrentRound() + 1;
+        return nextRound == gameFlow.GetBossRoundNumber();
+    }
+
+    private void SetSpinningWheelVisible(bool visible)
+    {
+        if (spinningWheel == null)
+            return;
+
+        spinningWheel.SetWheelUIVisible(visible);
     }
 
     private int ResolveRuntimeGambleCost()
@@ -517,18 +649,30 @@ public class ShopSystem : MonoBehaviour
     private float GetItemPriceScaleForCurrentRound()
     {
         int currentRound = gameFlow != null ? Mathf.Max(1, gameFlow.GetCurrentRound()) : 1;
-        return Mathf.Max(0.01f, itemBasePriceMultiplier) * (1f + Mathf.Max(0f, itemRoundStepPercent) * (currentRound - 1));
+        float baseScale = Mathf.Max(0.01f, itemBasePriceMultiplier) * (1f + Mathf.Max(0f, itemRoundStepPercent) * (currentRound - 1));
+        return baseScale * GetLateRoundSurgeMultiplier(currentRound, lateRoundPriceSurgeStartRound, lateRoundPriceSurgePercent);
     }
 
     private float GetRefreshRoundMultiplier()
     {
         int currentRound = gameFlow != null ? Mathf.Max(1, gameFlow.GetCurrentRound()) : 1;
-        return 1f + Mathf.Max(0f, refreshRoundStepPercent) * (currentRound - 1);
+        float baseScale = 1f + Mathf.Max(0f, refreshRoundStepPercent) * (currentRound - 1);
+        return baseScale * GetLateRoundSurgeMultiplier(currentRound, lateRoundRefreshSurgeStartRound, lateRoundRefreshSurgePercent);
     }
 
-    private void TryGrantDeadlockFreeRefresh(bool purchasedByFreeItemCharge)
+    private static float GetLateRoundSurgeMultiplier(int currentRound, int startRound, float surgePercent)
     {
-        if (!purchasedByFreeItemCharge)
+        int safeStartRound = Mathf.Max(1, startRound);
+        int lateSteps = Mathf.Max(0, currentRound - safeStartRound + 1);
+        if (lateSteps <= 0 || surgePercent <= 0f)
+            return 1f;
+
+        return 1f + (Mathf.Max(0f, surgePercent) * lateSteps * lateSteps);
+    }
+
+    private void TryGrantDeadlockFreeRefresh()
+    {
+        if (!receivedFreeItemThisVisit)
             return;
         if (pendingFreeRefreshCharges > 0)
             return;

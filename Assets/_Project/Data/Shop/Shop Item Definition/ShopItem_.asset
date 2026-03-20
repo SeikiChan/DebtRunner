@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Iron Liver
-  description: +1 Max HP
+  itemTitle: Collection Coat
+  description: +1 Max HP. Heal 1.
   icon: {fileID: -8143030180246655226, guid: 3e7eeb1288955394589bb632cde3fcd0, type: 3}
-  price: 140
-  rarity: 1
-  weightPercent: 9
+  price: 100
+  rarity: 0
+  weightPercent: 12
   effects:
   - effectType: 2
     intValue: 1

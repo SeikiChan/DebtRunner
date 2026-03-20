@@ -232,7 +232,7 @@ MonoBehaviour:
   damagePopupLifetime: 0.9
   damagePopupFadeOutDuration: 0.35
   hpDropChance: 0.12
-  hpHealAmount: 10
+  hpHealAmount: 1
   hpPickupPrefab: {fileID: -5382311237400407486, guid: db29db41dee0a004cb7d30bb480f26a2, type: 3}
 --- !u!114 &-7703636692332815141
 MonoBehaviour:

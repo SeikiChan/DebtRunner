@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 6
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Golden Ledger
-  description: +10% cash from kills
+  itemTitle: Cash Ledger
+  description: +5% cash from enemy drops.
   icon: {fileID: -6118237733228191077, guid: c48a184edbce47d4d90e7ab99e72c4be, type: 3}
-  price: 170
-  rarity: 2
-  weightPercent: 7
+  price: 120
+  rarity: 1
+  weightPercent: 8
   effects:
   - effectType: 8
     intValue: 0

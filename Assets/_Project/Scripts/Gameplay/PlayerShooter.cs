@@ -83,6 +83,9 @@ public class PlayerShooter : MonoBehaviour
     private float baseReturnSpeedMultiplier;
     private Vector3 orbitVisualBaseScale = Vector3.one;
     private float orbitVisualExtent = 0.15f;
+    private float temporaryDamagePercentBonus;
+    private float temporaryFireRatePercentBonus;
+    private float temporaryProjectileSpeedPercentBonus;
 
     private void Reset()
     {
@@ -140,7 +143,7 @@ public class PlayerShooter : MonoBehaviour
         if (dir.sqrMagnitude <= 0.0001f)
             return;
 
-        timer = fireInterval;
+        timer = GetResolvedFireInterval();
         FireSpread(dir);
     }
 
@@ -267,8 +270,8 @@ public class PlayerShooter : MonoBehaviour
 
         proj.Fire(
             shotDirection,
-            projectileSpeed,
-            damage,
+            GetResolvedProjectileSpeed(),
+            GetResolvedDamage(),
             pierceCount,
             GetAppliedKnockbackMultiplier(),
             onHitScatterCount,
@@ -367,7 +370,7 @@ public class PlayerShooter : MonoBehaviour
 
         orbitSpinAngle = Mathf.Repeat(orbitSpinAngle + orbitAngularSpeed * Time.fixedDeltaTime, 360f);
         float resolvedOrbitRadius = ResolveOrbitRadius();
-        int orbitDamage = Mathf.Max(1, Mathf.RoundToInt(damage * orbitDamageScale));
+        int orbitDamage = Mathf.Max(1, Mathf.RoundToInt(GetResolvedDamage() * orbitDamageScale));
         float orbitKnockback = GetAppliedKnockbackMultiplier(0.65f);
         Vector3 orbitScale = GetOrbitVisualScale();
         int activeCount = orbitProjectiles.Count;
@@ -412,8 +415,8 @@ public class PlayerShooter : MonoBehaviour
     private void FireNovaBurst()
     {
         int count = Mathf.Max(1, novaProjectileCount);
-        int burstDamage = Mathf.Max(1, Mathf.RoundToInt(damage * novaDamageScale));
-        float burstSpeed = Mathf.Max(1f, projectileSpeed * novaProjectileSpeedScale);
+        int burstDamage = Mathf.Max(1, Mathf.RoundToInt(GetResolvedDamage() * novaDamageScale));
+        float burstSpeed = Mathf.Max(1f, GetResolvedProjectileSpeed() * novaProjectileSpeedScale);
 
         for (int i = 0; i < count; i++)
         {
@@ -471,7 +474,7 @@ public class PlayerShooter : MonoBehaviour
 
         while (orbitProjectiles.Count < orbitProjectileCount)
         {
-            Projectile orbitProjectile = Projectile.Spawn(projectilePrefab, transform.position, Quaternion.identity, projectilesRoot);
+            Projectile orbitProjectile = Projectile.Spawn(projectilePrefab, transform.position, Quaternion.identity, projectilesRoot, false);
             if (orbitProjectile == null)
             {
                 RunLogger.Warning($"Orbit projectile spawn failed. requested={orbitProjectileCount}, existing={orbitProjectiles.Count}");
@@ -538,6 +541,9 @@ public class PlayerShooter : MonoBehaviour
         novaProjectileCount = 0;
         novaBurstInterval = Mathf.Max(0.45f, baseNovaBurstInterval);
         novaTimer = Mathf.Max(0.25f, novaBurstInterval);
+        temporaryDamagePercentBonus = 0f;
+        temporaryFireRatePercentBonus = 0f;
+        temporaryProjectileSpeedPercentBonus = 0f;
         ClearOrbitProjectiles();
     }
 
@@ -630,8 +636,56 @@ public class PlayerShooter : MonoBehaviour
             $"multi={1 + extraProjectiles}, pierce={pierceCount}, scatter={onHitScatterCount}, orbit={orbitProjectileCount}, nova={novaProjectileCount}, return={returnProjectilesEnabled}");
     }
 
-    public int GetDamage() => damage;
-    public float GetFireRate() => 1f / fireInterval;
+    public int GetDamage() => GetResolvedDamage();
+    public float GetFireRate() => 1f / GetResolvedFireInterval();
+    public int GetOrbitProjectileCount() => orbitProjectileCount;
+
+    public void AddDamagePercent(float percent)
+    {
+        float multiplier = 1f + (Mathf.Max(0f, percent) / 100f);
+        damage = Mathf.Max(1, Mathf.RoundToInt(damage * multiplier));
+        RunLogger.Event($"Player damage bonus +{percent:F2}%. current={damage}");
+    }
+
+    public void AddFireRatePercent(float percent)
+    {
+        float multiplier = 1f + (Mathf.Max(0f, percent) / 100f);
+        fireInterval = Mathf.Max(0.01f, fireInterval / multiplier);
+        RunLogger.Event($"Player fire rate bonus +{percent:F2}%. current={1f / fireInterval:F2}/s");
+    }
+
+    public void AddProjectileSpeedPercent(float percent)
+    {
+        float multiplier = 1f + (Mathf.Max(0f, percent) / 100f);
+        projectileSpeed = Mathf.Max(0.1f, projectileSpeed * multiplier);
+        RunLogger.Event($"Player projectile speed bonus +{percent:F2}%. current={projectileSpeed:F2}");
+    }
+
+    public void SetTemporaryCombatBuff(float damagePercent, float fireRatePercent, float projectileSpeedPercent)
+    {
+        temporaryDamagePercentBonus = Mathf.Max(0f, damagePercent);
+        temporaryFireRatePercentBonus = Mathf.Max(0f, fireRatePercent);
+        temporaryProjectileSpeedPercentBonus = Mathf.Max(0f, projectileSpeedPercent);
+
+        RunLogger.Event(
+            $"Temporary combat buff set. dmg+={temporaryDamagePercentBonus:F1}%, " +
+            $"rate+={temporaryFireRatePercentBonus:F1}%, speed+={temporaryProjectileSpeedPercentBonus:F1}%");
+    }
+
+    public void ClearTemporaryCombatBuff()
+    {
+        if (temporaryDamagePercentBonus <= 0f
+            && temporaryFireRatePercentBonus <= 0f
+            && temporaryProjectileSpeedPercentBonus <= 0f)
+        {
+            return;
+        }
+
+        temporaryDamagePercentBonus = 0f;
+        temporaryFireRatePercentBonus = 0f;
+        temporaryProjectileSpeedPercentBonus = 0f;
+        RunLogger.Event("Temporary combat buff cleared.");
+    }
 
     private float GetAppliedKnockbackMultiplier(float extraScale = 1f)
     {
@@ -639,6 +693,24 @@ public class PlayerShooter : MonoBehaviour
             return 0f;
 
         return Mathf.Max(0f, knockbackMultiplier) * Mathf.Max(0f, extraScale);
+    }
+
+    private int GetResolvedDamage()
+    {
+        float multiplier = 1f + Mathf.Max(0f, temporaryDamagePercentBonus) / 100f;
+        return Mathf.Max(1, Mathf.RoundToInt(damage * multiplier));
+    }
+
+    private float GetResolvedProjectileSpeed()
+    {
+        float multiplier = 1f + Mathf.Max(0f, temporaryProjectileSpeedPercentBonus) / 100f;
+        return Mathf.Max(0.1f, projectileSpeed * multiplier);
+    }
+
+    private float GetResolvedFireInterval()
+    {
+        float multiplier = 1f + Mathf.Max(0f, temporaryFireRatePercentBonus) / 100f;
+        return Mathf.Max(0.01f, fireInterval / multiplier);
     }
 
     private void OnDrawGizmosSelected()
