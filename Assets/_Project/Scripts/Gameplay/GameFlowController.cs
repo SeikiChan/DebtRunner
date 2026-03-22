@@ -1622,7 +1622,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         EnsurePlayerActiveItemControllerBound();
         if (playerActiveItemController != null)
+        {
             playerActiveItemController.ResetRuntimeState();
+            SuppressActiveItemUseUntilRelease();
+        }
 
         // 閲嶇疆鍟嗗簵閬撳叿鍔犳垚
         bonusXPPerKill = 0;
@@ -1714,7 +1717,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
             EnsurePlayerActiveItemControllerBound();
             if (playerActiveItemController != null)
+            {
                 playerActiveItemController.ResetRuntimeState();
+                SuppressActiveItemUseUntilRelease();
+            }
 
             bonusXPPerKill = 0;
             xpGainPercent = 0f;
@@ -2003,6 +2009,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
+        SuppressActiveItemUseUntilRelease();
         SwitchState(GameState.Gameplay);
         TryPlayBossRoundBGM();
 
@@ -2015,6 +2022,15 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void Restart()
     {
         StartRun();
+    }
+
+    private void SuppressActiveItemUseUntilRelease(float minimumUnscaledLockSeconds = 0.08f)
+    {
+        EnsurePlayerActiveItemControllerBound();
+        if (playerActiveItemController == null)
+            return;
+
+        playerActiveItemController.SuppressUseUntilRelease(minimumUnscaledLockSeconds);
     }
 
     // 鐜╁鍙楀埌鑷村懡浼ゅ - 瑙﹀彂娓告垙缁撴潫锛堣鎬墿鍑绘潃锛?
@@ -5602,6 +5618,7 @@ private void SetPauseMenuVisible(bool visible)
             },
             () =>
             {
+                SuppressActiveItemUseUntilRelease();
                 Time.timeScale = 1f;
                 if (state == GameState.Gameplay)
                     SetGameplaySystemsActive(true);

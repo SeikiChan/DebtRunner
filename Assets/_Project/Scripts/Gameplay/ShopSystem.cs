@@ -132,6 +132,7 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private TMP_Text textRoundInfo;
     [LocalizedLabel("Cash Text / 现金文本")]
     [SerializeField] private TMP_Text textCash;
+    [SerializeField, Min(0f)] private float cashIconTextGap = 14f;
     [LocalizedLabel("Info Text / 信息文本")]
     [SerializeField] private TMP_Text textInfo;
     [LocalizedLabel("Spinning Wheel / 转盘")]
@@ -164,6 +165,7 @@ public class ShopSystem : MonoBehaviour
     private int refreshTimesThisVisit;
     private Color[] defaultTitleColors;
     private Color[] defaultPriceColors;
+    private RectTransform cashIconRect;
 
     public void Bind(GameFlowController flow)
     {
@@ -243,6 +245,8 @@ public class ShopSystem : MonoBehaviour
     {
         if (!uiReady || gameFlow == null) return;
 
+        ApplyCashTextLayout();
+
         if (textRoundInfo != null)
         {
             string nextDebt = gameFlow.GetNextRoundDebtDisplay();
@@ -260,12 +264,12 @@ public class ShopSystem : MonoBehaviour
                 extras.Add($"Free Refresh x{pendingFreeRefreshCharges}");
 
             textCash.text = extras.Count > 0
-                ? $"Cash: ${gameFlow.GetCashAmount()}    {string.Join("    ", extras)}"
-                : $"Cash: ${gameFlow.GetCashAmount()}";
+                ? $"${gameFlow.GetCashAmount()}    {string.Join("    ", extras)}"
+                : $"${gameFlow.GetCashAmount()}";
         }
 
         if (textRefreshLabel != null)
-            textRefreshLabel.text = pendingFreeRefreshCharges > 0 ? "Refresh FREE" : $"Refresh ${GetCurrentRefreshCost()}";
+            textRefreshLabel.text = pendingFreeRefreshCharges > 0 ? "FREE" : $" ${GetCurrentRefreshCost()}";
 
         runtimeGambleCost = ResolveRuntimeGambleCost();
 
@@ -679,8 +683,46 @@ public class ShopSystem : MonoBehaviour
             return;
         }
 
+        ResolveCashIconRect();
         CacheDefaultItemColors();
+        ApplyCashTextLayout();
         uiReady = true;
+    }
+
+    private void ResolveCashIconRect()
+    {
+        if (cashIconRect != null || textCash == null)
+            return;
+
+        Transform iconTransform = textCash.transform.Find("Image_CashSlotIcon");
+        if (iconTransform == null)
+            iconTransform = textCash.transform.Find("Image_HudCashIcon");
+
+        cashIconRect = iconTransform as RectTransform;
+    }
+
+    private void ApplyCashTextLayout()
+    {
+        ResolveCashIconRect();
+        if (textCash == null || cashIconRect == null)
+            return;
+
+        RectTransform cashTextRect = textCash.rectTransform;
+        float textLeftEdge = -cashTextRect.rect.width * cashTextRect.pivot.x;
+        float iconHalfWidth = cashIconRect.rect.width * cashIconRect.localScale.x * 0.5f;
+        float iconRightEdge = cashIconRect.anchoredPosition.x + iconHalfWidth;
+        float desiredTextStart = iconRightEdge + Mathf.Max(0f, cashIconTextGap);
+        float desiredLeftMargin = desiredTextStart - textLeftEdge;
+
+        Vector4 margin = textCash.margin;
+        if (!Mathf.Approximately(margin.x, desiredLeftMargin))
+        {
+            margin.x = desiredLeftMargin;
+            textCash.margin = margin;
+        }
+
+        if (textCash.alignment != TextAlignmentOptions.MidlineLeft)
+            textCash.alignment = TextAlignmentOptions.MidlineLeft;
     }
 
     private int GetOfferPrice(ShopOffer offer)

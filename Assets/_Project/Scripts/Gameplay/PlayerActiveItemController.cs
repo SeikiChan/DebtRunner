@@ -145,6 +145,11 @@ public class PlayerActiveItemController : MonoBehaviour
 
     public void ResetRuntimeState()
     {
+        bool shouldPreserveInputSuppression =
+            suppressUseUntilRelease ||
+            Time.unscaledTime < activeItemInputLockUntilUnscaledTime ||
+            GameInput.IsAnyActiveItemInputHeld();
+
         ClearActiveEffect();
         equippedItem = ActiveItemId.None;
         equippedProfile = null;
@@ -157,6 +162,9 @@ public class PlayerActiveItemController : MonoBehaviour
 
         if (!TryEquipStarterItem())
             RefreshHUD();
+
+        if (shouldPreserveInputSuppression)
+            SuppressUseUntilRelease();
     }
 
     public bool Equip(ActiveItemId itemId)
