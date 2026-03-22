@@ -24,6 +24,7 @@ public class GameFlowController : MonoBehaviour
     }
 
     public bool IsInGameplayState => state == GameState.Gameplay;
+    public bool IsPauseMenuOpen => pauseMenuOpen;
     public bool IsInShopState => state == GameState.Shop;
 
     [SerializeField] private GameObject panelTitle;
@@ -4340,9 +4341,13 @@ private void ClearWorld()
     ClearChildren(enemiesRoot);
     ClearChildren(projectilesRoot);
     ClearChildren(pickupsRoot);
+    int rogueProjectileCount = Projectile.DespawnAllActiveInScene();
 
-    if (enemyCount > 0 || projectileCount > 0 || pickupCount > 0)
-        RunLogger.Event($"World cleared: enemies={enemyCount}, projectiles={projectileCount}, pickups={pickupCount}");
+    if (enemyCount > 0 || projectileCount > 0 || pickupCount > 0 || rogueProjectileCount > 0)
+    {
+        RunLogger.Event(
+            $"World cleared: enemies={enemyCount}, projectiles={projectileCount}, rogueProjectiles={rogueProjectileCount}, pickups={pickupCount}");
+    }
 }
 
 private void ClearEnemiesForTimerEnd()
@@ -4374,6 +4379,7 @@ private void ClearRoundEndTransientObjects()
     int projectileCount = CountChildren(projectilesRoot);
     if (projectileCount > 0)
         ClearChildren(projectilesRoot);
+    int rogueProjectileCount = Projectile.DespawnAllActiveInScene();
 
     WorldPopupText[] popupTexts = FindObjectsOfType<WorldPopupText>();
     int popupCount = 0;
@@ -4385,10 +4391,10 @@ private void ClearRoundEndTransientObjects()
         popupCount++;
     }
 
-    if (projectileCount > 0 || popupCount > 0)
+    if (projectileCount > 0 || rogueProjectileCount > 0 || popupCount > 0)
     {
         RunLogger.Event(
-            $"Round end transient cleanup: projectiles={projectileCount}, popups={popupCount}");
+            $"Round end transient cleanup: projectiles={projectileCount}, rogueProjectiles={rogueProjectileCount}, popups={popupCount}");
     }
 }
 
@@ -4668,8 +4674,8 @@ private void SetPauseMenuVisible(bool visible)
     private void RefreshHUD()
     {
         if (textRound) textRound.text = GetGameplayRoundHudText();
-        if (textCash) textCash.text = $"$ {cash} / Debt {GetDebtDisplay(roundIndex)}";
-        if (textDebt) textDebt.text = $"Debt Owed: {GetDebtDisplay(roundIndex)}";
+        if (textCash) textCash.text = $"{Mathf.Max(0, cash):N0}";
+        if (textDebt) textDebt.text = $"DEBT: {GetDebtDisplay(roundIndex)}";
         // 鍊掕鏃跺湪Update涓洿鏂帮紝杩欓噷鍙垵濮嬪寲
         if (state != GameState.Gameplay && textCountdown != null)
         {
@@ -4681,8 +4687,8 @@ private void SetPauseMenuVisible(bool visible)
     private string GetGameplayRoundHudText()
     {
         return IsCurrentRoundBoss()
-            ? $"BOSS ROUND {roundIndex}/{GetBossRoundIndex()}"
-            : $"ROUND {roundIndex}/{totalRounds}";
+            ? $"BOSS ROUND {roundIndex:00}/{GetBossRoundIndex():00}"
+            : $"ROUND {roundIndex:00}/{totalRounds:00}";
     }
 
     private void UpdateCountdownDisplay()
@@ -4708,13 +4714,15 @@ private void SetPauseMenuVisible(bool visible)
 
         if (IsCurrentRoundBoss())
         {
-            textCountdown.text = "Boss: No Time Limit";
+            textCountdown.text = "BOSS";
             ResetCountdownStyle();
             return;
         }
 
         int seconds = Mathf.Max(0, Mathf.CeilToInt(roundTimeRemaining));
-        textCountdown.text = $"Time: {seconds}s";
+        int minutes = seconds / 60;
+        int remainderSeconds = seconds % 60;
+        textCountdown.text = $"{minutes:00}:{remainderSeconds:00}";
 
         int urgentThreshold = Mathf.Max(1, countdownUrgentThresholdSeconds);
         bool urgent = seconds > 0 && seconds <= urgentThreshold;
@@ -5129,6 +5137,10 @@ private void SetPauseMenuVisible(bool visible)
 
         if (selected == null)
             return;
+
+        EnsurePlayerActiveItemControllerBound();
+        if (playerActiveItemController != null)
+            playerActiveItemController.SuppressUseUntilRelease();
 
         if (pauseSettingsMenu != null &&
             root == pauseSettingsMenu.gameObject &&

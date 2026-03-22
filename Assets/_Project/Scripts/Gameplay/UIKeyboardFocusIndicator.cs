@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Selectable))]
-public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselectHandler
+public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselectHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [SerializeField] private Graphic focusGraphic;
     [SerializeField] private bool useScaleEffect = true;
@@ -21,6 +21,7 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
     private Outline outline;
     private Vector3 baseScale = Vector3.one;
     private bool focused;
+    private bool hovered;
     private float pulseTimer;
 
     private void Awake()
@@ -31,7 +32,9 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
             baseScale = rectTransform.localScale;
 
         ResolveFocusGraphicAndOutline();
-        ApplyFocusState(false, true);
+        focused = false;
+        hovered = false;
+        ApplyVisualState(immediateScale: true);
     }
 
     private void OnEnable()
@@ -41,12 +44,15 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
         if (evt != null && evt.currentSelectedGameObject == gameObject)
             shouldFocus = true;
 
-        ApplyFocusState(shouldFocus, true);
+        focused = shouldFocus;
+        ApplyVisualState(immediateScale: true);
     }
 
     private void OnDisable()
     {
-        ApplyFocusState(false, true);
+        focused = false;
+        hovered = false;
+        ApplyVisualState(immediateScale: true);
     }
 
     private void Update()
@@ -54,8 +60,9 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
         if (!useScaleEffect || rectTransform == null)
             return;
 
-        float targetMul = focused ? focusedScaleMultiplier : 1f;
-        if (focused && pulseWhenFocused && pulseAmplitude > 0f)
+        bool highlighted = IsHighlighted();
+        float targetMul = highlighted ? focusedScaleMultiplier : 1f;
+        if (highlighted && pulseWhenFocused && pulseAmplitude > 0f)
         {
             pulseTimer += Time.unscaledDeltaTime * pulseFrequency;
             targetMul += Mathf.Sin(pulseTimer) * pulseAmplitude;
@@ -72,12 +79,26 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
 
     public void OnSelect(BaseEventData eventData)
     {
-        ApplyFocusState(true, false);
+        focused = true;
+        ApplyVisualState(immediateScale: false);
     }
 
     public void OnDeselect(BaseEventData eventData)
     {
-        ApplyFocusState(false, false);
+        focused = false;
+        ApplyVisualState(immediateScale: false);
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        hovered = true;
+        ApplyVisualState(immediateScale: false);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        hovered = false;
+        ApplyVisualState(immediateScale: false);
     }
 
     private void ResolveFocusGraphicAndOutline()
@@ -91,7 +112,9 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
         if (focusGraphic == null)
             return;
 
-        outline = focusGraphic.gameObject.AddComponent<Outline>();
+        outline = focusGraphic.GetComponent<Outline>();
+        if (outline == null)
+            outline = focusGraphic.gameObject.AddComponent<Outline>();
 
         outline.useGraphicAlpha = false;
         outline.effectDistance = focusOutlineDistance;
@@ -99,28 +122,32 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
         outline.enabled = false;
     }
 
-    private void ApplyFocusState(bool value, bool immediateScale)
+    private bool IsHighlighted()
     {
-        bool canFocus = value &&
-                        selectable != null &&
-                        selectable.IsActive() &&
-                        selectable.IsInteractable();
-        focused = canFocus;
+        return selectable != null &&
+               selectable.IsActive() &&
+               selectable.IsInteractable() &&
+               (focused || hovered);
+    }
+
+    private void ApplyVisualState(bool immediateScale)
+    {
+        bool highlighted = IsHighlighted();
 
         if (outline != null)
         {
             outline.effectDistance = focusOutlineDistance;
             outline.effectColor = focusOutlineColor;
-            outline.enabled = focused;
+            outline.enabled = highlighted;
         }
 
         if (immediateScale && rectTransform != null)
         {
-            float mul = focused ? focusedScaleMultiplier : 1f;
+            float mul = highlighted ? focusedScaleMultiplier : 1f;
             rectTransform.localScale = baseScale * mul;
         }
 
-        if (!focused)
+        if (!highlighted)
             pulseTimer = 0f;
     }
 }

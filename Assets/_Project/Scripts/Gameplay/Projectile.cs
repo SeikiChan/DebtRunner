@@ -99,6 +99,28 @@ public class Projectile : MonoBehaviour
         activeCount = 0;
     }
 
+    public static int DespawnAllActiveInScene()
+    {
+        Projectile[] projectiles = FindObjectsOfType<Projectile>(true);
+        if (projectiles == null || projectiles.Length == 0)
+            return 0;
+
+        int cleared = 0;
+        for (int i = 0; i < projectiles.Length; i++)
+        {
+            Projectile projectile = projectiles[i];
+            if (projectile == null || !projectile.gameObject.scene.IsValid())
+                continue;
+
+            bool wasActive = projectile.gameObject.activeInHierarchy;
+            projectile.Despawn();
+            if (wasActive)
+                cleared++;
+        }
+
+        return cleared;
+    }
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();

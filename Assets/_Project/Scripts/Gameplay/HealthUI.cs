@@ -1,14 +1,27 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class HealthUI : MonoBehaviour
 {
     private static Sprite runtimeShieldFallbackSprite;
 
+    private enum DisplayMode
+    {
+        Icons = 0,
+        Numeric = 1
+    }
+
     [SerializeField] private PlayerHealth playerHealth;
+    [SerializeField] private DisplayMode displayMode = DisplayMode.Icons;
     [SerializeField] private Image healthIconTemplate;
     [SerializeField] private Image shieldIconTemplate;
     [SerializeField] private Sprite shieldIconSprite;
+    [SerializeField] private Image numericHealthIcon;
+    [SerializeField] private TMP_Text numericHealthText;
+    [SerializeField] private Image numericShieldIcon;
+    [SerializeField] private TMP_Text numericShieldText;
+    [SerializeField] private string numericValuePrefix = "X";
     [SerializeField] private float spacing = 10f;
     [SerializeField, Min(1)] private int maxIconsPerRow = 5;
     [SerializeField, Min(0f)] private float rowSpacing = 18f;
@@ -30,12 +43,14 @@ public class HealthUI : MonoBehaviour
     private int lastShieldCharges = -1;
     private Coroutine shopRevealCo;
 
+    private bool UseNumericDisplay => displayMode == DisplayMode.Numeric;
+
     public void ResetHealthUI()
     {
         lastHP = -1;
         lastMaxHP = -1;
         lastShieldCharges = -1;
-        if (playerHealth != null && healthIcons != null)
+        if (playerHealth != null && (healthIcons != null || UseNumericDisplay))
             UpdateHealthUI();
     }
 
@@ -87,14 +102,26 @@ public class HealthUI : MonoBehaviour
             return;
         }
 
-        if (healthIconTemplate == null)
+        if (!UseNumericDisplay && healthIconTemplate == null)
         {
             Debug.LogError("HealthUI: healthIconTemplate is not assigned.");
             gameObject.SetActive(false);
             return;
         }
 
-        CreateHealthIcons();
+        EnsureNumericRefsBound();
+
+        if (UseNumericDisplay)
+        {
+            if (healthIconTemplate != null)
+                healthIconTemplate.gameObject.SetActive(false);
+            if (shieldIconTemplate != null)
+                shieldIconTemplate.gameObject.SetActive(false);
+        }
+        else
+        {
+            CreateHealthIcons();
+        }
 
         lastHP = playerHealth.CurrentHP;
         lastMaxHP = playerHealth.MaxHP;
@@ -103,6 +130,16 @@ public class HealthUI : MonoBehaviour
 
     private void CreateHealthIcons()
     {
+        if (UseNumericDisplay)
+            return;
+
+        if (playerHealth == null || healthIconTemplate == null)
+        {
+            healthIcons = null;
+            shieldIcons = null;
+            return;
+        }
+
         if (healthIcons != null)
         {
             for (int i = 0; i < healthIcons.Length; i++)
@@ -147,7 +184,16 @@ public class HealthUI : MonoBehaviour
         if (currentMaxHP != lastMaxHP)
         {
             lastMaxHP = currentMaxHP;
-            CreateHealthIcons();
+
+            if (UseNumericDisplay)
+            {
+                EnsureNumericRefsBound();
+            }
+            else
+            {
+                CreateHealthIcons();
+            }
+
             lastHP = -1;
             lastShieldCharges = -1;
         }
@@ -162,7 +208,17 @@ public class HealthUI : MonoBehaviour
 
     private void UpdateHealthUI()
     {
-        if (playerHealth == null || healthIcons == null) return;
+        if (playerHealth == null)
+            return;
+
+        if (UseNumericDisplay)
+        {
+            UpdateNumericUI(playerHealth.CurrentHP, playerHealth.ShieldCharges);
+            return;
+        }
+
+        if (healthIcons == null)
+            return;
 
         int currentHP = playerHealth.CurrentHP;
         bool canAnimate = useAnimation && isActiveAndEnabled && gameObject.activeInHierarchy && animationDuration > 0f;
@@ -180,6 +236,43 @@ public class HealthUI : MonoBehaviour
         }
 
         UpdateShieldUI(playerHealth.ShieldCharges, canAnimate);
+    }
+
+    private void EnsureNumericRefsBound()
+    {
+        if (!UseNumericDisplay)
+            return;
+
+        if (numericHealthIcon == null)
+            numericHealthIcon = transform.Find("Image_HpValueIcon")?.GetComponent<Image>();
+
+        if (numericHealthText == null)
+            numericHealthText = transform.Find("Text_HpValue")?.GetComponent<TMP_Text>();
+
+        if (numericShieldIcon == null)
+            numericShieldIcon = transform.Find("Image_ShieldValueIcon")?.GetComponent<Image>();
+
+        if (numericShieldText == null)
+            numericShieldText = transform.Find("Text_ShieldValue")?.GetComponent<TMP_Text>();
+    }
+
+    private void UpdateNumericUI(int currentHP, int shieldCharges)
+    {
+        if (numericHealthIcon != null)
+            numericHealthIcon.enabled = true;
+
+        if (numericHealthText != null)
+            numericHealthText.text = $"{numericValuePrefix}{Mathf.Max(0, currentHP)}";
+
+        bool showShield = numericShieldIcon != null || numericShieldText != null;
+        if (!showShield)
+            return;
+
+        if (numericShieldIcon != null)
+            numericShieldIcon.enabled = true;
+
+        if (numericShieldText != null)
+            numericShieldText.text = $"{numericValuePrefix}{Mathf.Max(0, shieldCharges)}";
     }
 
     private System.Collections.IEnumerator AnimateHealthIcon(Image icon, Color targetColor)

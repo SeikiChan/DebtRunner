@@ -109,6 +109,8 @@ public class PlayerActiveItemController : MonoBehaviour
     private bool overlayAutoCreated;
     private bool equippedItemIsStarter;
     private int totalUses;
+    private bool suppressUseUntilRelease;
+    private float activeItemInputLockUntilUnscaledTime;
 
     public ActiveItemId EquippedItem => equippedItem;
     public bool HasEquippedItem => equippedProfile != null && equippedItem != ActiveItemId.None;
@@ -116,6 +118,14 @@ public class PlayerActiveItemController : MonoBehaviour
     public bool IsStarterItemEquipped => HasEquippedItem && equippedItemIsStarter;
     public bool IsStarterDashEquipped => IsStarterItemEquipped && equippedItem == ActiveItemId.SkiptraceBurst;
     public int TotalUses => totalUses;
+
+    public void SuppressUseUntilRelease(float minimumUnscaledLockSeconds = 0.08f)
+    {
+        suppressUseUntilRelease = true;
+        activeItemInputLockUntilUnscaledTime = Mathf.Max(
+            activeItemInputLockUntilUnscaledTime,
+            Time.unscaledTime + Mathf.Max(0f, minimumUnscaledLockSeconds));
+    }
 
     public void Bind(
         GameFlowController flow,
@@ -142,6 +152,8 @@ public class PlayerActiveItemController : MonoBehaviour
         activeDurationRemaining = 0f;
         equippedItemIsStarter = false;
         totalUses = 0;
+        suppressUseUntilRelease = false;
+        activeItemInputLockUntilUnscaledTime = 0f;
 
         if (!TryEquipStarterItem())
             RefreshHUD();
@@ -195,7 +207,7 @@ public class PlayerActiveItemController : MonoBehaviour
         {
             TickRuntime(Time.deltaTime);
 
-            if (HasEquippedItem && cooldownRemaining <= 0f && GameInput.IsActiveItemPressed())
+            if (HasEquippedItem && cooldownRemaining <= 0f && CanConsumeActiveItemInput() && GameInput.IsActiveItemPressed())
                 TryUseEquippedItem();
         }
 
@@ -307,6 +319,21 @@ public class PlayerActiveItemController : MonoBehaviour
             && Time.timeScale > 0.0001f;
     }
 
+    private bool CanConsumeActiveItemInput()
+    {
+        if (Time.unscaledTime < activeItemInputLockUntilUnscaledTime)
+            return false;
+
+        if (!suppressUseUntilRelease)
+            return true;
+
+        if (GameInput.IsAnyActiveItemInputHeld())
+            return false;
+
+        suppressUseUntilRelease = false;
+        return true;
+    }
+
     private ActiveItemProfile GetProfile(ActiveItemId itemId)
     {
         for (int i = 0; i < itemProfiles.Count; i++)
@@ -327,6 +354,7 @@ public class PlayerActiveItemController : MonoBehaviour
         bool shouldShow = HasEquippedItem
             && gameFlow != null
             && gameFlow.IsInGameplayState
+            && !gameFlow.IsPauseMenuOpen
             && panelHUD != null
             && panelHUD.activeInHierarchy
             && EnsureOverlay();

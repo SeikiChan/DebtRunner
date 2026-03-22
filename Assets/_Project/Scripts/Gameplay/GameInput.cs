@@ -137,6 +137,11 @@ public static class GameInput
         return IsAnyPressed(GamepadActiveItemKeys);
     }
 
+    public static bool IsAnyActiveItemInputHeld()
+    {
+        return IsAnyHeld(KeyboardActiveItemKeys) || IsAnyHeld(GamepadActiveItemKeys);
+    }
+
     public static bool IsUIUpPressed()
     {
         return IsAnyPressed(UIUpKeys);

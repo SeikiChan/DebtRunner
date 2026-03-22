@@ -144,6 +144,14 @@ public class ShopSystem : MonoBehaviour
     [Header("Item Cards / 商品卡片")]
     [SerializeField] private ShopItemUIRefs[] itemUIs = new ShopItemUIRefs[3];
 
+    [Header("Offer Text Layout / 商品文案布局")]
+    [SerializeField, Min(80f)] private float offerTitleMaxWidth = 220f;
+    [SerializeField, Min(80f)] private float offerDescriptionMaxWidth = 220f;
+    [SerializeField, Min(8f)] private float offerTitleMinFontSize = 15f;
+    [SerializeField, Min(8f)] private float offerTitleMaxFontSize = 29f;
+    [SerializeField, Min(8f)] private float offerDescriptionMinFontSize = 12f;
+    [SerializeField, Min(8f)] private float offerDescriptionMaxFontSize = 22f;
+
     private readonly ShopOffer[] currentOffers = new ShopOffer[3];
 
     private GameFlowController gameFlow;
@@ -286,6 +294,7 @@ public class ShopSystem : MonoBehaviour
                 ResetOfferColors(i, ui);
                 if (ui.titleText != null) ui.titleText.text = "-";
                 if (ui.descText != null) ui.descText.text = "No item";
+                ApplyOfferTextLayout(ui);
                 if (ui.priceText != null) ui.priceText.text = "";
                 if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = "N/A";
                 if (ui.buyButton != null) ui.buyButton.interactable = false;
@@ -300,6 +309,7 @@ public class ShopSystem : MonoBehaviour
             ApplyOfferColors(i, ui, offer.definition.Rarity, offer.purchased);
             if (ui.titleText != null) ui.titleText.text = offer.definition.ItemTitle;
             if (ui.descText != null) ui.descText.text = offer.definition.Description;
+            ApplyOfferTextLayout(ui);
             if (ui.iconImage != null)
             {
                 ui.iconImage.sprite = offer.definition.Icon;
@@ -325,6 +335,43 @@ public class ShopSystem : MonoBehaviour
             if (ui.buyButton != null)
                 ui.buyButton.interactable = true;
         }
+    }
+
+    private void ApplyOfferTextLayout(ShopItemUIRefs ui)
+    {
+        if (ui == null)
+            return;
+
+        ConfigureOfferText(
+            ui.titleText,
+            offerTitleMaxWidth,
+            offerTitleMinFontSize,
+            offerTitleMaxFontSize);
+        ConfigureOfferText(
+            ui.descText,
+            offerDescriptionMaxWidth,
+            offerDescriptionMinFontSize,
+            offerDescriptionMaxFontSize);
+    }
+
+    private static void ConfigureOfferText(TMP_Text text, float maxWidth, float minFontSize, float maxFontSize)
+    {
+        if (text == null)
+            return;
+
+        RectTransform rect = text.rectTransform;
+        if (rect != null)
+        {
+            Vector2 size = rect.sizeDelta;
+            if (size.x > maxWidth)
+                rect.sizeDelta = new Vector2(maxWidth, size.y);
+        }
+
+        text.enableAutoSizing = true;
+        text.fontSizeMin = Mathf.Min(minFontSize, maxFontSize);
+        text.fontSizeMax = Mathf.Max(minFontSize, maxFontSize);
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void BindUiEvents()

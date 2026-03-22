@@ -285,6 +285,7 @@ public class QuitConfirmDialog : MonoBehaviour
         if (image != null)
         {
             image.color = fillColor;
+            image.raycastTarget = true;
             if (button.targetGraphic == null)
                 button.targetGraphic = image;
         }
