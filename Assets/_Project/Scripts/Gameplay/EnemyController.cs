@@ -490,15 +490,24 @@ public class EnemyController : MonoBehaviour
 
     private void Die()
     {
-        RunLogger.Event($"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. rewards: cash={cashValue}, xp={xpDrop}");
+        int currentRound = GameFlowController.Instance != null
+            ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound())
+            : 1;
 
         // Apply reward multiplier from wheel "Risk & Reward" outcome
         float rewardMul = GameFlowController.Instance != null ? GameFlowController.Instance.CurrentRewardMultiplier : 1f;
         float roundCashMul = GameFlowController.Instance != null
-            ? GameFlowController.Instance.GetCashDropMultiplierForRound(GameFlowController.Instance.GetCurrentRound())
+            ? GameFlowController.Instance.GetCashDropMultiplierForRound(currentRound)
+            : 1f;
+        float roundXpMul = GameFlowController.Instance != null
+            ? GameFlowController.Instance.GetXPDropMultiplierForRound(currentRound)
             : 1f;
         int effectiveCash = Mathf.RoundToInt(cashValue * rewardMul * roundCashMul);
-        int effectiveXP = Mathf.RoundToInt(xpDrop * rewardMul);
+        int effectiveXP = Mathf.RoundToInt(xpDrop * rewardMul * roundXpMul);
+
+        RunLogger.Event(
+            $"Enemy defeated at {transform.position.x:F2},{transform.position.y:F2}. round={currentRound}, " +
+            $"rewards: cash={cashValue}->{effectiveCash}, xp={xpDrop}->{effectiveXP}");
 
         bool isBossEnemy = GetComponent<BossAttackController>() != null;
         List<Vector2> reservedDropOffsets = new List<Vector2>(3);

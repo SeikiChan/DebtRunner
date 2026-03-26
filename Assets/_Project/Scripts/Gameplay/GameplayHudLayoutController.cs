@@ -14,6 +14,7 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
     [SerializeField] private RectTransform debtIcon;
     [SerializeField] private TMP_Text cashText;
     [SerializeField] private TMP_Text debtText;
+    [SerializeField] private TMP_Text countdownText;
 
     [Header("Layout")]
     [SerializeField, Min(0f)] private float contentLeftPadding = 36f;
@@ -22,11 +23,14 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
     [SerializeField, Min(0f)] private float minimumBaseWidth = 470f;
     [SerializeField] private bool lockRightEdgeToInitialLayout = true;
     [SerializeField, Min(-100f)] private float timerBaseOverlap = 19f;
+    [SerializeField] private bool hideEconomyHudDuringBossRound = true;
 
     private float rightEdgeLocalX;
     private float lastAppliedWidth = -1f;
     private string lastCashText;
     private string lastDebtText;
+    private bool lastBossRoundHudMode;
+    private bool bossRoundHudModeInitialized;
 
     private void Awake()
     {
@@ -117,6 +121,12 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
             debtText = debtBlock != null ? debtBlock.GetComponent<TMP_Text>() : null;
         }
 
+        if (forceSearch || countdownText == null)
+        {
+            RectTransform countdownRect = FindChildRect(hudRoot, "textCountdown");
+            countdownText = countdownRect != null ? countdownRect.GetComponent<TMP_Text>() : null;
+        }
+
         if (forceSearch || debtIcon == null)
         {
             debtIcon = FindChildRect(debtBlock, "Image_HudDebtIcon");
@@ -150,6 +160,17 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
 
     private void RefreshLayout(bool force)
     {
+        bool bossRoundHudMode = ShouldUseBossRoundHudMode();
+        ApplyBossRoundHudMode(bossRoundHudMode);
+
+        if (bossRoundHudMode)
+        {
+            lastCashText = string.Empty;
+            lastDebtText = string.Empty;
+            lastAppliedWidth = -1f;
+            return;
+        }
+
         if (!HasValidLayout())
         {
             return;
@@ -192,6 +213,21 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
         lastDebtText = currentDebtText;
     }
 
+    private void ApplyBossRoundHudMode(bool bossRoundHudMode)
+    {
+        if (bossRoundHudModeInitialized && lastBossRoundHudMode == bossRoundHudMode)
+            return;
+
+        SetObjectActive(moneyBaseLeft, !bossRoundHudMode);
+        SetObjectActive(cashBlock, !bossRoundHudMode);
+        SetObjectActive(debtBlock, !bossRoundHudMode);
+        SetObjectActive(timerBaseRight, !bossRoundHudMode);
+        SetObjectActive(countdownText != null ? countdownText.rectTransform : null, !bossRoundHudMode);
+
+        bossRoundHudModeInitialized = true;
+        lastBossRoundHudMode = bossRoundHudMode;
+    }
+
     private bool HasValidLayout()
     {
         return hudRoot != null
@@ -200,6 +236,15 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
             && debtBlock != null
             && cashText != null
             && debtText != null;
+    }
+
+    private bool ShouldUseBossRoundHudMode()
+    {
+        if (!hideEconomyHudDuringBossRound || !Application.isPlaying)
+            return false;
+
+        GameFlowController flow = GameFlowController.Instance;
+        return flow != null && flow.IsInGameplayState && flow.IsBossRoundActive();
     }
 
     private float ComputeDebtCenterX(float desiredRightEdge)
@@ -269,6 +314,14 @@ public sealed class GameplayHudLayoutController : MonoBehaviour
 
         anchoredPosition.x = x;
         rect.anchoredPosition = anchoredPosition;
+    }
+
+    private static void SetObjectActive(RectTransform rect, bool active)
+    {
+        if (rect == null || rect.gameObject.activeSelf == active)
+            return;
+
+        rect.gameObject.SetActive(active);
     }
 
     private static RectTransform FindRect(string objectName)

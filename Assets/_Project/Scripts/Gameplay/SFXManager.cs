@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -47,14 +48,28 @@ public class SFXManager : MonoBehaviour
 
     [Header("Pickup Combo")]
     [SerializeField] private bool enablePickupComboPitchRamp = true;
-    [SerializeField, Min(0.01f)] private float pickupComboResetSeconds = 0.33f;
-    [SerializeField, Min(0f)] private float pickupComboPitchStep = 0.055f;
-    [SerializeField, Min(1f)] private float pickupComboMaxPitch = 1.45f;
+    [SerializeField, Min(0.01f)] private float pickupComboResetSeconds = 0.24f;
+    [SerializeField, Min(0f)] private float pickupComboPitchStep = 0.025f;
+    [SerializeField, Min(0.8f)] private float pickupComboMaxPitch = 1.16f;
+    [SerializeField, Min(0.5f)] private float pickupCollectBasePitch = 0.97f;
+    [SerializeField, Min(0f)] private float pickupCollectPitchJitter = 0.012f;
+    [SerializeField, Min(0f)] private float pickupCollectMinIntervalSeconds = 0.022f;
+    [SerializeField, Min(0f)] private float pickupCollectAttackSeconds = 0.006f;
+    [SerializeField, Min(0f)] private float pickupCollectReleaseSeconds = 0.045f;
+    [SerializeField, Min(0.01f)] private float pickupCollectBurstWindowSeconds = 0.11f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectBurstVolumeDuckPerLayer = 0.16f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectMinBurstVolumeMultiplier = 0.55f;
     [SerializeField, Min(1)] private int pooled2DOneShotSources = 8;
 
     private readonly List<AudioSource> extra2DOneShotPool = new List<AudioSource>(8);
+    private readonly List<float> recentPickupPlaybackTimes = new List<float>(8);
+    private readonly Dictionary<AudioSource, Coroutine> active2DOneShotEnvelopes = new Dictionary<AudioSource, Coroutine>(8);
     private int pickupComboChainCount;
     private float lastPickupCollectTime = float.NegativeInfinity;
+    private float lastPickupCollectPlaybackTime = float.NegativeInfinity;
+    private bool pickupCollectQueued;
+    private AudioClip queuedPickupCollectClip;
+    private float queuedPickupCollectVolumeScale;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void ResetStaticReference()
@@ -87,6 +102,11 @@ public class SFXManager : MonoBehaviour
             instance = null;
     }
 
+    private void Update()
+    {
+        FlushQueuedPickupCollect();
+    }
+
     public void SetMasterVolume(float v) { masterVolume = Mathf.Clamp01(v); }
     public float GetMasterVolume() => masterVolume;
 
@@ -104,21 +124,17 @@ public class SFXManager : MonoBehaviour
         if (clip == null)
             return;
 
-        float pitch = 1f;
-        if (enablePickupComboPitchRamp)
+        float now = Time.unscaledTime;
+        float minInterval = Mathf.Max(0f, pickupCollectMinIntervalSeconds);
+        if (minInterval > 0f && now - lastPickupCollectPlaybackTime < minInterval)
         {
-            float now = Time.unscaledTime;
-            if (now - lastPickupCollectTime > Mathf.Max(0.01f, pickupComboResetSeconds))
-                pickupComboChainCount = 0;
-
-            pickupComboChainCount++;
-            lastPickupCollectTime = now;
-            pitch = Mathf.Min(
-                Mathf.Max(1f, pickupComboMaxPitch),
-                1f + Mathf.Max(0f, pickupComboPitchStep) * Mathf.Max(0, pickupComboChainCount - 1));
+            pickupCollectQueued = true;
+            queuedPickupCollectClip = clip;
+            queuedPickupCollectVolumeScale = Mathf.Max(queuedPickupCollectVolumeScale, Mathf.Max(0f, volumeScale));
+            return;
         }
 
-        Play2DOneShot(clip, volumeScale, pitch);
+        PlayPickupCollectNow(clip, volumeScale, now);
     }
 
     public void PlayAtPoint(AudioClip clip, Vector3 position, float volumeScale = 1f)
@@ -147,6 +163,11 @@ public class SFXManager : MonoBehaviour
 
     private void Play2DOneShot(AudioClip clip, float volumeScale, float pitch)
     {
+        Play2DOneShot(clip, volumeScale, pitch, 0f, 0f);
+    }
+
+    private void Play2DOneShot(AudioClip clip, float volumeScale, float pitch, float fadeInSeconds, float fadeOutSeconds)
+    {
         EnsureSourceReady();
         if (clip == null)
             return;
@@ -155,8 +176,22 @@ public class SFXManager : MonoBehaviour
         if (source == null)
             return;
 
-        source.pitch = Mathf.Clamp(pitch, 0.1f, 3f);
+        ResetOneShotSourceState(source);
+
+        float clampedPitch = Mathf.Clamp(pitch, 0.1f, 3f);
+        source.pitch = clampedPitch;
+        bool useEnvelope = fadeInSeconds > 0f || fadeOutSeconds > 0f;
+        source.volume = useEnvelope ? 0f : 1f;
         source.PlayOneShot(clip, masterVolume * Mathf.Max(0f, volumeScale));
+
+        if (useEnvelope)
+        {
+            float lifetime = clip.length > 0f
+                ? (clip.length / Mathf.Max(0.1f, clampedPitch))
+                : 1f;
+            Coroutine envelopeCo = StartCoroutine(AnimateOneShotEnvelope(source, lifetime, fadeInSeconds, fadeOutSeconds));
+            active2DOneShotEnvelopes[source] = envelopeCo;
+        }
 
         if (!extra2DOneShotPool.Contains(source))
         {
@@ -165,6 +200,150 @@ public class SFXManager : MonoBehaviour
                 : 1f;
             Destroy(source.gameObject, lifetime);
         }
+    }
+
+    private void FlushQueuedPickupCollect()
+    {
+        if (!pickupCollectQueued || queuedPickupCollectClip == null)
+            return;
+
+        float now = Time.unscaledTime;
+        if (now - lastPickupCollectPlaybackTime < Mathf.Max(0f, pickupCollectMinIntervalSeconds))
+            return;
+
+        AudioClip clip = queuedPickupCollectClip;
+        float volumeScale = queuedPickupCollectVolumeScale;
+
+        pickupCollectQueued = false;
+        queuedPickupCollectClip = null;
+        queuedPickupCollectVolumeScale = 0f;
+
+        PlayPickupCollectNow(clip, volumeScale, now);
+    }
+
+    private void PlayPickupCollectNow(AudioClip clip, float volumeScale, float now)
+    {
+        if (clip == null)
+            return;
+
+        float pitch = GetPickupCollectPitch(now);
+        float overlapVolumeMultiplier = GetPickupCollectOverlapVolumeMultiplier(now);
+        float effectiveVolumeScale = Mathf.Max(0f, volumeScale) * overlapVolumeMultiplier;
+
+        Play2DOneShot(
+            clip,
+            effectiveVolumeScale,
+            pitch,
+            pickupCollectAttackSeconds,
+            pickupCollectReleaseSeconds);
+
+        lastPickupCollectPlaybackTime = now;
+        recentPickupPlaybackTimes.Add(now);
+    }
+
+    private float GetPickupCollectPitch(float now)
+    {
+        float basePitch = Mathf.Max(0.1f, pickupCollectBasePitch);
+        float maxPitch = Mathf.Max(basePitch, pickupComboMaxPitch);
+        float pitch = basePitch;
+
+        if (enablePickupComboPitchRamp)
+        {
+            if (now - lastPickupCollectTime > Mathf.Max(0.01f, pickupComboResetSeconds))
+                pickupComboChainCount = 0;
+
+            pickupComboChainCount++;
+            lastPickupCollectTime = now;
+            pitch += Mathf.Max(0f, pickupComboPitchStep) * Mathf.Max(0, pickupComboChainCount - 1);
+            pitch = Mathf.Min(maxPitch, pitch);
+        }
+
+        float jitter = Mathf.Max(0f, pickupCollectPitchJitter);
+        if (jitter > 0f)
+            pitch += Random.Range(-jitter, jitter);
+
+        return Mathf.Clamp(pitch, 0.1f, maxPitch);
+    }
+
+    private float GetPickupCollectOverlapVolumeMultiplier(float now)
+    {
+        TrimRecentPickupPlaybackTimes(now);
+
+        if (recentPickupPlaybackTimes.Count <= 0)
+            return 1f;
+
+        float duckPerLayer = Mathf.Clamp01(pickupCollectBurstVolumeDuckPerLayer);
+        float minMultiplier = Mathf.Clamp01(pickupCollectMinBurstVolumeMultiplier);
+        float multiplier = 1f - duckPerLayer * recentPickupPlaybackTimes.Count;
+        return Mathf.Max(minMultiplier, multiplier);
+    }
+
+    private void TrimRecentPickupPlaybackTimes(float now)
+    {
+        float window = Mathf.Max(0.01f, pickupCollectBurstWindowSeconds);
+        for (int i = recentPickupPlaybackTimes.Count - 1; i >= 0; i--)
+        {
+            if (now - recentPickupPlaybackTimes[i] > window)
+                recentPickupPlaybackTimes.RemoveAt(i);
+        }
+    }
+
+    private void ResetOneShotSourceState(AudioSource source)
+    {
+        if (source == null)
+            return;
+
+        if (active2DOneShotEnvelopes.TryGetValue(source, out Coroutine activeEnvelope))
+        {
+            if (activeEnvelope != null)
+                StopCoroutine(activeEnvelope);
+
+            active2DOneShotEnvelopes.Remove(source);
+        }
+
+        source.volume = 1f;
+        source.pitch = 1f;
+    }
+
+    private IEnumerator AnimateOneShotEnvelope(AudioSource source, float clipLifetime, float fadeInSeconds, float fadeOutSeconds)
+    {
+        if (source == null)
+            yield break;
+
+        float safeLifetime = Mathf.Max(0.01f, clipLifetime);
+        float attack = Mathf.Clamp(fadeInSeconds, 0f, safeLifetime);
+        float release = Mathf.Clamp(fadeOutSeconds, 0f, safeLifetime);
+
+        if (attack + release > safeLifetime)
+            release = Mathf.Max(0f, safeLifetime - attack);
+
+        float fadeOutStart = Mathf.Max(attack, safeLifetime - release);
+        float startedAt = Time.unscaledTime;
+
+        while (source != null)
+        {
+            float elapsed = Time.unscaledTime - startedAt;
+            if (elapsed >= safeLifetime)
+                break;
+
+            float volume = 1f;
+            if (attack > 0f && elapsed < attack)
+            {
+                volume = Mathf.Clamp01(elapsed / attack);
+            }
+            else if (release > 0f && elapsed >= fadeOutStart)
+            {
+                volume = Mathf.Clamp01((safeLifetime - elapsed) / release);
+            }
+
+            source.volume = volume;
+            yield return null;
+        }
+
+        if (source != null)
+            source.volume = 1f;
+
+        active2DOneShotEnvelopes.Remove(source);
     }
 
     private void EnsureSourceReady()

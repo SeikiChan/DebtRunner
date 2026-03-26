@@ -10,17 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
-  m_Name: WeaponUpgrade_ 13
+  m_Name: Air Mail
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Broad Audit
-  description: Spread your pressure across a much wider lane.
-  icon: {fileID: 0}
-  rarity: 2
+  upgradeTitle: Air Mail
+  description: Cards fly faster and farther.
+  icon: {fileID: -1783204881442189680, guid: d401469a4a4869745970768781d5c423, type: 3}
+  rarity: 0
   weightPercent: 6
   effects:
-  - effectType: 3
-    intValue: 1
-    floatValue: 0.0
-  - effectType: 4
+  - effectType: 2
     intValue: 0
-    floatValue: 5.0
+    floatValue: 1.8

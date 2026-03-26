@@ -204,9 +204,10 @@ public class GameFlowController : MonoBehaviour
 
     [SerializeField] private int totalRounds = 10;
     [SerializeField] private int firstRoundDue = 50;
-    [SerializeField] private int baseDue = 220;
-    [SerializeField] private int stepDue = 140;
+    [SerializeField] private int baseDue = 160;
+    [SerializeField] private int stepDue = 85;
     [SerializeField, Min(0f)] private float cashDropGrowthPerRound = 0.38f;
+    [SerializeField, Min(0f)] private float xpDropGrowthPerRound = 0.28f;
     [SerializeField] private float roundDurationSeconds = 22f;
     [SerializeField, Min(1)] private int countdownUrgentThresholdSeconds = 10;
     [SerializeField] private Color countdownUrgentColor = new Color(1f, 0.78f, 0.22f, 1f);
@@ -218,7 +219,7 @@ public class GameFlowController : MonoBehaviour
 
     [SerializeField] private bool useDebtCurveMultiplier = true;
     [SerializeField] private AnimationCurve debtCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 2f);
-    [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.08f;
+    [SerializeField, Min(0.001f)] private float debtMinGrowthPerRound = 0.05f;
     [SerializeField] private bool useIncomeScaledDebt = true;
     [SerializeField, Range(0f, 1f)] private float incomeScaledDebtRatio = 0.45f;
     [SerializeField, Min(1)] private int lateRoundDebtPressureStartRound = 6;
@@ -429,7 +430,7 @@ public class GameFlowController : MonoBehaviour
 
     private static readonly WeaponBaseUpgradeId[] AllWeaponBaseUpgrades =
     {
-        WeaponBaseUpgradeId.QuickStamp,
+        WeaponBaseUpgradeId.FastHands,
         WeaponBaseUpgradeId.StampedLedger,
         WeaponBaseUpgradeId.AirMail,
     };
@@ -1239,6 +1240,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 return "Stamped Ledger";
             case WeaponBaseUpgradeId.AirMail:
                 return "Air Mail";
+            case WeaponBaseUpgradeId.FastHands:
+                return "Fast Hands";
             default:
                 return "Base Upgrade";
         }
@@ -1250,8 +1253,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
         {
             case WeaponBaseUpgradeId.QuickStamp:
                 return nextRank <= 1
-                    ? "Faster hands between throws."
-                    : "Fire Rate ↑ Tighter rhythm.";
+                    ? "Cards leave your hand with more snap."
+                    : "Projectile Speed ↑ Faster travel.";
             case WeaponBaseUpgradeId.StampedLedger:
                 return nextRank <= 1
                     ? "Heavier hits on every card."
@@ -1260,6 +1263,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 return nextRank <= 1
                     ? "Cards fly faster and farther."
                     : "Flight ↑ Faster travel. Longer reach.";
+            case WeaponBaseUpgradeId.FastHands:
+                return nextRank <= 1
+                    ? "Attack Speed ↑ Throw cards more often."
+                    : "Attack Speed ↑ Higher firing frequency.";
             default:
                 return string.Empty;
         }
@@ -1387,7 +1394,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         switch (baseUpgradeId)
         {
             case WeaponBaseUpgradeId.QuickStamp:
-                effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: nextRank <= 2 ? 0.015f : 0.012f));
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: nextRank <= 2 ? 1.4f : 1.1f));
                 break;
             case WeaponBaseUpgradeId.StampedLedger:
                 effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, nextRank <= 2 ? 8 : 10));
@@ -1396,6 +1403,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 effects.Add(CreateEffect(WeaponUpgradeEffectType.ProjectileSpeedAdd, floatValue: nextRank <= 2 ? 1.8f : 1.4f));
                 if (nextRank >= 3)
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.KnockbackMultiplierAdd, floatValue: 0.08f));
+                break;
+            case WeaponBaseUpgradeId.FastHands:
+                effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: nextRank <= 2 ? 0.025f : 0.02f));
                 break;
         }
 
@@ -1530,8 +1540,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // 鎭㈠娓告垙鏃堕棿
     Time.timeScale = 1f;
 
-    if (panelHUD != null)
-        panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement);
+    RefreshGameplayHudVisibility();
 
     if (postLevelUpSafetyInvulnSeconds > 0f)
     {
@@ -1558,9 +1567,17 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public int GetCurrentRound() => roundIndex;
     public int GetTotalRounds() => totalRounds;
     public string GetNextRoundDebtDisplay() => GetDebtDisplay(roundIndex + 1);
+    public int GetProjectedDebtForRound(int round, bool includeWheelDebtAdjustments = true) => CalcDue(round, includeWheelDebtAdjustments);
     public bool IsBossRoundActive() => IsCurrentRoundBoss();
     public int GetBossRoundNumber() => GetBossRoundIndex();
-    public float GetCashDropMultiplierForRound(int round) => Mathf.Max(0f, 1f + Mathf.Max(0, round - 1) * cashDropGrowthPerRound);
+    public float GetCashDropMultiplierForRound(int round) => GetDropMultiplierForRound(round, cashDropGrowthPerRound);
+    public float GetXPDropMultiplierForRound(int round) => GetDropMultiplierForRound(round, xpDropGrowthPerRound);
+
+    private static float GetDropMultiplierForRound(int round, float growthPerRound)
+    {
+        int roundOffset = Mathf.Max(0, round - 1);
+        return Mathf.Max(0f, 1f + roundOffset * Mathf.Max(0f, growthPerRound));
+    }
 
     // UI Button: Start
     public void StartRun()
@@ -3776,7 +3793,7 @@ private void SwitchState(GameState next)
         victoryCreditsVisible = false;
 
     RefreshTitleAndCreditsPanels();
-    if (panelHUD) panelHUD.SetActive(state == GameState.Gameplay || state == GameState.Settlement);
+    RefreshGameplayHudVisibility();
     if (state != GameState.Gameplay)
     {
         StopGameplayTutorialSequence();
@@ -4624,6 +4641,11 @@ private void SetPauseMenuVisible(bool visible)
 
     private int CalcDue(int round)
     {
+        return CalcDue(round, true);
+    }
+
+    private int CalcDue(int round, bool includeWheelDebtAdjustments)
+    {
         if (round <= 0) return 0;
         if (round == 1)
             return Mathf.Max(0, firstRoundDue);
@@ -4638,10 +4660,13 @@ private void SetPauseMenuVisible(bool visible)
         if (useIncomeScaledDebt)
             due = Mathf.Max(due, Mathf.RoundToInt(GetGrossCashForDebtRound(round) * GetIncomeScaledDebtRatioForRound(round)));
 
-        if (round == roundIndex)
-            due += runProgression.CurrentRoundDebtIncrease;
-        else if (round == roundIndex + 1)
-            due += runProgression.NextRoundDebtIncrease;
+        if (includeWheelDebtAdjustments)
+        {
+            if (round == roundIndex)
+                due += runProgression.CurrentRoundDebtIncrease;
+            else if (round == roundIndex + 1)
+                due += runProgression.NextRoundDebtIncrease;
+        }
 
         return Mathf.Max(due, 0);
     }
@@ -4689,6 +4714,8 @@ private void SetPauseMenuVisible(bool visible)
 
     private void RefreshHUD()
     {
+        RefreshGameplayHudVisibility();
+
         if (textRound) textRound.text = GetGameplayRoundHudText();
         if (textCash) textCash.text = $"{Mathf.Max(0, cash):N0}";
         if (textDebt) textDebt.text = $"DEBT: {GetDebtDisplay(roundIndex)}";
@@ -4703,7 +4730,7 @@ private void SetPauseMenuVisible(bool visible)
     private string GetGameplayRoundHudText()
     {
         return IsCurrentRoundBoss()
-            ? $"BOSS ROUND {roundIndex:00}/{GetBossRoundIndex():00}"
+            ? "BOSS ROUND"
             : $"ROUND {roundIndex:00}/{totalRounds:00}";
     }
 
@@ -5599,6 +5626,7 @@ private void SetPauseMenuVisible(bool visible)
         EnsureRoundPresentationBound();
         if (roundPresentation == null)
         {
+            RefreshGameplayHudVisibility();
             SetRoundDebtVisible(true);
             Time.timeScale = 1f;
             SetGameplaySystemsActive(true);
@@ -5612,6 +5640,7 @@ private void SetPauseMenuVisible(bool visible)
             GetDebtDisplay(roundIndex),
             canUseOverlay =>
             {
+                RefreshGameplayHudVisibility();
                 SetRoundDebtVisible(!canUseOverlay);
                 Time.timeScale = 0f;
                 SetGameplaySystemsActive(false);
@@ -5623,6 +5652,7 @@ private void SetPauseMenuVisible(bool visible)
                 if (state == GameState.Gameplay)
                     SetGameplaySystemsActive(true);
 
+                RefreshGameplayHudVisibility();
                 if (state == GameState.Gameplay)
                     SetRoundDebtVisible(true);
 
@@ -5643,7 +5673,21 @@ private void SetPauseMenuVisible(bool visible)
         if (state == GameState.Gameplay)
             SetGameplaySystemsActive(true);
 
+        RefreshGameplayHudVisibility();
         SetRoundDebtVisible(true);
+    }
+
+    private void RefreshGameplayHudVisibility()
+    {
+        if (panelHUD == null)
+            return;
+
+        bool shouldShowHud = (state == GameState.Gameplay || state == GameState.Settlement)
+            && !IsLevelUpPanelOpen()
+            && !playerLossPresentationActive;
+
+        if (panelHUD.activeSelf != shouldShowHud)
+            panelHUD.SetActive(shouldShowHud);
     }
 
     private int GetBossRoundIndex()
@@ -5892,7 +5936,9 @@ private void SetPauseMenuVisible(bool visible)
 
     private void SetRoundDebtVisible(bool visible)
     {
+        bool shouldShowDebt = visible && !IsCurrentRoundBoss();
+
         if (textRound != null) textRound.gameObject.SetActive(visible);
-        if (textDebt != null) textDebt.gameObject.SetActive(visible);
+        if (textDebt != null) textDebt.gameObject.SetActive(shouldShowDebt);
     }
 }

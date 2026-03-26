@@ -201,7 +201,7 @@ MonoBehaviour:
   pickupDropVerticalOffset: 1
   pickupDropMinSeparation: 0.5
   pickupDropPositionAttempts: 64
-  damagePopupColor: {r: 0.17443931, g: 0.754717, b: 0.7084063, a: 1}
+  damagePopupColor: {r: 0.9716981, g: 0.17268944, b: 0.14208792, a: 1}
   damagePopupFont: {fileID: 0}
   damagePopupTextSize: 15
   damagePopupTextScale: 0.5

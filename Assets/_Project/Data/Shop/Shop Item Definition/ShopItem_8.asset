@@ -16,7 +16,7 @@ MonoBehaviour:
   description: 'ACTIVE: Space to dash.
 
     Brief i-frames.'
-  icon: {fileID: 0}
+  icon: {fileID: -5224043133321505665, guid: b0b16b3e19f0d8e44ab7843665d94080, type: 3}
   price: 145
   rarity: 1
   weightPercent: 7

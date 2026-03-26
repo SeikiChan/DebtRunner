@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 7
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Quick Stamp II
-  description: Your hand moves faster, leaving less room to breathe.
+  upgradeTitle: Fast Hands II
+  description: Throw even faster and leave enemies no room to breathe.
   icon: {fileID: -8918892806109341172, guid: c91b992a496632b4e926bc3ae4039956, type: 3}
   rarity: 1
   weightPercent: 7

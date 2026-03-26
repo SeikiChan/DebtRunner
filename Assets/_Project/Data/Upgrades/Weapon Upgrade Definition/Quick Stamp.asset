@@ -10,17 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
-  m_Name: WeaponUpgrade_ 12
+  m_Name: Quick Stamp
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Ledger Weight
-  description: Pack more force into each card and drive through stacked debtors.
-  icon: {fileID: 0}
-  rarity: 2
+  upgradeTitle: Quick Stamp
+  description: Cards leave your hand with more snap.
+  icon: {fileID: 710699414301516421, guid: ffdb986f629603a49a5afd679178e325, type: 3}
+  rarity: 0
   weightPercent: 6
   effects:
-  - effectType: 0
-    intValue: 10
-    floatValue: 0.0
-  - effectType: 5
-    intValue: 1
-    floatValue: 0.0
+  - effectType: 2
+    intValue: 0
+    floatValue: 1.4

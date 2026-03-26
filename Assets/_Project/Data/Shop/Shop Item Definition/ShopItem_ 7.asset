@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
   itemTitle: Redline Bounty
   description: 'Next round: +20% enemies, +10% speed, +15% drops'
-  icon: {fileID: 0}
+  icon: {fileID: 1101533370804908164, guid: a1071fefdc1ed22429c80a5712a8f207, type: 3}
   price: 90
   rarity: 1
   weightPercent: 6

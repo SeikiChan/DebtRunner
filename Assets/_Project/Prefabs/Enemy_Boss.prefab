@@ -206,7 +206,7 @@ MonoBehaviour:
   phase2RecoveryRange: {x: 0.6, y: 0.85}
   enrageRecoveryRange: {x: 0.4, y: 0.6}
   suppressEnemyMovementDuringDash: 1
-  telegraphColor: {r: 0.990566, g: 0.72379726, b: 0.70554465, a: 0.3529412}
+  telegraphColor: {r: 0.5943396, g: 0.24810874, b: 0.2214756, a: 0.2901961}
   telegraphLineWidth: 0.5
   telegraphCircleWidth: 0.25
   telegraphCircleSegments: 72

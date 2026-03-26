@@ -9,6 +9,7 @@ public class PlayerMotor2D : MonoBehaviour
     private Rigidbody2D rb;
     private Vector2 moveInput;
     private Vector2 lastMoveDir = Vector2.right;
+    private int horizontalFacing = 1;
     private Vector2 externalVelocity;
     private Vector3 spawnPosition;
     private Quaternion spawnRotation;
@@ -19,6 +20,8 @@ public class PlayerMotor2D : MonoBehaviour
 
     public Vector2 LastMoveDir => lastMoveDir;
     public Vector2 CurrentMoveInput => moveInput;
+    public int HorizontalFacing => horizontalFacing < 0 ? -1 : 1;
+    public bool IsFacingLeft => HorizontalFacing < 0;
     public float CurrentMoveSpeed => Mathf.Max(0.1f, (baseMoveSpeed + moveSpeedFlatBonus) * Mathf.Max(0.1f, 1f + moveSpeedPercentBonus));
 
     private void Awake()
@@ -41,6 +44,11 @@ public class PlayerMotor2D : MonoBehaviour
 
         if (moveInput.sqrMagnitude > 0.001f)
             lastMoveDir = moveInput.normalized;
+
+        if (moveInput.x < -0.02f)
+            horizontalFacing = -1;
+        else if (moveInput.x > 0.02f)
+            horizontalFacing = 1;
     }
 
     private void FixedUpdate()
@@ -68,6 +76,7 @@ public class PlayerMotor2D : MonoBehaviour
         ResetRuntimeStats();
         moveInput = Vector2.zero;
         lastMoveDir = Vector2.right;
+        horizontalFacing = 1;
 
         transform.SetPositionAndRotation(spawnPosition, spawnRotation);
 

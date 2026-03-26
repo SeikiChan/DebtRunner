@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
@@ -14,6 +15,7 @@ public class BossHealthBarController : MonoBehaviour
     [SerializeField] private bool showBossHealthValueText = true;
 
     [Header("Fallback UI / 自动生成")]
+    [SerializeField] private bool preferSceneOverlay = true;
     [SerializeField] private bool autoCreateOverlay = true;
     [SerializeField] private Vector2 fallbackPanelSize = new Vector2(920f, 88f);
     [SerializeField] private Vector2 fallbackAnchoredPosition = new Vector2(0f, -56f);
@@ -99,8 +101,13 @@ public class BossHealthBarController : MonoBehaviour
 
     private void UpdateOverlay(EnemyController boss)
     {
-        if (bossHealthBarOverlay != null && !bossHealthBarOverlay.gameObject.activeSelf)
-            bossHealthBarOverlay.gameObject.SetActive(true);
+        if (bossHealthBarOverlay != null)
+        {
+            if (!bossHealthBarOverlay.gameObject.activeSelf)
+                bossHealthBarOverlay.gameObject.SetActive(true);
+
+            bossHealthBarOverlay.transform.SetAsLastSibling();
+        }
 
         if (bossNameText != null)
             bossNameText.text = ResolveBossName(boss);
@@ -136,6 +143,8 @@ public class BossHealthBarController : MonoBehaviour
 
     private bool EnsureOverlay()
     {
+        TryBindSceneOverlayRefs();
+
         if (bossHealthBarOverlay != null && bossHealthFillImage != null)
             return true;
 
@@ -230,6 +239,43 @@ public class BossHealthBarController : MonoBehaviour
         return true;
     }
 
+    private void TryBindSceneOverlayRefs()
+    {
+        if (!preferSceneOverlay)
+            return;
+
+        if (bossHealthBarOverlay != null
+            && bossNameText != null
+            && bossHealthFillImage != null
+            && bossHealthValueText != null)
+            return;
+
+        Transform overlayRoot = FindSceneTransform("Panel_BossHealthBar");
+        if (overlayRoot == null)
+            return;
+
+        if (bossHealthBarOverlay == null)
+            bossHealthBarOverlay = overlayRoot.GetComponent<CanvasGroup>();
+
+        if (bossNameText == null)
+        {
+            Transform nameRoot = FindSceneChild(overlayRoot, "BossNameText");
+            bossNameText = nameRoot != null ? nameRoot.GetComponent<TMP_Text>() : null;
+        }
+
+        if (bossHealthFillImage == null)
+        {
+            Transform fillRoot = FindSceneChild(overlayRoot, "BarFill");
+            bossHealthFillImage = fillRoot != null ? fillRoot.GetComponent<Image>() : null;
+        }
+
+        if (bossHealthValueText == null)
+        {
+            Transform valueRoot = FindSceneChild(overlayRoot, "BossHealthValueText");
+            bossHealthValueText = valueRoot != null ? valueRoot.GetComponent<TMP_Text>() : null;
+        }
+    }
+
     private static TMP_Text CreateText(string name, Transform parent, Vector2 anchoredPosition, Vector2 size, string value, float fontSize, FontStyles style, Color color)
     {
         GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -252,5 +298,40 @@ public class BossHealthBarController : MonoBehaviour
         text.outlineColor = new Color(0f, 0f, 0f, 0.95f);
         text.outlineWidth = 0.25f;
         return text;
+    }
+
+    private static Transform FindSceneTransform(string objectName)
+    {
+        Transform[] transforms = Resources.FindObjectsOfTypeAll<Transform>();
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform candidate = transforms[i];
+            if (candidate == null || candidate.name != objectName)
+                continue;
+
+            Scene scene = candidate.gameObject.scene;
+            if (!scene.IsValid() || !scene.isLoaded)
+                continue;
+
+            return candidate;
+        }
+
+        return null;
+    }
+
+    private static Transform FindSceneChild(Transform root, string childName)
+    {
+        if (root == null)
+            return null;
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
+        {
+            Transform child = children[i];
+            if (child != null && child.name == childName)
+                return child;
+        }
+
+        return null;
     }
 }

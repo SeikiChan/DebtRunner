@@ -4,4 +4,5 @@ public enum WeaponBaseUpgradeId
     QuickStamp = 1,
     StampedLedger = 2,
     AirMail = 3,
+    FastHands = 4,
 }

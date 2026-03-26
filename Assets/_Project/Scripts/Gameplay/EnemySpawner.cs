@@ -10,6 +10,16 @@ public class EnemySpawner : MonoBehaviour
         Replace = 1
     }
 
+    private enum EnemySpawnArchetype
+    {
+        Unknown = 0,
+        Melee = 1,
+        Dash = 2,
+        Ranged = 3,
+        Tank = 4,
+        Treasure = 5
+    }
+
     [System.Serializable]
     private class RoundEnemyPoolEntry
     {
@@ -41,21 +51,21 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Spawn / 刷怪")]
     [LocalizedLabel("刷怪间隔 (秒)")]
-    [SerializeField] private float spawnInterval = 1.0f;
+    [SerializeField] private float spawnInterval = 0.38f;
     [LocalizedLabel("刷怪半径")]
     [SerializeField] private float spawnRadius = 7f;
     [LocalizedLabel("最小生成离玩家距离")]
-    [SerializeField, Min(0.5f)] private float minSpawnDistanceFromPlayer = 3.5f;
+    [SerializeField, Min(0.5f)] private float minSpawnDistanceFromPlayer = 2.6f;
     [LocalizedLabel("最大存活数量")]
-    [SerializeField] private int maxAlive = 30;
+    [SerializeField] private int maxAlive = 80;
     [LocalizedLabel("每次刷怪数量")]
-    [SerializeField, Min(1)] private int spawnPerTick = 2;
+    [SerializeField, Min(1)] private int spawnPerTick = 4;
     [LocalizedLabel("同次刷怪扩散半径")]
     [SerializeField, Min(0f)] private float intraTickSpreadRadius = 1.4f;
     [LocalizedLabel("生成点最小敌距")]
-    [SerializeField, Min(0f)] private float minSpawnSpacing = 1.2f;
+    [SerializeField, Min(0f)] private float minSpawnSpacing = 0.75f;
     [LocalizedLabel("生成点重试次数")]
-    [SerializeField, Min(1)] private int spawnPositionAttempts = 18;
+    [SerializeField, Min(1)] private int spawnPositionAttempts = 36;
     [LocalizedLabel("生成点检测层")]
     [SerializeField] private LayerMask spawnSpacingMask = ~0;
     [LocalizedLabel("生成点仅检测敌人层")]
@@ -63,7 +73,7 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Spawn Warning / 生成预警")]
     [LocalizedLabel("预警持续时间")]
-    [SerializeField, Min(0f)] private float spawnWarningDuration = 0.5f;
+    [SerializeField, Min(0f)] private float spawnWarningDuration = 0f;
     [LocalizedLabel("预警圆环颜色")]
     [SerializeField] private Color spawnWarningColor = new Color(1f, 0.2f, 0.15f, 0.5f);
     [LocalizedLabel("预警圆环半径")]
@@ -73,7 +83,7 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Safe Gap / 安全缺口")]
     [LocalizedLabel("启用安全缺口")]
-    [SerializeField] private bool enableSafeGap = true;
+    [SerializeField] private bool enableSafeGap = false;
     [LocalizedLabel("安全缺口角度")]
     [SerializeField, Range(30f, 120f)] private float safeGapAngle = 70f;
     [LocalizedLabel("缺口方向更新间隔")]
@@ -138,10 +148,17 @@ public class EnemySpawner : MonoBehaviour
     private readonly Collider2D[] spawnSpacingHits = new Collider2D[32];
     private EnemyController[] runtimeEnemyPool;
     private float[] runtimeEnemyWeights;
-    private float runtimeWeightTotal;
+    private EnemySpawnArchetype[] runtimeEnemyArchetypes;
     private readonly List<EnemyController> runtimeEnemyPoolBuffer = new List<EnemyController>(16);
     private readonly List<float> runtimeWeightBuffer = new List<float>(16);
+    private readonly List<EnemySpawnArchetype> runtimeEnemyArchetypeBuffer = new List<EnemySpawnArchetype>(16);
     private readonly List<RoundEnemyPoolEntry> sortedRoundEnemyPools = new List<RoundEnemyPoolEntry>(16);
+    private int selectedSpawnsThisRound;
+    private int selectedMeleeSpawnsThisRound;
+    private int selectedDashSpawnsThisRound;
+    private int selectedRangedSpawnsThisRound;
+    private int selectedTankSpawnsThisRound;
+    private int selectedTreasureSpawnsThisRound;
 
     // Warning circle material (reused)
     private Material warningLineMaterial;
@@ -164,34 +181,71 @@ public class EnemySpawner : MonoBehaviour
             case 1:
                 return new RoundSpawnConfig
                 {
-                    interval = 1.2f, perTick = 1, maxAlive = 15,
+                    interval = 0.85f, perTick = 3, maxAlive = 60,
                     wMelee = 1f, wDash = 0f, wRanged = 0f, wTank = 0f, wTreasure = 0f
                 };
             case 2:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.85f, perTick = 2, maxAlive = 22,
-                    wMelee = 0.8f, wDash = 0.2f, wRanged = 0f, wTank = 0f, wTreasure = 0f
+                    interval = 0.58f, perTick = 4, maxAlive = 72,
+                    wMelee = 0.9f, wDash = 0.1f, wRanged = 0f, wTank = 0f, wTreasure = 0f
                 };
             case 3:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.9f, perTick = 2, maxAlive = 24,
-                    wMelee = 0.65f, wDash = 0.15f, wRanged = 0.2f, wTank = 0f, wTreasure = 0f
+                    interval = 0.52f, perTick = 4, maxAlive = 80,
+                    wMelee = 0.7f, wDash = 0.2f, wRanged = 0.1f, wTank = 0f, wTreasure = 0f
                 };
             case 4:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.82f, perTick = 2, maxAlive = 27,
-                    wMelee = 0.49f, wDash = 0.18f, wRanged = 0.18f, wTank = 0.14f, wTreasure = 0.01f
+                    interval = 0.47f, perTick = 4, maxAlive = 88,
+                    wMelee = 0.5f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.1f, wTreasure = 0f
                 };
-            default: // R5+
+            case 5:
                 return new RoundSpawnConfig
                 {
-                    interval = Mathf.Max(0.45f, 0.72f - (round - 5) * 0.035f),
-                    perTick = Mathf.Min(4, 3 + (round - 5) / 3),
-                    maxAlive = Mathf.Min(48, 32 + (round - 5) * 2),
-                    wMelee = 0.38f, wDash = 0.21f, wRanged = 0.21f, wTank = 0.18f, wTreasure = 0.02f
+                    interval = 0.44f, perTick = 4, maxAlive = 96,
+                    wMelee = 0.45f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.1f, wTreasure = 0.05f
+                };
+            case 6:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.41f, perTick = 4, maxAlive = 104,
+                    wMelee = 0.4f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.05f
+                };
+            case 7:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.38f, perTick = 4, maxAlive = 112,
+                    wMelee = 0.35f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.1f
+                };
+            case 8:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.35f, perTick = 4, maxAlive = 120,
+                    wMelee = 0.3f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.15f, wTreasure = 0.1f
+                };
+            case 9:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.33f, perTick = 4, maxAlive = 128,
+                    wMelee = 0.25f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.2f, wTreasure = 0.1f
+                };
+            case 10:
+                return new RoundSpawnConfig
+                {
+                    interval = 0.31f, perTick = 4, maxAlive = 136,
+                    wMelee = 0.2f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.25f, wTreasure = 0.1f
+                };
+            default:
+                int roundsPastTen = Mathf.Max(0, round - 10);
+                return new RoundSpawnConfig
+                {
+                    interval = Mathf.Max(0.26f, 0.31f - roundsPastTen * 0.015f),
+                    perTick = 4,
+                    maxAlive = Mathf.Min(180, 136 + roundsPastTen * 8),
+                    wMelee = 0.2f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.25f, wTreasure = 0.1f
                 };
         }
     }
@@ -204,9 +258,7 @@ public class EnemySpawner : MonoBehaviour
         safeGapTimer = 0f;
         safeGapDirection = Random.Range(0f, 360f);
         trackedRound = -1;
-        bossSpawnedThisRound = false;
-        treasureSpawnsThisRound = 0;
-        pendingTreasureSpawnsThisRound = 0;
+        ResetRoundSpawnTracking();
         runtimeTreasurePrefab = null;
         RefreshRuntimeSpawnSettings();
         int currentRound = GameFlowController.Instance != null ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound()) : 1;
@@ -237,9 +289,7 @@ public class EnemySpawner : MonoBehaviour
         if (currentRound != trackedRound)
         {
             trackedRound = currentRound;
-            bossSpawnedThisRound = false;
-            treasureSpawnsThisRound = 0;
-            pendingTreasureSpawnsThisRound = 0;
+            ResetRoundSpawnTracking();
             RefreshRuntimeEnemyPool(currentRound);
         }
 
@@ -279,8 +329,9 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnOne()
     {
-        EnemyController prefab = PickWeightedPrefab();
+        EnemyController prefab = PickWeightedPrefab(out EnemySpawnArchetype archetype);
         if (prefab == null) return;
+        RegisterSpawnSelection(archetype);
 
         bool isTreasure = IsTreasurePrefab(prefab);
         if (isTreasure)
@@ -306,9 +357,7 @@ public class EnemySpawner : MonoBehaviour
         if (currentRound != trackedRound)
         {
             trackedRound = currentRound;
-            bossSpawnedThisRound = false;
-            treasureSpawnsThisRound = 0;
-            pendingTreasureSpawnsThisRound = 0;
+            ResetRoundSpawnTracking();
             RefreshRuntimeEnemyPool(currentRound);
         }
 
@@ -331,23 +380,30 @@ public class EnemySpawner : MonoBehaviour
         return spawned;
     }
 
-    private EnemyController PickWeightedPrefab()
+    private EnemyController PickWeightedPrefab(out EnemySpawnArchetype archetype)
     {
+        archetype = EnemySpawnArchetype.Unknown;
         if (runtimeEnemyPool == null || runtimeEnemyPool.Length == 0) return null;
         bool canSpawnTreasure = CanSpawnTreasureThisRound();
-        if (runtimeEnemyWeights == null || runtimeWeightTotal <= 0f)
+        if (runtimeEnemyWeights == null || runtimeEnemyWeights.Length == 0)
         {
             List<EnemyController> valid = new List<EnemyController>(runtimeEnemyPool.Length);
+            List<EnemySpawnArchetype> validArchetypes = new List<EnemySpawnArchetype>(runtimeEnemyPool.Length);
             for (int i = 0; i < runtimeEnemyPool.Length; i++)
             {
                 EnemyController prefab = runtimeEnemyPool[i];
                 if (prefab == null) continue;
                 if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
                 valid.Add(prefab);
+                validArchetypes.Add(runtimeEnemyArchetypes != null && i < runtimeEnemyArchetypes.Length
+                    ? runtimeEnemyArchetypes[i]
+                    : DetectArchetype(prefab));
             }
 
             if (valid.Count <= 0) return null;
-            return valid[Random.Range(0, valid.Count)];
+            int randomIndex = Random.Range(0, valid.Count);
+            archetype = validArchetypes[randomIndex];
+            return valid[randomIndex];
         }
 
         float validWeightTotal = 0f;
@@ -362,25 +418,42 @@ public class EnemySpawner : MonoBehaviour
         if (validWeightTotal <= 0f)
             return null;
 
-        float roll = Random.Range(0f, validWeightTotal);
-        float cumulative = 0f;
+        int bestIndex = -1;
+        float bestScore = float.NegativeInfinity;
+        int bestActualCount = int.MaxValue;
         for (int i = 0; i < runtimeEnemyWeights.Length && i < runtimeEnemyPool.Length; i++)
         {
             EnemyController prefab = runtimeEnemyPool[i];
             if (prefab == null) continue;
             if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
 
-            cumulative += Mathf.Max(0f, runtimeEnemyWeights[i]);
-            if (roll <= cumulative)
-                return prefab;
+            float weight = Mathf.Max(0f, runtimeEnemyWeights[i]);
+            if (weight <= 0f)
+                continue;
+
+            EnemySpawnArchetype candidateArchetype = runtimeEnemyArchetypes != null && i < runtimeEnemyArchetypes.Length
+                ? runtimeEnemyArchetypes[i]
+                : DetectArchetype(prefab);
+            int actualCount = GetSelectedSpawnCount(candidateArchetype);
+            float normalizedWeight = weight / validWeightTotal;
+            float targetCountAfterNextSpawn = normalizedWeight * (selectedSpawnsThisRound + 1f);
+            float deficit = targetCountAfterNextSpawn - actualCount;
+
+            if (deficit > bestScore + 0.0001f
+                || (Mathf.Abs(deficit - bestScore) <= 0.0001f && actualCount < bestActualCount))
+            {
+                bestIndex = i;
+                bestScore = deficit;
+                bestActualCount = actualCount;
+            }
         }
 
-        for (int i = runtimeEnemyPool.Length - 1; i >= 0; i--)
+        if (bestIndex >= 0)
         {
-            EnemyController prefab = runtimeEnemyPool[i];
-            if (prefab == null) continue;
-            if (!canSpawnTreasure && IsTreasurePrefab(prefab)) continue;
-            return prefab;
+            archetype = runtimeEnemyArchetypes != null && bestIndex < runtimeEnemyArchetypes.Length
+                ? runtimeEnemyArchetypes[bestIndex]
+                : DetectArchetype(runtimeEnemyPool[bestIndex]);
+            return runtimeEnemyPool[bestIndex];
         }
 
         return null;
@@ -670,76 +743,141 @@ public class EnemySpawner : MonoBehaviour
     {
         runtimeEnemyPoolBuffer.Clear();
         runtimeWeightBuffer.Clear();
+        runtimeEnemyArchetypeBuffer.Clear();
 
-        // Always use built-in per-round config for weights
         RoundSpawnConfig config = GetBuiltInRoundConfig(currentRound);
+        List<EnemyController> availablePrefabs = BuildAvailableEnemyPoolForRound(currentRound);
+        List<EnemyController> searchPrefabs = availablePrefabs.Count > 0
+            ? availablePrefabs
+            : GetAllConfiguredEnemyPrefabs();
 
-        // Resolve prefabs by name
-        EnemyController melee = FindPrefabByNameKeyword("\u8FD1\u6218", "melee");
-        EnemyController dash = FindPrefabByNameKeyword("\u51B2\u523A", "dash", "charger");
-        EnemyController ranged = FindPrefabByNameKeyword("\u8FDC\u7A0B", "ranged");
-        EnemyController tank = FindPrefabByNameKeyword("\u8089\u76FE", "tank", "brute", "heavy");
-        EnemyController treasure = FindPrefabByNameKeyword("\u5B9D\u7BB1", "chest", "treasure");
+        EnemyController melee = FindPrefabByNameKeyword(searchPrefabs, "\u8FD1\u6218", "melee");
+        EnemyController dash = FindPrefabByNameKeyword(searchPrefabs, "\u51B2\u523A", "dash", "charger");
+        EnemyController ranged = FindPrefabByNameKeyword(searchPrefabs, "\u8FDC\u7A0B", "ranged");
+        EnemyController tank = FindPrefabByNameKeyword(searchPrefabs, "\u8089\u76FE", "tank", "brute", "heavy");
+        EnemyController treasure = FindPrefabByNameKeyword(searchPrefabs, "\u5B9D\u7BB1", "chest", "treasure");
         runtimeTreasurePrefab = treasure;
 
-        if (melee == null) melee = FindFirstNonNullPrefab();
+        if (melee == null)
+            melee = FindFirstNonTreasurePrefab(searchPrefabs);
+        if (melee == null)
+            melee = FindFirstNonNullPrefab(searchPrefabs);
 
-        AddWeighted(melee, config.wMelee);
-        AddWeighted(dash, config.wDash);
-        AddWeighted(ranged, config.wRanged);
-        AddWeighted(tank, config.wTank);
-        AddWeighted(treasure, config.wTreasure);
+        AddWeighted(melee, config.wMelee, EnemySpawnArchetype.Melee);
+        AddWeighted(dash, config.wDash, EnemySpawnArchetype.Dash);
+        AddWeighted(ranged, config.wRanged, EnemySpawnArchetype.Ranged);
+        AddWeighted(tank, config.wTank, EnemySpawnArchetype.Tank);
+        AddWeighted(treasure, config.wTreasure, EnemySpawnArchetype.Treasure);
 
-        // If user has custom round pool config, merge those too
-        if (useRoundEnemyPools && HasConfiguredRoundPoolEntries())
+        if (runtimeEnemyPoolBuffer.Count <= 0)
         {
             runtimeEnemyPoolBuffer.Clear();
             runtimeWeightBuffer.Clear();
+            runtimeEnemyArchetypeBuffer.Clear();
 
-            if (seedWithBaseEnemyPrefabs)
-                AddUniquePrefabs(enemyPrefabs);
-
-            sortedRoundEnemyPools.Clear();
-            for (int i = 0; i < roundEnemyPools.Count; i++)
+            for (int i = 0; i < searchPrefabs.Count; i++)
             {
-                RoundEnemyPoolEntry entry = roundEnemyPools[i];
-                if (entry == null || entry.round <= 0) continue;
-                sortedRoundEnemyPools.Add(entry);
-            }
-            sortedRoundEnemyPools.Sort((a, b) => a.round.CompareTo(b.round));
+                EnemyController prefab = searchPrefabs[i];
+                if (prefab == null)
+                    continue;
 
-            for (int i = 0; i < sortedRoundEnemyPools.Count; i++)
-            {
-                RoundEnemyPoolEntry entry = sortedRoundEnemyPools[i];
-                if (entry.round > currentRound) break;
-                if (entry.mode == RoundPoolMode.Replace) runtimeEnemyPoolBuffer.Clear();
-                AddUniquePrefabs(entry.prefabs);
-            }
-
-            if (runtimeEnemyPoolBuffer.Count <= 0) AddUniquePrefabs(enemyPrefabs);
-
-            // Equal weights for custom config
-            runtimeWeightBuffer.Clear();
-            for (int i = 0; i < runtimeEnemyPoolBuffer.Count; i++)
+                runtimeEnemyPoolBuffer.Add(prefab);
                 runtimeWeightBuffer.Add(1f);
+                runtimeEnemyArchetypeBuffer.Add(DetectArchetype(prefab));
+            }
         }
 
         runtimeEnemyPool = runtimeEnemyPoolBuffer.ToArray();
         runtimeEnemyWeights = runtimeWeightBuffer.ToArray();
-        runtimeWeightTotal = 0f;
-        for (int i = 0; i < runtimeEnemyWeights.Length; i++)
-            runtimeWeightTotal += runtimeEnemyWeights[i];
+        runtimeEnemyArchetypes = runtimeEnemyArchetypeBuffer.ToArray();
 
         RunLogger.Event(
             $"Round {currentRound} enemy pool ready: types={runtimeEnemyPool.Length}, " +
-            $"config=R{currentRound}(interval={config.interval:F2}, perTick={config.perTick}, maxAlive={config.maxAlive})");
+            $"config=R{currentRound}(interval={config.interval:F2}, perTick={config.perTick}, maxAlive={config.maxAlive}, " +
+            $"melee={config.wMelee:F2}, dash={config.wDash:F2}, ranged={config.wRanged:F2}, tank={config.wTank:F2}, treasure={config.wTreasure:F2})");
     }
 
-    private void AddWeighted(EnemyController prefab, float weight)
+    private void AddWeighted(EnemyController prefab, float weight, EnemySpawnArchetype archetype)
     {
         if (prefab == null || weight <= 0f) return;
         runtimeEnemyPoolBuffer.Add(prefab);
         runtimeWeightBuffer.Add(weight);
+        runtimeEnemyArchetypeBuffer.Add(archetype);
+    }
+
+    private void ResetRoundSpawnTracking()
+    {
+        bossSpawnedThisRound = false;
+        treasureSpawnsThisRound = 0;
+        pendingTreasureSpawnsThisRound = 0;
+        selectedSpawnsThisRound = 0;
+        selectedMeleeSpawnsThisRound = 0;
+        selectedDashSpawnsThisRound = 0;
+        selectedRangedSpawnsThisRound = 0;
+        selectedTankSpawnsThisRound = 0;
+        selectedTreasureSpawnsThisRound = 0;
+    }
+
+    private void RegisterSpawnSelection(EnemySpawnArchetype archetype)
+    {
+        selectedSpawnsThisRound++;
+        switch (archetype)
+        {
+            case EnemySpawnArchetype.Melee:
+                selectedMeleeSpawnsThisRound++;
+                break;
+            case EnemySpawnArchetype.Dash:
+                selectedDashSpawnsThisRound++;
+                break;
+            case EnemySpawnArchetype.Ranged:
+                selectedRangedSpawnsThisRound++;
+                break;
+            case EnemySpawnArchetype.Tank:
+                selectedTankSpawnsThisRound++;
+                break;
+            case EnemySpawnArchetype.Treasure:
+                selectedTreasureSpawnsThisRound++;
+                break;
+        }
+    }
+
+    private int GetSelectedSpawnCount(EnemySpawnArchetype archetype)
+    {
+        switch (archetype)
+        {
+            case EnemySpawnArchetype.Melee:
+                return selectedMeleeSpawnsThisRound;
+            case EnemySpawnArchetype.Dash:
+                return selectedDashSpawnsThisRound;
+            case EnemySpawnArchetype.Ranged:
+                return selectedRangedSpawnsThisRound;
+            case EnemySpawnArchetype.Tank:
+                return selectedTankSpawnsThisRound;
+            case EnemySpawnArchetype.Treasure:
+                return selectedTreasureSpawnsThisRound;
+            default:
+                return 0;
+        }
+    }
+
+    private EnemySpawnArchetype DetectArchetype(EnemyController prefab)
+    {
+        if (prefab == null)
+            return EnemySpawnArchetype.Unknown;
+        if (LooksLikeTreasurePrefab(prefab))
+            return EnemySpawnArchetype.Treasure;
+
+        string nameLower = prefab.name != null ? prefab.name.ToLowerInvariant() : string.Empty;
+        if (nameLower.Contains("dash") || nameLower.Contains("charger") || nameLower.Contains("\u51b2\u523a"))
+            return EnemySpawnArchetype.Dash;
+        if (nameLower.Contains("ranged") || nameLower.Contains("\u8fdc\u7a0b"))
+            return EnemySpawnArchetype.Ranged;
+        if (nameLower.Contains("tank") || nameLower.Contains("brute") || nameLower.Contains("heavy") || nameLower.Contains("\u8089\u76fe"))
+            return EnemySpawnArchetype.Tank;
+        if (nameLower.Contains("melee") || nameLower.Contains("\u8fd1\u6218"))
+            return EnemySpawnArchetype.Melee;
+
+        return EnemySpawnArchetype.Unknown;
     }
 
     private bool HasConfiguredRoundPoolEntries()
@@ -757,12 +895,17 @@ public class EnemySpawner : MonoBehaviour
 
     private EnemyController FindPrefabByNameKeyword(params string[] keywords)
     {
-        if (enemyPrefabs == null || enemyPrefabs.Length <= 0 || keywords == null || keywords.Length <= 0)
+        return FindPrefabByNameKeyword(GetAllConfiguredEnemyPrefabs(), keywords);
+    }
+
+    private EnemyController FindPrefabByNameKeyword(IList<EnemyController> prefabs, params string[] keywords)
+    {
+        if (prefabs == null || prefabs.Count <= 0 || keywords == null || keywords.Length <= 0)
             return null;
 
-        for (int i = 0; i < enemyPrefabs.Length; i++)
+        for (int i = 0; i < prefabs.Count; i++)
         {
-            EnemyController prefab = enemyPrefabs[i];
+            EnemyController prefab = prefabs[i];
             if (prefab == null) continue;
             string nameLower = prefab.name != null ? prefab.name.ToLowerInvariant() : string.Empty;
             for (int k = 0; k < keywords.Length; k++)
@@ -777,32 +920,36 @@ public class EnemySpawner : MonoBehaviour
 
     private EnemyController FindFirstNonNullPrefab()
     {
-        if (enemyPrefabs == null || enemyPrefabs.Length <= 0) return null;
-        for (int i = 0; i < enemyPrefabs.Length; i++)
-            if (enemyPrefabs[i] != null) return enemyPrefabs[i];
+        return FindFirstNonNullPrefab(GetAllConfiguredEnemyPrefabs());
+    }
+
+    private EnemyController FindFirstNonNullPrefab(IList<EnemyController> prefabs)
+    {
+        if (prefabs == null || prefabs.Count <= 0)
+            return null;
+
+        for (int i = 0; i < prefabs.Count; i++)
+            if (prefabs[i] != null)
+                return prefabs[i];
         return null;
     }
 
     private EnemyController FindFirstNonTreasurePrefab()
     {
         if (runtimeEnemyPool != null && runtimeEnemyPool.Length > 0)
-        {
-            for (int i = 0; i < runtimeEnemyPool.Length; i++)
-            {
-                EnemyController prefab = runtimeEnemyPool[i];
-                if (prefab == null || LooksLikeTreasurePrefab(prefab))
-                    continue;
+            return FindFirstNonTreasurePrefab(runtimeEnemyPool);
 
-                return prefab;
-            }
-        }
+        return FindFirstNonTreasurePrefab(GetAllConfiguredEnemyPrefabs());
+    }
 
-        if (enemyPrefabs == null || enemyPrefabs.Length <= 0)
+    private EnemyController FindFirstNonTreasurePrefab(IList<EnemyController> prefabs)
+    {
+        if (prefabs == null || prefabs.Count <= 0)
             return null;
 
-        for (int i = 0; i < enemyPrefabs.Length; i++)
+        for (int i = 0; i < prefabs.Count; i++)
         {
-            EnemyController prefab = enemyPrefabs[i];
+            EnemyController prefab = prefabs[i];
             if (prefab == null || LooksLikeTreasurePrefab(prefab))
                 continue;
 
@@ -814,13 +961,81 @@ public class EnemySpawner : MonoBehaviour
 
     private void AddUniquePrefabs(EnemyController[] prefabs)
     {
-        if (prefabs == null || prefabs.Length == 0) return;
+        AddUniquePrefabs(runtimeEnemyPoolBuffer, prefabs);
+    }
+
+    private void AddUniquePrefabs(List<EnemyController> target, EnemyController[] prefabs)
+    {
+        if (target == null || prefabs == null || prefabs.Length == 0)
+            return;
+
         for (int i = 0; i < prefabs.Length; i++)
         {
             EnemyController prefab = prefabs[i];
-            if (prefab == null || runtimeEnemyPoolBuffer.Contains(prefab)) continue;
-            runtimeEnemyPoolBuffer.Add(prefab);
+            if (prefab == null || target.Contains(prefab))
+                continue;
+
+            target.Add(prefab);
         }
+    }
+
+    private List<EnemyController> BuildAvailableEnemyPoolForRound(int currentRound)
+    {
+        List<EnemyController> result = new List<EnemyController>(8);
+
+        if (useRoundEnemyPools && HasConfiguredRoundPoolEntries())
+        {
+            if (seedWithBaseEnemyPrefabs)
+                AddUniquePrefabs(result, enemyPrefabs);
+
+            sortedRoundEnemyPools.Clear();
+            for (int i = 0; i < roundEnemyPools.Count; i++)
+            {
+                RoundEnemyPoolEntry entry = roundEnemyPools[i];
+                if (entry == null || entry.round <= 0)
+                    continue;
+
+                sortedRoundEnemyPools.Add(entry);
+            }
+
+            sortedRoundEnemyPools.Sort((a, b) => a.round.CompareTo(b.round));
+            for (int i = 0; i < sortedRoundEnemyPools.Count; i++)
+            {
+                RoundEnemyPoolEntry entry = sortedRoundEnemyPools[i];
+                if (entry.round > currentRound)
+                    break;
+
+                if (entry.mode == RoundPoolMode.Replace)
+                    result.Clear();
+
+                AddUniquePrefabs(result, entry.prefabs);
+            }
+        }
+
+        if (result.Count <= 0)
+            AddUniquePrefabs(result, enemyPrefabs);
+
+        return result;
+    }
+
+    private List<EnemyController> GetAllConfiguredEnemyPrefabs()
+    {
+        List<EnemyController> result = new List<EnemyController>(8);
+        AddUniquePrefabs(result, enemyPrefabs);
+
+        if (roundEnemyPools != null)
+        {
+            for (int i = 0; i < roundEnemyPools.Count; i++)
+            {
+                RoundEnemyPoolEntry entry = roundEnemyPools[i];
+                if (entry == null)
+                    continue;
+
+                AddUniquePrefabs(result, entry.prefabs);
+            }
+        }
+
+        return result;
     }
 
     private bool IsTreasurePrefab(EnemyController prefab)

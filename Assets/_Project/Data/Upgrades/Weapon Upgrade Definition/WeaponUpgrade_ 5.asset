@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
   upgradeTitle: Collection Ring
   description: Set collector cards sweeping wider arcs around you.
-  icon: {fileID: 0}
+  icon: {fileID: -1744947764177000098, guid: df089f72a7697eb44979a12885faa32f, type: 3}
   rarity: 2
   weightPercent: 7
   upgradeFamilyKey: 

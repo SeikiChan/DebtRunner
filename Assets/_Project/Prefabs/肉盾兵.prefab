@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 0.75
+  moveSpeed: 0.5
   enableEnemySeparation: 1
   separationRadius: 1.25
   separationStrength: 7
@@ -197,11 +197,11 @@ MonoBehaviour:
   xpDrop: 4
   cashPickupPrefab: {fileID: 0}
   pickupDropScatterRadius: 0.26
-  pickupDropInnerRadiusRatio: 0.35
-  pickupDropVerticalOffset: 0.05
-  pickupDropMinSeparation: 0.28
+  pickupDropInnerRadiusRatio: 0.709
+  pickupDropVerticalOffset: 1
+  pickupDropMinSeparation: 0.5
   pickupDropPositionAttempts: 12
-  damagePopupColor: {r: 0.17254902, g: 0.7529412, b: 0.70980394, a: 1}
+  damagePopupColor: {r: 0.972549, g: 0.1764706, b: 0.14509805, a: 1}
   damagePopupFont: {fileID: 0}
   damagePopupTextSize: 15
   damagePopupTextScale: 0.5

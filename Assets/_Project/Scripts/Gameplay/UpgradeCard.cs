@@ -12,15 +12,20 @@ public class UpgradeCard : MonoBehaviour
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text descriptionText;
     [SerializeField] private Button selectButton;
+    [SerializeField, Range(0.5f, 1f)] private float iconFitPadding = 0.86f;
 
     private WeaponUpgrade upgradeData;
     private System.Action<WeaponUpgrade> onSelected;
     private bool interactable = true;
     private UpgradeCardHoverLight hoverLight;
+    private RectTransform cardImageRect;
+    private Vector2 cardImageBaseSize;
+    private bool hasCachedCardImageSize;
 
     private void Awake()
     {
         hoverLight = GetComponent<UpgradeCardHoverLight>();
+        CacheCardImageLayout();
     }
 
     private void Start()
@@ -47,8 +52,7 @@ public class UpgradeCard : MonoBehaviour
         if (descriptionText != null)
             descriptionText.text = upgrade != null ? FormatUpgradeDescription(upgrade) : string.Empty;
 
-        if (cardImage != null)
-            cardImage.sprite = upgrade != null ? upgrade.icon : null;
+        ApplyCardIcon(upgrade != null ? upgrade.icon : null);
     }
 
     private void OnCardSelected()
@@ -64,6 +68,59 @@ public class UpgradeCard : MonoBehaviour
         interactable = value;
         if (selectButton != null)
             selectButton.interactable = value;
+    }
+
+    private void CacheCardImageLayout()
+    {
+        if (cardImage == null)
+            return;
+
+        cardImageRect = cardImage.rectTransform;
+        if (cardImageRect == null)
+            return;
+
+        if (hasCachedCardImageSize)
+            return;
+
+        cardImageBaseSize = cardImageRect.sizeDelta;
+        hasCachedCardImageSize = true;
+    }
+
+    private void ApplyCardIcon(Sprite icon)
+    {
+        if (cardImage == null)
+            return;
+
+        CacheCardImageLayout();
+
+        cardImage.sprite = icon;
+        cardImage.enabled = icon != null;
+        cardImage.preserveAspect = true;
+
+        if (cardImageRect == null || !hasCachedCardImageSize)
+            return;
+
+        cardImageRect.sizeDelta = cardImageBaseSize;
+        if (icon == null)
+            return;
+
+        float spriteWidth = Mathf.Max(1f, icon.rect.width);
+        float spriteHeight = Mathf.Max(1f, icon.rect.height);
+        float aspect = spriteWidth / spriteHeight;
+
+        float maxWidth = Mathf.Max(1f, cardImageBaseSize.x * Mathf.Clamp(iconFitPadding, 0.5f, 1f));
+        float maxHeight = Mathf.Max(1f, cardImageBaseSize.y * Mathf.Clamp(iconFitPadding, 0.5f, 1f));
+
+        float fittedWidth = maxWidth;
+        float fittedHeight = fittedWidth / aspect;
+        if (fittedHeight > maxHeight)
+        {
+            fittedHeight = maxHeight;
+            fittedWidth = fittedHeight * aspect;
+        }
+
+        cardImageRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fittedWidth);
+        cardImageRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, fittedHeight);
     }
 
     private string FormatUpgradeDescription(WeaponUpgrade upgrade)
@@ -101,7 +158,7 @@ public class UpgradeCard : MonoBehaviour
             case WeaponUpgradeEffectType.DamageAdd:
                 return "ATK+";
             case WeaponUpgradeEffectType.FireRateAdd:
-                return "RATE UP";
+                return "ASPD UP";
             case WeaponUpgradeEffectType.ProjectileSpeedAdd:
                 return "SPD UP";
             case WeaponUpgradeEffectType.ExtraProjectilesAdd:

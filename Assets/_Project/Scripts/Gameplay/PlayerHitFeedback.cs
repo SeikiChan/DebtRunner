@@ -257,7 +257,10 @@ public class PlayerHitFeedback : MonoBehaviour
 
     private void ResolveTargetRenderer()
     {
-        if (targetRenderer != null)
+        if (targetRenderer != null &&
+            targetRenderer.enabled &&
+            targetRenderer.gameObject.activeInHierarchy &&
+            !IsExcludedRenderer(targetRenderer))
         {
             if (spriteRenderer != targetRenderer)
             {
@@ -287,6 +290,8 @@ public class PlayerHitFeedback : MonoBehaviour
         {
             SpriteRenderer sr = renderers[i];
             if (sr == null)
+                continue;
+            if (IsExcludedRenderer(sr))
                 continue;
 
             int score = 0;
@@ -346,5 +351,27 @@ public class PlayerHitFeedback : MonoBehaviour
         defaultLocalScale = visualTarget.localScale;
         defaultLocalRotation = visualTarget.localRotation;
         hasDefaultPose = true;
+    }
+
+    private static bool IsExcludedRenderer(SpriteRenderer renderer)
+    {
+        if (renderer == null)
+            return false;
+
+        string nameLower = renderer.gameObject.name.ToLowerInvariant();
+        if (nameLower.Contains("shadow") || nameLower.Contains("shieldaura") || nameLower.Contains("shieldoutline"))
+            return true;
+
+        Transform parent = renderer.transform.parent;
+        while (parent != null)
+        {
+            string parentLower = parent.name.ToLowerInvariant();
+            if (parentLower.Contains("shadow") || parentLower.Contains("shieldaura") || parentLower.Contains("shieldoutline"))
+                return true;
+
+            parent = parent.parent;
+        }
+
+        return false;
     }
 }

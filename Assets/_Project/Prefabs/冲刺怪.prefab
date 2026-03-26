@@ -180,7 +180,7 @@ MonoBehaviour:
   dashDuration: 0.5
   cooldownDuration: 1.6
   dashSpeed: 11.5
-  telegraphColor: {r: 0.9528302, g: 0.19223963, b: 0.13932894, a: 0.4627451}
+  telegraphColor: {r: 0.9528302, g: 0.19223963, b: 0.13932894, a: 0.38431373}
   telegraphWidth: 0.35
   telegraphLength: 5
   telegraphSortingOrder: 240
@@ -196,7 +196,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 0.95
+  moveSpeed: 0.5
   enableEnemySeparation: 1
   separationRadius: 1.25
   separationStrength: 7
@@ -224,7 +224,7 @@ MonoBehaviour:
   pickupDropVerticalOffset: 0.05
   pickupDropMinSeparation: 0.28
   pickupDropPositionAttempts: 12
-  damagePopupColor: {r: 0.17254902, g: 0.7529412, b: 0.70980394, a: 1}
+  damagePopupColor: {r: 0.972549, g: 0.1764706, b: 0.14509805, a: 1}
   damagePopupFont: {fileID: 0}
   damagePopupTextSize: 15
   damagePopupTextScale: 0.5

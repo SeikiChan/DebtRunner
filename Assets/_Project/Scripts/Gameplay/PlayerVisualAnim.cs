@@ -21,7 +21,7 @@ public class PlayerVisualAnim : MonoBehaviour
     [SerializeField, Min(0f)] private float moveLagOffset = 0.075f;
     [SerializeField, Min(0f)] private float moveStrafeSwing = 0.03f;
     [SerializeField, Min(0.01f)] private float moveOffsetLerpSpeed = 12f;
-    [SerializeField, Min(0f)] private float moveSquashAmplitude = 0.03f;
+    [SerializeField, Min(0f)] private float moveSquashAmplitude = 0f;
     [SerializeField] private bool flipSpriteByMoveX = true;
 
     private Vector3 baseLocalPosition;
@@ -110,11 +110,7 @@ public class PlayerVisualAnim : MonoBehaviour
             baseLocalScale.z);
 
         if (flipSpriteByMoveX && spriteRenderer != null)
-        {
-            Vector2 look = moving ? move : motor.LastMoveDir;
-            if (Mathf.Abs(look.x) > 0.02f)
-                spriteRenderer.flipX = look.x < 0f;
-        }
+            spriteRenderer.flipX = motor.IsFacingLeft;
     }
 
     private void OnDisable()

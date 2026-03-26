@@ -10,14 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
-  m_Name: WeaponUpgrade_ 11
+  m_Name: Return To Sender
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Doorstep Sweep
-  description: A sweeping notice keeps peeling enemies off your sides.
-  icon: {fileID: 0}
-  rarity: 3
-  weightPercent: 5
+  upgradeTitle: Return To Sender
+  description: Cards loop back for a second pass.
+  icon: {fileID: 5490950706529262894, guid: 7b8e5b2b1cc062047af17f3cb6993902, type: 3}
+  rarity: 1
+  weightPercent: 6
   effects:
-  - effectType: 12
-    intValue: 6
-    floatValue: 0.0
+  - effectType: 14
+    intValue: 1
+    floatValue: 0
+  - effectType: 15
+    intValue: 0
+    floatValue: 0.25
+  - effectType: 2
+    intValue: 0
+    floatValue: 1

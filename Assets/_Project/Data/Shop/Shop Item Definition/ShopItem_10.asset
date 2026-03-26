@@ -16,7 +16,7 @@ MonoBehaviour:
   description: 'ACTIVE: Space to buy time.
 
     4s speed and safety.'
-  icon: {fileID: 0}
+  icon: {fileID: -446512839691000868, guid: 293e2b38a973071458c2f1aff2a9e59b, type: 3}
   price: 170
   rarity: 1
   weightPercent: 5

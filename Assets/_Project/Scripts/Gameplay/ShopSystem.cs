@@ -71,6 +71,17 @@ public class ShopSystem : MonoBehaviour
     [SerializeField] private bool enforceWheelRiskModel = true;
     [SerializeField, Range(0f, 1f)] private float wheelPositiveOutcomeChance = 0.68f;
     [SerializeField] private bool wheelCashRefundByCost = false;
+    [Header("Wheel Round Scaling / 杞缁忔祹缂╂斁")]
+    [SerializeField, Range(0.01f, 1f)] private float wheelCashRewardMinDebtRatioEarly = 0.18f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelCashRewardMaxDebtRatioEarly = 0.30f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelCashRewardMinDebtRatioLate = 0.24f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelCashRewardMaxDebtRatioLate = 0.40f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelDebtPenaltyMinDebtRatioEarly = 0.05f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelDebtPenaltyMaxDebtRatioEarly = 0.09f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelDebtPenaltyMinDebtRatioLate = 0.09f;
+    [SerializeField, Range(0.01f, 1f)] private float wheelDebtPenaltyMaxDebtRatioLate = 0.15f;
+    [SerializeField, Min(2)] private int wheelScalingPeakRound = 8;
+    [SerializeField, Min(1)] private int wheelDebtPenaltyAbsoluteMin = 25;
 
     [Header("Shop Item Pool / 商品池")]
     [LocalizedLabel("Shop Item Pool Asset / 商品池资源")]
@@ -133,6 +144,8 @@ public class ShopSystem : MonoBehaviour
     [LocalizedLabel("Cash Text / 现金文本")]
     [SerializeField] private TMP_Text textCash;
     [SerializeField, Min(0f)] private float cashIconTextGap = 14f;
+    [SerializeField, Min(0f)] private float roundInfoIconSectionGap = 26f;
+    [SerializeField, Min(0f)] private float roundInfoIconTextGap = 12f;
     [LocalizedLabel("Info Text / 信息文本")]
     [SerializeField] private TMP_Text textInfo;
     [LocalizedLabel("Spinning Wheel / 转盘")]
@@ -166,6 +179,7 @@ public class ShopSystem : MonoBehaviour
     private Color[] defaultTitleColors;
     private Color[] defaultPriceColors;
     private RectTransform cashIconRect;
+    private RectTransform roundInfoIconRect;
 
     public void Bind(GameFlowController flow)
     {
@@ -250,9 +264,13 @@ public class ShopSystem : MonoBehaviour
         if (textRoundInfo != null)
         {
             string nextDebt = gameFlow.GetNextRoundDebtDisplay();
-            textRoundInfo.text = IsPreBossInvestmentShopActive()
-                ? $"{preBossRoundLabel}    Next: BOSS ROUND"
-                : $"Round {gameFlow.GetCurrentRound()}/{gameFlow.GetTotalRounds()}    Next Debt: {nextDebt}";
+            string leftSegment = IsPreBossInvestmentShopActive()
+                ? preBossRoundLabel
+                : $"Round {gameFlow.GetCurrentRound()}/{gameFlow.GetTotalRounds()}";
+            string rightSegment = IsPreBossInvestmentShopActive()
+                ? "Next: BOSS ROUND"
+                : $"Next Debt: {nextDebt}";
+            ApplyRoundInfoTextLayout(leftSegment, rightSegment);
         }
 
         if (textCash != null)
@@ -276,11 +294,7 @@ public class ShopSystem : MonoBehaviour
         if (spinningWheel != null)
         {
             spinningWheel.SetDrawCost(runtimeGambleCost);
-            spinningWheel.SetRewardConfig(
-                cashRewardMin, cashRewardMax,
-                debtPenaltyMin, debtPenaltyMax,
-                enemyHpBuffMultiplier, enemySpeedBuffMultiplier,
-                enemyRewardBuffMultiplier);
+            ApplySpinningWheelRuntimeConfig();
             spinningWheel.SetRiskModel(
                 enforceWheelRiskModel,
                 wheelPositiveOutcomeChance,
@@ -595,11 +609,7 @@ public class ShopSystem : MonoBehaviour
         runtimeGambleCost = ResolveRuntimeGambleCost();
         spinningWheel.Bind(gameFlow, this);
         spinningWheel.SetDrawCost(runtimeGambleCost);
-        spinningWheel.SetRewardConfig(
-            cashRewardMin, cashRewardMax,
-            debtPenaltyMin, debtPenaltyMax,
-            enemyHpBuffMultiplier, enemySpeedBuffMultiplier,
-            enemyRewardBuffMultiplier);
+        ApplySpinningWheelRuntimeConfig();
         spinningWheel.SetRiskModel(
             enforceWheelRiskModel,
             wheelPositiveOutcomeChance,
@@ -635,6 +645,60 @@ public class ShopSystem : MonoBehaviour
             return;
 
         spinningWheel.SetWheelUIVisible(visible);
+    }
+
+    private void ApplySpinningWheelRuntimeConfig()
+    {
+        if (spinningWheel == null)
+            return;
+
+        ResolveWheelRewardConfig(out int runtimeCashMin, out int runtimeCashMax, out int runtimeDebtMin, out int runtimeDebtMax);
+        spinningWheel.SetRewardConfig(
+            runtimeCashMin, runtimeCashMax,
+            runtimeDebtMin, runtimeDebtMax,
+            enemyHpBuffMultiplier, enemySpeedBuffMultiplier,
+            enemyRewardBuffMultiplier);
+    }
+
+    private void ResolveWheelRewardConfig(out int runtimeCashMin, out int runtimeCashMax, out int runtimeDebtMin, out int runtimeDebtMax)
+    {
+        runtimeCashMin = Mathf.Max(0, Mathf.Min(cashRewardMin, cashRewardMax));
+        runtimeCashMax = Mathf.Max(runtimeCashMin, Mathf.Max(cashRewardMin, cashRewardMax));
+        runtimeDebtMin = Mathf.Max(0, Mathf.Min(debtPenaltyMin, debtPenaltyMax));
+        runtimeDebtMax = Mathf.Max(runtimeDebtMin, Mathf.Max(debtPenaltyMin, debtPenaltyMax));
+
+        if (gameFlow == null)
+            return;
+
+        int currentRound = Mathf.Max(1, gameFlow.GetCurrentRound());
+        int nextRound = currentRound + 1;
+        int referenceDebt = Mathf.Max(1, gameFlow.GetProjectedDebtForRound(nextRound, false));
+        float cashMinRatioEarly = wheelCashRewardMinDebtRatioEarly > 0f ? wheelCashRewardMinDebtRatioEarly : 0.18f;
+        float cashMaxRatioEarly = wheelCashRewardMaxDebtRatioEarly > 0f ? wheelCashRewardMaxDebtRatioEarly : 0.30f;
+        float cashMinRatioLate = wheelCashRewardMinDebtRatioLate > 0f ? wheelCashRewardMinDebtRatioLate : 0.24f;
+        float cashMaxRatioLate = wheelCashRewardMaxDebtRatioLate > 0f ? wheelCashRewardMaxDebtRatioLate : 0.40f;
+        float debtMinRatioEarly = wheelDebtPenaltyMinDebtRatioEarly > 0f ? wheelDebtPenaltyMinDebtRatioEarly : 0.05f;
+        float debtMaxRatioEarly = wheelDebtPenaltyMaxDebtRatioEarly > 0f ? wheelDebtPenaltyMaxDebtRatioEarly : 0.09f;
+        float debtMinRatioLate = wheelDebtPenaltyMinDebtRatioLate > 0f ? wheelDebtPenaltyMinDebtRatioLate : 0.09f;
+        float debtMaxRatioLate = wheelDebtPenaltyMaxDebtRatioLate > 0f ? wheelDebtPenaltyMaxDebtRatioLate : 0.15f;
+        float peakRound = wheelScalingPeakRound >= 2 ? wheelScalingPeakRound : 8f;
+        int debtAbsoluteMin = wheelDebtPenaltyAbsoluteMin > 0 ? wheelDebtPenaltyAbsoluteMin : 25;
+        float lateT = Mathf.InverseLerp(1f, peakRound, currentRound);
+
+        float cashMinRatio = Mathf.Lerp(cashMinRatioEarly, cashMinRatioLate, lateT);
+        float cashMaxRatio = Mathf.Lerp(cashMaxRatioEarly, cashMaxRatioLate, lateT);
+        float debtMinRatio = Mathf.Lerp(debtMinRatioEarly, debtMinRatioLate, lateT);
+        float debtMaxRatio = Mathf.Lerp(debtMaxRatioEarly, debtMaxRatioLate, lateT);
+
+        int scaledCashMin = Mathf.RoundToInt(referenceDebt * Mathf.Min(cashMinRatio, cashMaxRatio));
+        int scaledCashMax = Mathf.RoundToInt(referenceDebt * Mathf.Max(cashMinRatio, cashMaxRatio));
+        runtimeCashMin = Mathf.Max(runtimeCashMin, scaledCashMin);
+        runtimeCashMax = Mathf.Max(runtimeCashMin, Mathf.Max(runtimeCashMax, scaledCashMax));
+
+        int scaledDebtMin = Mathf.RoundToInt(referenceDebt * Mathf.Min(debtMinRatio, debtMaxRatio));
+        int scaledDebtMax = Mathf.RoundToInt(referenceDebt * Mathf.Max(debtMinRatio, debtMaxRatio));
+        runtimeDebtMin = Mathf.Max(debtAbsoluteMin, scaledDebtMin);
+        runtimeDebtMax = Mathf.Max(runtimeDebtMin, scaledDebtMax);
     }
 
     private int ResolveRuntimeGambleCost()
@@ -684,6 +748,7 @@ public class ShopSystem : MonoBehaviour
         }
 
         ResolveCashIconRect();
+        ResolveRoundInfoIconRect();
         CacheDefaultItemColors();
         ApplyCashTextLayout();
         uiReady = true;
@@ -699,6 +764,18 @@ public class ShopSystem : MonoBehaviour
             iconTransform = textCash.transform.Find("Image_HudCashIcon");
 
         cashIconRect = iconTransform as RectTransform;
+    }
+
+    private void ResolveRoundInfoIconRect()
+    {
+        if (roundInfoIconRect != null || textRoundInfo == null)
+            return;
+
+        Transform iconTransform = textRoundInfo.transform.Find("Image_NextDebtSlotIcon");
+        if (iconTransform == null)
+            iconTransform = textRoundInfo.transform.Find("Image_HudDebtIcon");
+
+        roundInfoIconRect = iconTransform as RectTransform;
     }
 
     private void ApplyCashTextLayout()
@@ -723,6 +800,41 @@ public class ShopSystem : MonoBehaviour
 
         if (textCash.alignment != TextAlignmentOptions.MidlineLeft)
             textCash.alignment = TextAlignmentOptions.MidlineLeft;
+    }
+
+    private void ApplyRoundInfoTextLayout(string leftSegment, string rightSegment)
+    {
+        if (textRoundInfo == null)
+            return;
+
+        ResolveRoundInfoIconRect();
+        if (roundInfoIconRect == null)
+        {
+            textRoundInfo.text = $"{leftSegment}    {rightSegment}";
+            return;
+        }
+
+        float iconWidth = roundInfoIconRect.rect.width * roundInfoIconRect.localScale.x;
+        float sectionGap = Mathf.Max(0f, roundInfoIconSectionGap);
+        float textGap = Mathf.Max(0f, roundInfoIconTextGap);
+        float spacerWidth = sectionGap + iconWidth + textGap;
+        int spacerPixels = Mathf.Max(0, Mathf.RoundToInt(spacerWidth));
+
+        textRoundInfo.text = $"{leftSegment}<space={spacerPixels}px>{rightSegment}";
+
+        float leftWidth = textRoundInfo.GetPreferredValues(leftSegment).x;
+        float rightWidth = textRoundInfo.GetPreferredValues(rightSegment).x;
+        float totalWidth = leftWidth + spacerWidth + rightWidth;
+        float startX = -0.5f * totalWidth;
+        float iconHalfWidth = iconWidth * 0.5f;
+        float desiredIconCenterX = startX + leftWidth + sectionGap + iconHalfWidth;
+
+        Vector2 anchoredPosition = roundInfoIconRect.anchoredPosition;
+        if (!Mathf.Approximately(anchoredPosition.x, desiredIconCenterX))
+        {
+            anchoredPosition.x = desiredIconCenterX;
+            roundInfoIconRect.anchoredPosition = anchoredPosition;
+        }
     }
 
     private int GetOfferPrice(ShopOffer offer)

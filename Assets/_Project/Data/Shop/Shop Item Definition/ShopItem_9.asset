@@ -16,7 +16,7 @@ MonoBehaviour:
   description: 'ACTIVE: Space to overclock.
 
     6s harder, faster fire.'
-  icon: {fileID: 0}
+  icon: {fileID: 1887350927205460035, guid: 8c3b5b4bbd2e24749aebb34a73b8e12c, type: 3}
   price: 185
   rarity: 2
   weightPercent: 5
