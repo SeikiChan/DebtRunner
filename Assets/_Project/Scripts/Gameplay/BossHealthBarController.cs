@@ -112,8 +112,7 @@ public class BossHealthBarController : MonoBehaviour
         if (bossNameText != null)
             bossNameText.text = ResolveBossName(boss);
 
-        if (bossHealthFillImage != null)
-            bossHealthFillImage.fillAmount = boss.HealthRatio;
+        UpdateFillVisual(boss.HealthRatio);
 
         if (bossHealthValueText != null)
         {
@@ -139,6 +138,41 @@ public class BossHealthBarController : MonoBehaviour
 
         if (bossHealthBarOverlay.gameObject.activeSelf)
             bossHealthBarOverlay.gameObject.SetActive(false);
+    }
+
+    private void UpdateFillVisual(float healthRatio)
+    {
+        if (bossHealthFillImage == null)
+            return;
+
+        float clampedRatio = Mathf.Clamp01(healthRatio);
+        if (bossHealthFillImage.sprite != null)
+        {
+            RectTransform fillRect = bossHealthFillImage.rectTransform;
+            if (fillRect != null)
+            {
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = Vector2.one;
+                fillRect.offsetMin = Vector2.zero;
+                fillRect.offsetMax = Vector2.zero;
+            }
+
+            bossHealthFillImage.type = Image.Type.Filled;
+            bossHealthFillImage.fillMethod = Image.FillMethod.Horizontal;
+            bossHealthFillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+            bossHealthFillImage.fillAmount = clampedRatio;
+            return;
+        }
+
+        RectTransform rect = bossHealthFillImage.rectTransform;
+        if (rect == null)
+            return;
+
+        bossHealthFillImage.type = Image.Type.Simple;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = new Vector2(clampedRatio, 1f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
     }
 
     private bool EnsureOverlay()

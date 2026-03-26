@@ -78,15 +78,25 @@ public class PlayerMotor2D : MonoBehaviour
         lastMoveDir = Vector2.right;
         horizontalFacing = 1;
 
-        transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+        Vector3 runStartPosition = ResolveRunStartPosition();
+        transform.SetPositionAndRotation(runStartPosition, spawnRotation);
 
         if (rb != null)
         {
-            rb.position = spawnPosition;
+            rb.position = runStartPosition;
             rb.rotation = spawnRotation.eulerAngles.z;
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
         }
+    }
+
+    private Vector3 ResolveRunStartPosition()
+    {
+        if (CircleBoundary.Instance == null)
+            return spawnPosition;
+
+        Vector2 center = CircleBoundary.Instance.Center;
+        return new Vector3(center.x, center.y, spawnPosition.z);
     }
 
     public void AddMoveSpeedFlat(float amount)

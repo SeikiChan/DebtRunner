@@ -76,7 +76,7 @@ public class PlayerActiveItemController : MonoBehaviour
         {
             itemId = ActiveItemId.SkiptraceBurst,
             displayName = "Skiptrace Burst",
-            cooldownSeconds = 8f,
+            cooldownSeconds = 2f,
             dashImpulse = 18f,
             dashInvulnerabilitySeconds = 0.28f,
         },

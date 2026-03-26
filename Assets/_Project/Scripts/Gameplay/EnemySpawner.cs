@@ -51,21 +51,21 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Spawn / 刷怪")]
     [LocalizedLabel("刷怪间隔 (秒)")]
-    [SerializeField] private float spawnInterval = 0.38f;
+    [SerializeField] private float spawnInterval = 0.52f;
     [LocalizedLabel("刷怪半径")]
     [SerializeField] private float spawnRadius = 7f;
     [LocalizedLabel("最小生成离玩家距离")]
-    [SerializeField, Min(0.5f)] private float minSpawnDistanceFromPlayer = 2.6f;
+    [SerializeField, Min(0.5f)] private float minSpawnDistanceFromPlayer = 4.1f;
     [LocalizedLabel("最大存活数量")]
-    [SerializeField] private int maxAlive = 80;
+    [SerializeField] private int maxAlive = 48;
     [LocalizedLabel("每次刷怪数量")]
-    [SerializeField, Min(1)] private int spawnPerTick = 4;
+    [SerializeField, Min(1)] private int spawnPerTick = 3;
     [LocalizedLabel("同次刷怪扩散半径")]
     [SerializeField, Min(0f)] private float intraTickSpreadRadius = 1.4f;
     [LocalizedLabel("生成点最小敌距")]
-    [SerializeField, Min(0f)] private float minSpawnSpacing = 0.75f;
+    [SerializeField, Min(0f)] private float minSpawnSpacing = 0.95f;
     [LocalizedLabel("生成点重试次数")]
-    [SerializeField, Min(1)] private int spawnPositionAttempts = 36;
+    [SerializeField, Min(1)] private int spawnPositionAttempts = 30;
     [LocalizedLabel("生成点检测层")]
     [SerializeField] private LayerMask spawnSpacingMask = ~0;
     [LocalizedLabel("生成点仅检测敌人层")]
@@ -73,7 +73,7 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Spawn Warning / 生成预警")]
     [LocalizedLabel("预警持续时间")]
-    [SerializeField, Min(0f)] private float spawnWarningDuration = 0f;
+    [SerializeField, Min(0f)] private float spawnWarningDuration = 1f;
     [LocalizedLabel("预警圆环颜色")]
     [SerializeField] private Color spawnWarningColor = new Color(1f, 0.2f, 0.15f, 0.5f);
     [LocalizedLabel("预警圆环半径")]
@@ -83,9 +83,9 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Safe Gap / 安全缺口")]
     [LocalizedLabel("启用安全缺口")]
-    [SerializeField] private bool enableSafeGap = false;
+    [SerializeField] private bool enableSafeGap = true;
     [LocalizedLabel("安全缺口角度")]
-    [SerializeField, Range(30f, 120f)] private float safeGapAngle = 70f;
+    [SerializeField, Range(30f, 120f)] private float safeGapAngle = 34f;
     [LocalizedLabel("缺口方向更新间隔")]
     [SerializeField, Min(0.5f)] private float safeGapRotateInterval = 3f;
 
@@ -181,70 +181,70 @@ public class EnemySpawner : MonoBehaviour
             case 1:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.85f, perTick = 3, maxAlive = 60,
+                    interval = 1.12f, perTick = 1, maxAlive = 18,
                     wMelee = 1f, wDash = 0f, wRanged = 0f, wTank = 0f, wTreasure = 0f
                 };
             case 2:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.58f, perTick = 4, maxAlive = 72,
+                    interval = 0.98f, perTick = 2, maxAlive = 26,
                     wMelee = 0.9f, wDash = 0.1f, wRanged = 0f, wTank = 0f, wTreasure = 0f
                 };
             case 3:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.52f, perTick = 4, maxAlive = 80,
+                    interval = 0.88f, perTick = 2, maxAlive = 34,
                     wMelee = 0.7f, wDash = 0.2f, wRanged = 0.1f, wTank = 0f, wTreasure = 0f
                 };
             case 4:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.47f, perTick = 4, maxAlive = 88,
+                    interval = 0.78f, perTick = 2, maxAlive = 42,
                     wMelee = 0.5f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.1f, wTreasure = 0f
                 };
             case 5:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.44f, perTick = 4, maxAlive = 96,
+                    interval = 0.66f, perTick = 3, maxAlive = 52,
                     wMelee = 0.45f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.1f, wTreasure = 0.05f
                 };
             case 6:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.41f, perTick = 4, maxAlive = 104,
+                    interval = 0.60f, perTick = 3, maxAlive = 60,
                     wMelee = 0.4f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.05f
                 };
             case 7:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.38f, perTick = 4, maxAlive = 112,
+                    interval = 0.50f, perTick = 3, maxAlive = 70,
                     wMelee = 0.35f, wDash = 0.2f, wRanged = 0.2f, wTank = 0.15f, wTreasure = 0.1f
                 };
             case 8:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.35f, perTick = 4, maxAlive = 120,
+                    interval = 0.47f, perTick = 3, maxAlive = 76,
                     wMelee = 0.3f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.15f, wTreasure = 0.1f
                 };
             case 9:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.33f, perTick = 4, maxAlive = 128,
+                    interval = 0.44f, perTick = 3, maxAlive = 82,
                     wMelee = 0.25f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.2f, wTreasure = 0.1f
                 };
             case 10:
                 return new RoundSpawnConfig
                 {
-                    interval = 0.31f, perTick = 4, maxAlive = 136,
+                    interval = 0.41f, perTick = 3, maxAlive = 88,
                     wMelee = 0.2f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.25f, wTreasure = 0.1f
                 };
             default:
                 int roundsPastTen = Mathf.Max(0, round - 10);
                 return new RoundSpawnConfig
                 {
-                    interval = Mathf.Max(0.26f, 0.31f - roundsPastTen * 0.015f),
-                    perTick = 4,
-                    maxAlive = Mathf.Min(180, 136 + roundsPastTen * 8),
+                    interval = Mathf.Max(0.34f, 0.41f - roundsPastTen * 0.015f),
+                    perTick = 3,
+                    maxAlive = Mathf.Min(120, 88 + roundsPastTen * 6),
                     wMelee = 0.2f, wDash = 0.2f, wRanged = 0.25f, wTank = 0.25f, wTreasure = 0.1f
                 };
         }

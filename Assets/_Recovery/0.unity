@@ -14565,6 +14565,47 @@ RectTransform:
   m_AnchoredPosition: {x: -28, y: -36.999878}
   m_SizeDelta: {x: 520, y: 600}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!21 &915208117
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Runtime_FootShadow_Unlit
+  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    - _ZWrite: 0
+    m_Colors:
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &919712691
 GameObject:
   m_ObjectHideFlags: 0
@@ -17905,7 +17946,7 @@ MonoBehaviour:
   itemProfiles:
   - itemId: 1
     displayName: Skiptrace Burst
-    cooldownSeconds: 2
+    cooldownSeconds: 8
     activeDurationSeconds: 0
     dashImpulse: 18
     dashInvulnerabilitySeconds: 0.28
@@ -24095,24 +24136,24 @@ MonoBehaviour:
   enemiesRoot: {fileID: 238697713}
   player: {fileID: 1032491599}
   projectilesRoot: {fileID: 499288855}
-  spawnInterval: 0.52
+  spawnInterval: 0.62
   spawnRadius: 10
-  minSpawnDistanceFromPlayer: 4.1
-  maxAlive: 48
-  spawnPerTick: 3
+  minSpawnDistanceFromPlayer: 3.5
+  maxAlive: 100
+  spawnPerTick: 2
   intraTickSpreadRadius: 1.4
-  minSpawnSpacing: 0.95
-  spawnPositionAttempts: 30
+  minSpawnSpacing: 1.2
+  spawnPositionAttempts: 18
   spawnSpacingMask:
     serializedVersion: 2
     m_Bits: 4294967295
   spawnSpacingUseEnemyLayerOnly: 1
-  spawnWarningDuration: 1
+  spawnWarningDuration: 0.5
   spawnWarningColor: {r: 1, g: 0.2, b: 0.15, a: 0.5}
   spawnWarningRadius: 0.5
   warningCircleSegments: 24
   enableSafeGap: 1
-  safeGapAngle: 34
+  safeGapAngle: 70
   safeGapRotateInterval: 3
   globalEnemyHpMultiplier: 1.1
   globalEnemySpeedMultiplier: 1.05
@@ -30145,7 +30186,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2114057797}
+  - {fileID: 915208117}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -33524,47 +33565,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2109002001}
   m_CullTransparentMesh: 1
---- !u!21 &2114057797
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Runtime_FootShadow_Unlit
-  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - PixelSnap: 0
-    - _EnableExternalAlpha: 0
-    - _ZWrite: 0
-    m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &2122128053
 GameObject:
   m_ObjectHideFlags: 0

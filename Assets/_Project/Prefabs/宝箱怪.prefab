@@ -196,7 +196,7 @@ MonoBehaviour:
   xpDrop: 4
   cashPickupPrefab: {fileID: 0}
   pickupDropScatterRadius: 1
-  pickupDropInnerRadiusRatio: 0.35
+  pickupDropInnerRadiusRatio: 0.649
   pickupDropVerticalOffset: 0.05
   pickupDropMinSeparation: 0.28
   pickupDropPositionAttempts: 12

@@ -5,6 +5,8 @@ using UnityEngine.Serialization;
 
 public class EnemyController : MonoBehaviour
 {
+    private const float BaseCashDropValueMultiplier = 1.05f;
+
     [SerializeField] private float moveSpeed = 2.5f;
     [SerializeField] private bool enableEnemySeparation = true;
     [SerializeField, Min(0f)] private float separationRadius = 1.25f;
@@ -502,7 +504,7 @@ public class EnemyController : MonoBehaviour
         float roundXpMul = GameFlowController.Instance != null
             ? GameFlowController.Instance.GetXPDropMultiplierForRound(currentRound)
             : 1f;
-        int effectiveCash = Mathf.RoundToInt(cashValue * rewardMul * roundCashMul);
+        int effectiveCash = Mathf.RoundToInt(cashValue * BaseCashDropValueMultiplier * rewardMul * roundCashMul);
         int effectiveXP = Mathf.RoundToInt(xpDrop * rewardMul * roundXpMul);
 
         RunLogger.Event(
