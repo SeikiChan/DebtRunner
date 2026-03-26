@@ -94,6 +94,17 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField, Min(0.1f)] private float globalEnemyHpMultiplier = 1.25f;
     [LocalizedLabel("全局敌人速度倍率")]
     [SerializeField, Min(0.1f)] private float globalEnemySpeedMultiplier = 1.15f;
+    [Header("Late-Round HP Surge / 鍚庢湡琛€閲忓姞鍘?")]
+    [SerializeField, Min(1)] private int lateRoundHpSurgeStartRound = 5;
+    [SerializeField, Min(1)] private int lateRoundHpSurgePeakRound = 8;
+    [SerializeField, Min(0f)] private float lateRoundMeleeFlatHpAtStart = 18f;
+    [SerializeField, Min(0f)] private float lateRoundMeleeFlatHpAtPeak = 34f;
+    [SerializeField, Min(0f)] private float lateRoundDashFlatHpAtStart = 16f;
+    [SerializeField, Min(0f)] private float lateRoundDashFlatHpAtPeak = 30f;
+    [SerializeField, Min(0f)] private float lateRoundRangedFlatHpAtStart = 16f;
+    [SerializeField, Min(0f)] private float lateRoundRangedFlatHpAtPeak = 30f;
+    [SerializeField, Min(0f)] private float lateRoundTankFlatHpAtStart = 10f;
+    [SerializeField, Min(0f)] private float lateRoundTankFlatHpAtPeak = 20f;
 
     [Header("Round Curves / 回合曲线倍率")]
     [LocalizedLabel("启用回合曲线")]
@@ -340,9 +351,9 @@ public class EnemySpawner : MonoBehaviour
         Vector3 pos = ResolveSpawnPositionWithSpacing();
 
         if (spawnWarningDuration > 0f)
-            StartCoroutine(SpawnWithWarning(prefab, pos));
+            StartCoroutine(SpawnWithWarning(prefab, pos, archetype));
         else
-            SpawnEnemy(prefab, pos);
+            SpawnEnemy(prefab, pos, archetype);
     }
 
     public EnemyController SpawnTutorialEnemy()
@@ -374,7 +385,7 @@ public class EnemySpawner : MonoBehaviour
         }
 
         Vector3 pos = ResolveSpawnPositionWithSpacing();
-        EnemyController spawned = SpawnEnemy(prefab, pos);
+        EnemyController spawned = SpawnEnemy(prefab, pos, EnemySpawnArchetype.Melee);
         if (spawned != null)
             RunLogger.Event($"Tutorial enemy spawned: {spawned.name} at {pos.x:F2},{pos.y:F2}.");
         return spawned;
@@ -459,7 +470,7 @@ public class EnemySpawner : MonoBehaviour
         return null;
     }
 
-    private IEnumerator SpawnWithWarning(EnemyController prefab, Vector3 pos)
+    private IEnumerator SpawnWithWarning(EnemyController prefab, Vector3 pos, EnemySpawnArchetype archetype)
     {
         // Create warning circle
         GameObject warning = CreateWarningCircle(pos);
@@ -494,7 +505,7 @@ public class EnemySpawner : MonoBehaviour
             yield break;
         }
 
-        SpawnEnemy(prefab, pos);
+        SpawnEnemy(prefab, pos, archetype);
     }
 
     private GameObject CreateWarningCircle(Vector3 center)
@@ -534,7 +545,7 @@ public class EnemySpawner : MonoBehaviour
         return go;
     }
 
-    private EnemyController SpawnEnemy(EnemyController prefab, Vector3 pos)
+    private EnemyController SpawnEnemy(EnemyController prefab, Vector3 pos, EnemySpawnArchetype archetype = EnemySpawnArchetype.Unknown)
     {
         if (prefab == null) return null;
 
@@ -555,11 +566,11 @@ public class EnemySpawner : MonoBehaviour
             GameFlowController.Instance.GetCurrentEnemyMultipliers(out float hpMul, out float speedMul);
             hpMul *= runtimeEnemyHpMultiplier;
             speedMul *= runtimeEnemySpeedMultiplier;
-            e.ApplyRuntimeModifiers(hpMul, speedMul);
+            e.ApplyRuntimeModifiers(hpMul, speedMul, GetLateRoundFlatHpBonus(archetype));
         }
         else
         {
-            e.ApplyRuntimeModifiers(runtimeEnemyHpMultiplier, runtimeEnemySpeedMultiplier);
+            e.ApplyRuntimeModifiers(runtimeEnemyHpMultiplier, runtimeEnemySpeedMultiplier, GetLateRoundFlatHpBonus(archetype));
         }
 
         var shooter = e.GetComponent<EnemyShooter>();
@@ -567,6 +578,35 @@ public class EnemySpawner : MonoBehaviour
             shooter.Init(player, projectilesRoot);
 
         return e;
+    }
+
+    private float GetLateRoundFlatHpBonus(EnemySpawnArchetype archetype)
+    {
+        int currentRound = GameFlowController.Instance != null
+            ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound())
+            : Mathf.Max(1, trackedRound);
+        int startRound = Mathf.Max(1, lateRoundHpSurgeStartRound);
+        if (currentRound < startRound)
+            return 0f;
+
+        int peakRound = Mathf.Max(startRound, lateRoundHpSurgePeakRound);
+        float t = peakRound == startRound
+            ? 1f
+            : Mathf.Clamp01((currentRound - startRound) / (float)(peakRound - startRound));
+
+        switch (archetype)
+        {
+            case EnemySpawnArchetype.Melee:
+                return Mathf.Lerp(lateRoundMeleeFlatHpAtStart, lateRoundMeleeFlatHpAtPeak, t);
+            case EnemySpawnArchetype.Dash:
+                return Mathf.Lerp(lateRoundDashFlatHpAtStart, lateRoundDashFlatHpAtPeak, t);
+            case EnemySpawnArchetype.Ranged:
+                return Mathf.Lerp(lateRoundRangedFlatHpAtStart, lateRoundRangedFlatHpAtPeak, t);
+            case EnemySpawnArchetype.Tank:
+                return Mathf.Lerp(lateRoundTankFlatHpAtStart, lateRoundTankFlatHpAtPeak, t);
+            default:
+                return 0f;
+        }
     }
 
     private void TrySpawnBossForRound()

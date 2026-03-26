@@ -317,12 +317,13 @@ public class EnemyController : MonoBehaviour
             shooter.Init(playerTf, worldProjectiles.transform);
     }
 
-    public void ApplyRuntimeModifiers(float hpMultiplier, float speedMultiplier)
+    public void ApplyRuntimeModifiers(float hpMultiplier, float speedMultiplier, float flatHpBonus = 0f)
     {
         hpMultiplier = Mathf.Max(0.2f, hpMultiplier);
         speedMultiplier = Mathf.Max(0.2f, speedMultiplier);
+        flatHpBonus = Mathf.Max(0f, flatHpBonus);
 
-        runtimeMaxHP = Mathf.Max(1f, baseMaxHP * hpMultiplier);
+        runtimeMaxHP = Mathf.Max(1f, (baseMaxHP * hpMultiplier) + flatHpBonus);
         hp = runtimeMaxHP;
         moveSpeed = baseMoveSpeed * speedMultiplier;
     }

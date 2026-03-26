@@ -192,7 +192,7 @@ MonoBehaviour:
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
   spriteHitboxScale: 1.02
-  maxHP: 30
+  maxHP: 20
   cashValue: 4
   xpDrop: 1
   cashPickupPrefab: {fileID: -2223663088653925849, guid: 579e178f9139359488de49e6b4271060, type: 3}

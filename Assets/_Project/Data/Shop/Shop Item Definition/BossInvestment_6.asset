@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Second Wind Clause
   description: Gain 1 revive.
   icon: {fileID: 0}
-  price: 52000
+  price: 9000
   rarity: 3
   weightPercent: 2
   effects:

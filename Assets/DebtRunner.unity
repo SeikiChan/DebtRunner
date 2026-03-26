@@ -385,6 +385,10 @@ MonoBehaviour:
   lateRoundPriceSurgePercent: 0.25
   lateRoundRefreshSurgeStartRound: 6
   lateRoundRefreshSurgePercent: 0.18
+  useFixedPreBossInvestmentPricing: 1
+  preBossInvestmentPriceMultiplier: 1
+  preBossInvestmentMinPrice: 3500
+  preBossInvestmentMaxPrice: 9800
   usePreBossInvestmentShop: 1
   preBossShopInfoMessage: INVEST IN YOURSELF. BURN THE CASH BEFORE THE BOSS.
   preBossRoundLabel: BOSS PREP
@@ -9327,8 +9331,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -474, y: 456.99988}
-  m_SizeDelta: {x: 252, y: 48}
+  m_AnchoredPosition: {x: -479.49997, y: 456.99988}
+  m_SizeDelta: {x: 181, y: 48}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &558048349
 MonoBehaviour:
@@ -12853,8 +12857,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0.904}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -371.8667, y: -0.11291504}
-  m_SizeDelta: {x: -1236.6025, y: -133.5725}
+  m_AnchoredPosition: {x: -366.80182, y: 0}
+  m_SizeDelta: {x: -1217.1213, y: -106.5931}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &782908498
 MonoBehaviour:
@@ -13533,6 +13537,47 @@ Material:
     - _ReflectOutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
     - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
+--- !u!21 &819250156
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Runtime_FootShadow_Unlit
+  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    - _ZWrite: 0
+    m_Colors:
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!1 &831552857
@@ -17383,17 +17428,17 @@ MonoBehaviour:
   lockStorySkipOnFirstPlay: 1
   storyPlayedFlagKey: DebtRunner.StoryComicPlayed
   storyComicPages:
-  - pageSprite: {fileID: -8310578835852675831, guid: bdbb611432cb39e41ab054e3cb7395f8, type: 3}
+  - pageSprite: {fileID: -8310578835852675831, guid: a953d7a96c62b20419e61900da883be8, type: 3}
     clicksToAdvance: 2
-  - pageSprite: {fileID: 4197860276205774954, guid: d199f881c6026404db700a8f4cccc47f, type: 3}
+  - pageSprite: {fileID: 4197860276205774954, guid: 3837f4425202d6249944a2e02bfcd734, type: 3}
     clicksToAdvance: 2
-  - pageSprite: {fileID: -5121341352869691447, guid: 37c0a5de3244a1640987a32575f7cede, type: 3}
+  - pageSprite: {fileID: -5121341352869691447, guid: 2d77d18a2927f9a4599786b8da5b78ce, type: 3}
     clicksToAdvance: 2
-  - pageSprite: {fileID: -7323664486574740162, guid: c630ba09a05b1c04ca5b943b31b70304, type: 3}
+  - pageSprite: {fileID: -7323664486574740162, guid: ebe3ce1cd7222224fb4cf7d6fba4df56, type: 3}
     clicksToAdvance: 2
-  - pageSprite: {fileID: -4520297071055830135, guid: 5978223483a5fbd41bc668390da3b122, type: 3}
+  - pageSprite: {fileID: -4520297071055830135, guid: 3c2931d8d3299594cb978a95129d8eee, type: 3}
     clicksToAdvance: 2
-  - pageSprite: {fileID: 4635867468884011208, guid: 52cd67477bf3fa647bc5e571e5884858, type: 3}
+  - pageSprite: {fileID: 4635867468884011208, guid: a6227bd4472e7ab4c9bbd6f1aa34f525, type: 3}
     clicksToAdvance: 2
   storyIntroOverlay: {fileID: 1178922383}
   storyIntroBackground: {fileID: 1111942069}
@@ -17475,6 +17520,7 @@ MonoBehaviour:
   enableKeyboardUINavigation: 1
   useWASDForUINavigation: 1
   useSpaceForUIConfirm: 1
+  hideCursorDuringActiveGameplay: 1
   keyboardTabCyclesSelection: 1
   gamepadUINavigationDeadzone: 0.55
   gamepadUINavigationInitialRepeatDelay: 0.24
@@ -17724,17 +17770,19 @@ MonoBehaviour:
   source2D: {fileID: 0}
   masterVolume: 1
   enablePickupComboPitchRamp: 1
-  pickupComboResetSeconds: 0.24
-  pickupComboPitchStep: 0.025
-  pickupComboMaxPitch: 1.16
-  pickupCollectBasePitch: 0.97
-  pickupCollectPitchJitter: 0.012
-  pickupCollectMinIntervalSeconds: 0.022
-  pickupCollectAttackSeconds: 0.006
-  pickupCollectReleaseSeconds: 0.045
-  pickupCollectBurstWindowSeconds: 0.11
-  pickupCollectBurstVolumeDuckPerLayer: 0.16
-  pickupCollectMinBurstVolumeMultiplier: 0.55
+  pickupComboResetSeconds: 0.55
+  pickupComboPitchStep: 0.06
+  usePickupComboScaleSteps: 1
+  pickupComboStepRepeatCount: 1
+  pickupComboMaxPitch: 1.34
+  pickupCollectBasePitch: 0.84
+  pickupCollectPitchJitter: 0.001
+  pickupCollectMinIntervalSeconds: 0.018
+  pickupCollectAttackSeconds: 0.003
+  pickupCollectReleaseSeconds: 0.055
+  pickupCollectBurstWindowSeconds: 0.18
+  pickupCollectBurstVolumeDuckPerLayer: 0.1
+  pickupCollectMinBurstVolumeMultiplier: 0.72
   pooled2DOneShotSources: 8
 --- !u!114 &1102755125
 MonoBehaviour:
@@ -17895,8 +17943,8 @@ MonoBehaviour:
   readyGlowColor: {r: 1, g: 0.9, b: 0.34, a: 0.72}
   pulseReadyGlow: 1
   readyGlowPulseSpeed: 3.8
-  readyGlowPulseMinAlpha: 0.18
-  readyGlowPulseMaxAlpha: 0.78
+  readyGlowPulseMinAlpha: 0.082
+  readyGlowPulseMaxAlpha: 0.879
   readyStatus: '[SPACE] READY'
   cooldownStatus: COOLDOWN
   activeStatus: ACTIVE
@@ -22552,7 +22600,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -364, y: 465.70508}
+  m_AnchoredPosition: {x: -390.5, y: 462.00012}
   m_SizeDelta: {x: 1197, y: 72}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1381985137
@@ -22641,7 +22689,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 78.26239, y: 0, z: 97.82825, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -24116,6 +24164,16 @@ MonoBehaviour:
   safeGapRotateInterval: 3
   globalEnemyHpMultiplier: 1.1
   globalEnemySpeedMultiplier: 1.05
+  lateRoundHpSurgeStartRound: 5
+  lateRoundHpSurgePeakRound: 8
+  lateRoundMeleeFlatHpAtStart: 18
+  lateRoundMeleeFlatHpAtPeak: 34
+  lateRoundDashFlatHpAtStart: 16
+  lateRoundDashFlatHpAtPeak: 30
+  lateRoundRangedFlatHpAtStart: 16
+  lateRoundRangedFlatHpAtPeak: 30
+  lateRoundTankFlatHpAtStart: 10
+  lateRoundTankFlatHpAtPeak: 20
   useRoundCurves: 1
   roundCurveMaxRound: 11
   spawnIntervalCurve:
@@ -30145,7 +30203,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2114057797}
+  - {fileID: 819250156}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -33524,47 +33582,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2109002001}
   m_CullTransparentMesh: 1
---- !u!21 &2114057797
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Runtime_FootShadow_Unlit
-  m_Shader: {fileID: 4800000, guid: 13c02b14c4d048fa9653293d54f6e0e1, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - PixelSnap: 0
-    - _EnableExternalAlpha: 0
-    - _ZWrite: 0
-    m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &2122128053
 GameObject:
   m_ObjectHideFlags: 0
@@ -34836,7 +34853,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -67, y: 8}
+  m_AnchoredPosition: {x: -61.13037, y: 17}
   m_SizeDelta: {x: 34, y: 34}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2209007003
@@ -35349,8 +35366,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -19.5, y: 0}
-  m_SizeDelta: {x: 34, y: 30}
+  m_AnchoredPosition: {x: -21.389984, y: 0}
+  m_SizeDelta: {x: 31.946, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3100070003
 MonoBehaviour:
@@ -35424,8 +35441,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 36, y: 0}
-  m_SizeDelta: {x: 56, y: 40}
+  m_AnchoredPosition: {x: 71.53021, y: 0}
+  m_SizeDelta: {x: 123, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3100080003
 MonoBehaviour:
@@ -35513,7 +35530,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: -0.48483276, y: 0, z: 6.7020264, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -35636,8 +35653,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 210.55005, y: 0}
-  m_SizeDelta: {x: 56, y: 40}
+  m_AnchoredPosition: {x: 248.55005, y: 0}
+  m_SizeDelta: {x: 132, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3100100003
 MonoBehaviour:
@@ -35725,7 +35742,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: 0.1616211, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0

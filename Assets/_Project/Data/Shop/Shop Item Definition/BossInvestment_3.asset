@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Rapid Filing
   description: +0.01% fire rate.
   icon: {fileID: 0}
-  price: 12500
+  price: 5900
   rarity: 2
   weightPercent: 11
   effects:

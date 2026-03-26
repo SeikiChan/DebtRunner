@@ -142,6 +142,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool enableKeyboardUINavigation = true;
     [SerializeField] private bool useWASDForUINavigation = true;
     [SerializeField] private bool useSpaceForUIConfirm = true;
+    [Header("Cursor")]
+    [SerializeField] private bool hideCursorDuringActiveGameplay = true;
     [SerializeField] private bool keyboardTabCyclesSelection = true;
     [SerializeField, Range(0.1f, 1f)] private float gamepadUINavigationDeadzone = 0.55f;
     [SerializeField, Min(0.01f)] private float gamepadUINavigationInitialRepeatDelay = 0.24f;
@@ -628,6 +630,12 @@ public class GameFlowController : MonoBehaviour
         BindHoverSfxToSceneButtons();
         BindKeyboardFocusIndicatorsToSceneSelectables();
         RefreshHUD();
+        RefreshCursorVisibility();
+    }
+
+    private void OnDisable()
+    {
+        Cursor.visible = true;
     }
 
     private void OnValidate()
@@ -766,6 +774,19 @@ public class GameFlowController : MonoBehaviour
     private bool IsLevelUpPanelOpen()
     {
         return levelUpPanel != null && levelUpPanel.IsShowing;
+    }
+
+    private void RefreshCursorVisibility()
+    {
+        bool shouldHideCursor =
+            hideCursorDuringActiveGameplay &&
+            state == GameState.Gameplay &&
+            !pauseMenuOpen &&
+            !storyIntroActive &&
+            !creditsOpen &&
+            !IsLevelUpPanelOpen();
+
+        Cursor.visible = !shouldHideCursor;
     }
 
     private void EnsureDeathPanelsBound()
@@ -951,6 +972,15 @@ public class GameFlowController : MonoBehaviour
         xp += v;
         runTotalXPEarned += v;
         RunLogger.Event($"XP +{v}, current={xp}/{xpToNext}, level={level}");
+
+        if (ShouldSuppressLevelUpRewardsForBossVictory())
+        {
+            if (xpUI != null)
+                xpUI.UpdateXPDisplay();
+
+            RunLogger.Event("Boss victory is taking priority. XP was recorded, but level-up rewards were suppressed.");
+            return;
+        }
         
         // 妫€鏌ユ槸鍚﹀崌绾?
         while (xp >= xpToNext)
@@ -999,6 +1029,9 @@ private bool ShouldDeferLevelUpRewardPresentation()
 
 private bool TryShowLevelUpRewardPanelNow()
 {
+    if (ShouldSuppressLevelUpRewardsForBossVictory())
+        return false;
+
     if (!EnsureLevelUpPanelBound())
     {
         RunLogger.Warning("Level-up reward queued: LevelUpPanel reference missing.");
@@ -1023,6 +1056,7 @@ private bool TryShowLevelUpRewardPanelNow()
 
     // 鍙湁闈㈡澘瀛樺湪涓旀垚鍔熻蛋鍒拌繖閲屾墠鏆傚仠娓告垙
     Time.timeScale = 0f;
+    RefreshCursorVisibility();
     return true;
 }
 
@@ -1030,6 +1064,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
 {
     if (pendingDeferredLevelUpChoices <= 0)
         return;
+
+    if (ShouldSuppressLevelUpRewardsForBossVictory())
+    {
+        ClearPendingLevelUpRewardsForBossVictory();
+        return;
+    }
 
     if (state != GameState.Gameplay || IsRoundIntroActive || roundClearActive)
         return;
@@ -1541,6 +1581,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     Time.timeScale = 1f;
 
     RefreshGameplayHudVisibility();
+    RefreshCursorVisibility();
 
     if (postLevelUpSafetyInvulnSeconds > 0f)
     {
@@ -1854,6 +1895,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (state != GameState.Gameplay || !IsCurrentRoundBoss())
             return false;
 
+        ClearPendingLevelUpRewardsForBossVictory();
         bossVictorySequenceActive = true;
         if (bossVictorySequenceCo != null)
             StopCoroutine(bossVictorySequenceCo);
@@ -1930,6 +1972,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         if (IsCurrentRoundBoss())
         {
             RunLogger.Event($"Boss defeated! Showing victory screen.");
+            ClearPendingLevelUpRewardsForBossVictory();
 
             ShowRunSummary(RunSummaryPanel.EndingType.Victory);
 
@@ -2921,6 +2964,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         Time.timeScale = 0f;
         SetGameplaySystemsActive(false);
         SetPauseMenuVisible(true);
+        RefreshCursorVisibility();
         RunLogger.Event("Pause menu opened.");
     }
 
@@ -2993,6 +3037,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         settingsReturnTarget = SettingsReturnTarget.None;
+        RefreshCursorVisibility();
     }
 
     public void QuitFromPauseMenu()
@@ -3851,6 +3896,7 @@ private void SwitchState(GameState next)
 
     BindHoverSfxToSceneButtons();
     BindKeyboardFocusIndicatorsToSceneSelectables();
+    RefreshCursorVisibility();
 }
 
     private void BeginGameplayTutorialSequence()
@@ -4511,18 +4557,20 @@ private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
     settingsReturnTarget = SettingsReturnTarget.None;
     SetPauseMenuVisible(false);
 
-    if (!resumeGameplayIfNeeded)
-        return;
-
-    if (state == GameState.Gameplay && !IsRoundIntroActive && !roundClearActive)
+    if (resumeGameplayIfNeeded)
     {
-        Time.timeScale = 1f;
-        SetGameplaySystemsActive(true);
-        return;
+        if (state == GameState.Gameplay && !IsRoundIntroActive && !roundClearActive)
+        {
+            Time.timeScale = 1f;
+            SetGameplaySystemsActive(true);
+        }
+        else if (state == GameState.Shop)
+        {
+            Time.timeScale = 1f;
+        }
     }
 
-    if (state == GameState.Shop)
-        Time.timeScale = 1f;
+    RefreshCursorVisibility();
 }
 
 private void SetPauseMenuVisible(bool visible)
@@ -5675,6 +5723,21 @@ private void SetPauseMenuVisible(bool visible)
 
         RefreshGameplayHudVisibility();
         SetRoundDebtVisible(true);
+    }
+
+    private bool ShouldSuppressLevelUpRewardsForBossVictory()
+    {
+        return bossVictorySequenceActive || state == GameState.Victory;
+    }
+
+    private void ClearPendingLevelUpRewardsForBossVictory()
+    {
+        pendingDeferredLevelUpChoices = 0;
+
+        if (levelUpPanel != null)
+            levelUpPanel.ForceHideImmediate();
+        else if (panelLevelUp != null)
+            panelLevelUp.SetActive(false);
     }
 
     private void RefreshGameplayHudVisibility()

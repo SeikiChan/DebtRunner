@@ -5,15 +5,6 @@ TextureImporter:
   - first:
       213: -446512839691000868
     second: Grace Window_0
-  - first:
-      213: -8769497213756151161
-    second: Grace Window_1
-  - first:
-      213: -98525864613265120
-    second: Grace Window_2
-  - first:
-      213: -602730293464910765
-    second: Grace Window_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -112,28 +103,6 @@ TextureImporter:
       name: Grace Window_0
       rect:
         serializedVersion: 2
-        x: 842
-        y: 884
-        width: 10
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: cd3219220faadc9f0800000000000000
-      internalID: -446512839691000868
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Grace Window_1
-      rect:
-        serializedVersion: 2
         x: 336
         y: 133
         width: 814
@@ -146,52 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 78a69433fbc7c4680800000000000000
-      internalID: -8769497213756151161
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Grace Window_2
-      rect:
-        serializedVersion: 2
-        x: 881
-        y: 838
-        width: 39
-        height: 31
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 021c9868f37f1aef0800000000000000
-      internalID: -98525864613265120
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Grace Window_3
-      rect:
-        serializedVersion: 2
-        x: 1140
-        y: 549
-        width: 22
-        height: 21
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 35438a2ddfba2a7f0800000000000000
-      internalID: -602730293464910765
+      spriteID: cd3219220faadc9f0800000000000000
+      internalID: -446512839691000868
       vertices: []
       indices: 
       edges: []
@@ -211,9 +136,6 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       Grace Window_0: -446512839691000868
-      Grace Window_1: -8769497213756151161
-      Grace Window_2: -98525864613265120
-      Grace Window_3: -602730293464910765
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

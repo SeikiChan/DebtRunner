@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Loaded Chamber
   description: +0.01% card damage.
   icon: {fileID: 0}
-  price: 12000
+  price: 5600
   rarity: 2
   weightPercent: 11
   effects:

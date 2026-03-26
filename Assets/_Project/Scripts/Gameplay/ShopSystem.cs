@@ -96,6 +96,11 @@ public class ShopSystem : MonoBehaviour
     [SerializeField, Min(0f)] private float lateRoundPriceSurgePercent = 0.25f;
     [SerializeField, Min(1)] private int lateRoundRefreshSurgeStartRound = 6;
     [SerializeField, Min(0f)] private float lateRoundRefreshSurgePercent = 0.18f;
+    [Header("Pre-Boss Investment Pricing")]
+    [SerializeField] private bool useFixedPreBossInvestmentPricing = true;
+    [SerializeField, Min(0.01f)] private float preBossInvestmentPriceMultiplier = 1f;
+    [SerializeField, Min(1)] private int preBossInvestmentMinPrice = 3500;
+    [SerializeField, Min(1)] private int preBossInvestmentMaxPrice = 9800;
     [SerializeField] private bool usePreBossInvestmentShop = true;
     [SerializeField] private string preBossShopInfoMessage = "INVEST IN YOURSELF. BURN THE CASH BEFORE THE BOSS.";
     [SerializeField] private string preBossRoundLabel = "BOSS PREP";
@@ -843,7 +848,20 @@ public class ShopSystem : MonoBehaviour
             return 0;
 
         ShopRarityStyle style = ResolveRarityStyle(offer.definition.Rarity);
-        float scaledPrice = Mathf.Max(0, offer.definition.Price) * GetItemPriceScaleForCurrentRound() * style.priceMultiplier;
+        float basePrice = Mathf.Max(0, offer.definition.Price) * style.priceMultiplier;
+
+        if (IsPreBossInvestmentShopActive())
+        {
+            int scaledPreBossPrice = Mathf.Max(0, Mathf.RoundToInt(basePrice * Mathf.Max(0.01f, preBossInvestmentPriceMultiplier)));
+            if (!useFixedPreBossInvestmentPricing)
+                return scaledPreBossPrice;
+
+            int minPrice = Mathf.Max(1, preBossInvestmentMinPrice);
+            int maxPrice = Mathf.Max(minPrice, preBossInvestmentMaxPrice);
+            return Mathf.Clamp(scaledPreBossPrice, minPrice, maxPrice);
+        }
+
+        float scaledPrice = basePrice * GetItemPriceScaleForCurrentRound();
         return Mathf.Max(0, Mathf.RoundToInt(scaledPrice));
     }
 

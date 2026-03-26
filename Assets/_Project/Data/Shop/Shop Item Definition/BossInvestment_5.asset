@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Grace Period
   description: +0.01s hit i-frames.
   icon: {fileID: 0}
-  price: 15000
+  price: 7600
   rarity: 3
   weightPercent: 8
   effects:

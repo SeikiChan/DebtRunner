@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Vaulted Relic
   description: Collectible relic. +0.01% move, damage, fire rate, projectile speed.
   icon: {fileID: 0}
-  price: 50000
+  price: 9800
   rarity: 4
   weightPercent: 2
   effects:

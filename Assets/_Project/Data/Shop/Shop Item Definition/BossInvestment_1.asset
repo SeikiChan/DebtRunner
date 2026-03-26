@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Skiptrace Tuition
   description: +0.01% move speed.
   icon: {fileID: 0}
-  price: 10000
+  price: 4200
   rarity: 2
   weightPercent: 12
   effects:

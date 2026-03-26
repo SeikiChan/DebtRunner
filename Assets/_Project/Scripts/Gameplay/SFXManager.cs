@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class SFXManager : MonoBehaviour
 {
+    private static readonly int[] PickupComboScaleSemitoneSteps = { 0, 3, 5, 7, 10, 12, 15 };
+
     private static SFXManager instance;
     private static bool isCreatingInstance;
 
@@ -48,17 +50,19 @@ public class SFXManager : MonoBehaviour
 
     [Header("Pickup Combo")]
     [SerializeField] private bool enablePickupComboPitchRamp = true;
-    [SerializeField, Min(0.01f)] private float pickupComboResetSeconds = 0.24f;
-    [SerializeField, Min(0f)] private float pickupComboPitchStep = 0.025f;
-    [SerializeField, Min(0.8f)] private float pickupComboMaxPitch = 1.16f;
-    [SerializeField, Min(0.5f)] private float pickupCollectBasePitch = 0.97f;
-    [SerializeField, Min(0f)] private float pickupCollectPitchJitter = 0.012f;
-    [SerializeField, Min(0f)] private float pickupCollectMinIntervalSeconds = 0.022f;
-    [SerializeField, Min(0f)] private float pickupCollectAttackSeconds = 0.006f;
-    [SerializeField, Min(0f)] private float pickupCollectReleaseSeconds = 0.045f;
-    [SerializeField, Min(0.01f)] private float pickupCollectBurstWindowSeconds = 0.11f;
-    [SerializeField, Range(0f, 1f)] private float pickupCollectBurstVolumeDuckPerLayer = 0.16f;
-    [SerializeField, Range(0f, 1f)] private float pickupCollectMinBurstVolumeMultiplier = 0.55f;
+    [SerializeField, Min(0.01f)] private float pickupComboResetSeconds = 0.55f;
+    [SerializeField, Min(0f)] private float pickupComboPitchStep = 0.06f;
+    [SerializeField] private bool usePickupComboScaleSteps = true;
+    [SerializeField, Min(1)] private int pickupComboStepRepeatCount = 1;
+    [SerializeField, Min(0.8f)] private float pickupComboMaxPitch = 1.34f;
+    [SerializeField, Min(0.5f)] private float pickupCollectBasePitch = 0.84f;
+    [SerializeField, Min(0f)] private float pickupCollectPitchJitter = 0.001f;
+    [SerializeField, Min(0f)] private float pickupCollectMinIntervalSeconds = 0.018f;
+    [SerializeField, Min(0f)] private float pickupCollectAttackSeconds = 0.003f;
+    [SerializeField, Min(0f)] private float pickupCollectReleaseSeconds = 0.055f;
+    [SerializeField, Min(0.01f)] private float pickupCollectBurstWindowSeconds = 0.18f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectBurstVolumeDuckPerLayer = 0.10f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectMinBurstVolumeMultiplier = 0.72f;
     [SerializeField, Min(1)] private int pooled2DOneShotSources = 8;
 
     private readonly List<AudioSource> extra2DOneShotPool = new List<AudioSource>(8);
@@ -70,6 +74,7 @@ public class SFXManager : MonoBehaviour
     private bool pickupCollectQueued;
     private AudioClip queuedPickupCollectClip;
     private float queuedPickupCollectVolumeScale;
+    private int queuedPickupCollectCount;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void ResetStaticReference()
@@ -131,10 +136,11 @@ public class SFXManager : MonoBehaviour
             pickupCollectQueued = true;
             queuedPickupCollectClip = clip;
             queuedPickupCollectVolumeScale = Mathf.Max(queuedPickupCollectVolumeScale, Mathf.Max(0f, volumeScale));
+            queuedPickupCollectCount += 1;
             return;
         }
 
-        PlayPickupCollectNow(clip, volumeScale, now);
+        PlayPickupCollectNow(clip, volumeScale, now, 1);
     }
 
     public void PlayAtPoint(AudioClip clip, Vector3 position, float volumeScale = 1f)
@@ -213,20 +219,22 @@ public class SFXManager : MonoBehaviour
 
         AudioClip clip = queuedPickupCollectClip;
         float volumeScale = queuedPickupCollectVolumeScale;
+        int collectCount = Mathf.Max(1, queuedPickupCollectCount);
 
         pickupCollectQueued = false;
         queuedPickupCollectClip = null;
         queuedPickupCollectVolumeScale = 0f;
+        queuedPickupCollectCount = 0;
 
-        PlayPickupCollectNow(clip, volumeScale, now);
+        PlayPickupCollectNow(clip, volumeScale, now, collectCount);
     }
 
-    private void PlayPickupCollectNow(AudioClip clip, float volumeScale, float now)
+    private void PlayPickupCollectNow(AudioClip clip, float volumeScale, float now, int comboAdvanceCount)
     {
         if (clip == null)
             return;
 
-        float pitch = GetPickupCollectPitch(now);
+        float pitch = GetPickupCollectPitch(now, comboAdvanceCount);
         float overlapVolumeMultiplier = GetPickupCollectOverlapVolumeMultiplier(now);
         float effectiveVolumeScale = Mathf.Max(0f, volumeScale) * overlapVolumeMultiplier;
 
@@ -241,7 +249,7 @@ public class SFXManager : MonoBehaviour
         recentPickupPlaybackTimes.Add(now);
     }
 
-    private float GetPickupCollectPitch(float now)
+    private float GetPickupCollectPitch(float now, int comboAdvanceCount)
     {
         float basePitch = Mathf.Max(0.1f, pickupCollectBasePitch);
         float maxPitch = Mathf.Max(basePitch, pickupComboMaxPitch);
@@ -252,9 +260,19 @@ public class SFXManager : MonoBehaviour
             if (now - lastPickupCollectTime > Mathf.Max(0.01f, pickupComboResetSeconds))
                 pickupComboChainCount = 0;
 
-            pickupComboChainCount++;
+            pickupComboChainCount += Mathf.Max(1, comboAdvanceCount);
             lastPickupCollectTime = now;
-            pitch += Mathf.Max(0f, pickupComboPitchStep) * Mathf.Max(0, pickupComboChainCount - 1);
+            int stepIndex = GetPickupComboStepIndex();
+            if (usePickupComboScaleSteps)
+            {
+                int semitone = PickupComboScaleSemitoneSteps[Mathf.Min(stepIndex, PickupComboScaleSemitoneSteps.Length - 1)];
+                pitch = basePitch * Mathf.Pow(2f, semitone / 12f);
+            }
+            else
+            {
+                pitch += Mathf.Max(0f, pickupComboPitchStep) * stepIndex;
+            }
+
             pitch = Mathf.Min(maxPitch, pitch);
         }
 
@@ -263,6 +281,13 @@ public class SFXManager : MonoBehaviour
             pitch += Random.Range(-jitter, jitter);
 
         return Mathf.Clamp(pitch, 0.1f, maxPitch);
+    }
+
+    private int GetPickupComboStepIndex()
+    {
+        int repeatCount = Mathf.Max(1, pickupComboStepRepeatCount);
+        int chainOffset = Mathf.Max(0, pickupComboChainCount - 1);
+        return chainOffset / repeatCount;
     }
 
     private float GetPickupCollectOverlapVolumeMultiplier(float now)

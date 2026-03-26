@@ -15,7 +15,7 @@ MonoBehaviour:
   itemTitle: Air Corridor
   description: +0.01% projectile speed.
   icon: {fileID: 0}
-  price: 9500
+  price: 3500
   rarity: 1
   weightPercent: 10
   effects:

@@ -142,7 +142,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CashPickup
   amount: 20
-  sfxCollect: {fileID: 0}
+  sfxCollect: {fileID: 8300000, guid: 1c4fadba216d32c48a3db61004b004cc, type: 3}
   magnetRadius: 2.6
   magnetSpeed: 8
   autoCollectDistance: 0.18
