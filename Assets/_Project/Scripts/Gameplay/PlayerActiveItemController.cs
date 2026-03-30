@@ -76,7 +76,7 @@ public class PlayerActiveItemController : MonoBehaviour
         {
             itemId = ActiveItemId.SkiptraceBurst,
             displayName = "Skiptrace Burst",
-            cooldownSeconds = 2f,
+            cooldownSeconds = 1f,
             dashImpulse = 18f,
             dashInvulnerabilitySeconds = 0.28f,
         },
@@ -96,7 +96,7 @@ public class PlayerActiveItemController : MonoBehaviour
             displayName = "Grace Window",
             cooldownSeconds = 16f,
             activeDurationSeconds = 4f,
-            moveSpeedPercent = 60f,
+            moveSpeedPercent = 25f,
             buffInvulnerabilitySeconds = 1.2f,
         },
     };
@@ -277,7 +277,9 @@ public class PlayerActiveItemController : MonoBehaviour
             return;
 
         activeDurationRemaining = Mathf.Max(0f, profile.activeDurationSeconds);
-        appliedMoveSpeedPercent = Mathf.Max(0f, profile.moveSpeedPercent);
+        // Active item profiles store percentages in whole-number form (25 = 25%),
+        // while PlayerMotor2D expects a normalized bonus (0.25 = +25%).
+        appliedMoveSpeedPercent = Mathf.Max(0f, profile.moveSpeedPercent) / 100f;
 
         if (appliedMoveSpeedPercent > 0f && playerMotor != null)
             playerMotor.AddMoveSpeedPercent(appliedMoveSpeedPercent);

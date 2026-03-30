@@ -6,6 +6,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Selectable))]
 public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselectHandler, IPointerEnterHandler, IPointerExitHandler
 {
+    private const string TransparentOutlineButtonName = "Btn_Mute";
     [SerializeField] private Graphic focusGraphic;
     [SerializeField] private bool useScaleEffect = true;
     [SerializeField, Min(1f)] private float focusedScaleMultiplier = 1.05f;
@@ -30,6 +31,9 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
         rectTransform = transform as RectTransform;
         if (rectTransform != null)
             baseScale = rectTransform.localScale;
+
+        if (string.Equals(gameObject.name, TransparentOutlineButtonName, System.StringComparison.Ordinal))
+            focusOutlineColor = new Color(focusOutlineColor.r, focusOutlineColor.g, focusOutlineColor.b, 0f);
 
         ResolveFocusGraphicAndOutline();
         focused = false;
@@ -91,6 +95,9 @@ public class UIKeyboardFocusIndicator : MonoBehaviour, ISelectHandler, IDeselect
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (GameFlowController.Instance != null && !GameFlowController.Instance.IsMousePointerInteractionAllowed)
+            return;
+
         hovered = true;
         ApplyVisualState(immediateScale: false);
     }

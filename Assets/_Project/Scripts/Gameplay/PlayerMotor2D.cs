@@ -74,9 +74,15 @@ public class PlayerMotor2D : MonoBehaviour
     public void ResetForNewRun()
     {
         ResetRuntimeStats();
+        ResetForRoundStart();
+    }
+
+    public void ResetForRoundStart()
+    {
         moveInput = Vector2.zero;
         lastMoveDir = Vector2.right;
         horizontalFacing = 1;
+        externalVelocity = Vector2.zero;
 
         Vector3 runStartPosition = ResolveRunStartPosition();
         transform.SetPositionAndRotation(runStartPosition, spawnRotation);

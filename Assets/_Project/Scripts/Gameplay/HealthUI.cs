@@ -5,6 +5,7 @@ using TMPro;
 public class HealthUI : MonoBehaviour
 {
     private static Sprite runtimeShieldFallbackSprite;
+    private static Sprite runtimeLowHealthEdgeWarningSprite;
 
     private enum DisplayMode
     {
@@ -22,6 +23,22 @@ public class HealthUI : MonoBehaviour
     [SerializeField] private Image numericShieldIcon;
     [SerializeField] private TMP_Text numericShieldText;
     [SerializeField] private string numericValuePrefix = "X";
+    [SerializeField] private bool showMaxHealthInNumericDisplay = true;
+    [SerializeField] private string numericHealthSeparator = " / ";
+    [SerializeField, Range(0.01f, 1f)] private float lowHealthWarningThresholdNormalized = 0.45f;
+    [SerializeField, Range(0.01f, 1f)] private float lowHealthCriticalThresholdNormalized = 0.22f;
+    [SerializeField] private Color numericHealthWarningColor = new Color(1f, 0.76f, 0.24f, 1f);
+    [SerializeField] private Color numericHealthCriticalColor = new Color(1f, 0.30f, 0.30f, 1f);
+    [SerializeField] private bool pulseLowHealthNumericDisplay = true;
+    [SerializeField, Min(0.01f)] private float lowHealthPulseSpeed = 6f;
+    [SerializeField, Range(1f, 1.5f)] private float lowHealthWarningPulseScale = 1.06f;
+    [SerializeField, Range(1f, 1.5f)] private float lowHealthCriticalPulseScale = 1.12f;
+    [Header("Low Health Edge Warning")]
+    [SerializeField, Min(1)] private int lowHealthEdgeWarningHpThreshold = 2;
+    [SerializeField] private Color lowHealthEdgeWarningColor = new Color(1f, 0.08f, 0.08f, 0.72f);
+    [SerializeField, Range(0f, 1f)] private float lowHealthEdgeWarningMinAlpha = 0.18f;
+    [SerializeField, Range(0f, 1f)] private float lowHealthEdgeWarningMaxAlpha = 0.42f;
+    [SerializeField, Min(0.01f)] private float lowHealthEdgeWarningPulseSpeed = 3.2f;
     [SerializeField] private float spacing = 10f;
     [SerializeField, Min(1)] private int maxIconsPerRow = 5;
     [SerializeField, Min(0f)] private float rowSpacing = 18f;
@@ -42,6 +59,14 @@ public class HealthUI : MonoBehaviour
     private int lastMaxHP = -1;
     private int lastShieldCharges = -1;
     private Coroutine shopRevealCo;
+    private Color numericHealthTextBaseColor = Color.white;
+    private Color numericHealthIconBaseColor = Color.white;
+    private Vector3 numericHealthTextBaseScale = Vector3.one;
+    private Vector3 numericHealthIconBaseScale = Vector3.one;
+    private bool numericVisualDefaultsCached;
+    private Image lowHealthEdgeWarningImage;
+    private CanvasGroup lowHealthEdgeWarningCanvasGroup;
+    private bool lowHealthEdgeWarningOverlayAutoCreated;
 
     private bool UseNumericDisplay => displayMode == DisplayMode.Numeric;
 
@@ -50,8 +75,18 @@ public class HealthUI : MonoBehaviour
         lastHP = -1;
         lastMaxHP = -1;
         lastShieldCharges = -1;
+        ResetLowHealthVisualState();
         if (playerHealth != null && (healthIcons != null || UseNumericDisplay))
+        {
             UpdateHealthUI();
+            RefreshLowHealthVisibility(playerHealth.CurrentHP, playerHealth.MaxHP);
+            RefreshLowHealthEdgeWarning(playerHealth.CurrentHP);
+        }
+    }
+
+    private void OnDisable()
+    {
+        ResetLowHealthVisualState();
     }
 
     public void SetHiddenForShop(bool hideNow)
@@ -126,6 +161,8 @@ public class HealthUI : MonoBehaviour
         lastHP = playerHealth.CurrentHP;
         lastMaxHP = playerHealth.MaxHP;
         UpdateHealthUI();
+        EnsureLowHealthEdgeWarningOverlay();
+        RefreshLowHealthEdgeWarning(playerHealth.CurrentHP);
     }
 
     private void CreateHealthIcons()
@@ -204,6 +241,9 @@ public class HealthUI : MonoBehaviour
             lastShieldCharges = currentShieldCharges;
             UpdateHealthUI();
         }
+
+        RefreshLowHealthVisibility(currentHP, currentMaxHP);
+        RefreshLowHealthEdgeWarning(currentHP);
     }
 
     private void UpdateHealthUI()
@@ -254,6 +294,8 @@ public class HealthUI : MonoBehaviour
 
         if (numericShieldText == null)
             numericShieldText = transform.Find("Text_ShieldValue")?.GetComponent<TMP_Text>();
+
+        CacheNumericVisualDefaults();
     }
 
     private void UpdateNumericUI(int currentHP, int shieldCharges)
@@ -262,7 +304,13 @@ public class HealthUI : MonoBehaviour
             numericHealthIcon.enabled = true;
 
         if (numericHealthText != null)
-            numericHealthText.text = $"{numericValuePrefix}{Mathf.Max(0, currentHP)}";
+        {
+            int safeCurrentHp = Mathf.Max(0, currentHP);
+            int safeMaxHp = playerHealth != null ? Mathf.Max(1, playerHealth.MaxHP) : Mathf.Max(1, safeCurrentHp);
+            numericHealthText.text = showMaxHealthInNumericDisplay
+                ? $"{safeCurrentHp}{numericHealthSeparator}{safeMaxHp}"
+                : $"{numericValuePrefix}{safeCurrentHp}";
+        }
 
         bool showShield = numericShieldIcon != null || numericShieldText != null;
         if (!showShield)
@@ -273,6 +321,210 @@ public class HealthUI : MonoBehaviour
 
         if (numericShieldText != null)
             numericShieldText.text = $"{numericValuePrefix}{Mathf.Max(0, shieldCharges)}";
+    }
+
+    private void CacheNumericVisualDefaults()
+    {
+        if (!UseNumericDisplay)
+            return;
+
+        if (numericHealthText != null)
+        {
+            numericHealthTextBaseColor = numericHealthText.color;
+            numericHealthTextBaseScale = numericHealthText.rectTransform.localScale;
+            numericVisualDefaultsCached = true;
+        }
+
+        if (numericHealthIcon != null)
+        {
+            numericHealthIconBaseColor = numericHealthIcon.color;
+            numericHealthIconBaseScale = numericHealthIcon.rectTransform.localScale;
+            numericVisualDefaultsCached = true;
+        }
+    }
+
+    private void RefreshLowHealthVisibility(int currentHP, int currentMaxHP)
+    {
+        if (!UseNumericDisplay)
+            return;
+
+        if (!numericVisualDefaultsCached)
+            CacheNumericVisualDefaults();
+
+        if (numericHealthText == null && numericHealthIcon == null)
+            return;
+
+        float safeMaxHp = Mathf.Max(1f, currentMaxHP);
+        float healthRatio = Mathf.Clamp01(Mathf.Max(0, currentHP) / safeMaxHp);
+        float warningThreshold = Mathf.Clamp01(lowHealthWarningThresholdNormalized);
+        float criticalThreshold = Mathf.Clamp01(Mathf.Min(lowHealthCriticalThresholdNormalized, warningThreshold));
+
+        Color targetTextColor = numericHealthTextBaseColor;
+        Color targetIconColor = numericHealthIconBaseColor;
+        float pulseScale = 1f;
+
+        if (healthRatio <= criticalThreshold)
+        {
+            targetTextColor = numericHealthCriticalColor;
+            targetIconColor = numericHealthCriticalColor;
+            pulseScale = pulseLowHealthNumericDisplay
+                ? Mathf.Lerp(1f, Mathf.Max(1f, lowHealthCriticalPulseScale), 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.Max(0.01f, lowHealthPulseSpeed)))
+                : 1f;
+        }
+        else if (healthRatio <= warningThreshold)
+        {
+            float t = warningThreshold <= criticalThreshold
+                ? 1f
+                : Mathf.InverseLerp(warningThreshold, criticalThreshold, healthRatio);
+            targetTextColor = Color.Lerp(numericHealthWarningColor, numericHealthCriticalColor, t);
+            targetIconColor = targetTextColor;
+            pulseScale = pulseLowHealthNumericDisplay
+                ? Mathf.Lerp(1f, Mathf.Max(1f, lowHealthWarningPulseScale), 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.Max(0.01f, lowHealthPulseSpeed)))
+                : 1f;
+        }
+
+        if (numericHealthText != null)
+        {
+            numericHealthText.color = targetTextColor;
+            numericHealthText.rectTransform.localScale = numericHealthTextBaseScale * pulseScale;
+        }
+
+        if (numericHealthIcon != null)
+        {
+            numericHealthIcon.color = targetIconColor;
+            numericHealthIcon.rectTransform.localScale = numericHealthIconBaseScale * pulseScale;
+        }
+    }
+
+    private void ResetLowHealthVisualState()
+    {
+        if (!numericVisualDefaultsCached)
+            CacheNumericVisualDefaults();
+
+        if (numericHealthText != null)
+        {
+            numericHealthText.color = numericHealthTextBaseColor;
+            numericHealthText.rectTransform.localScale = numericHealthTextBaseScale;
+        }
+
+        if (numericHealthIcon != null)
+        {
+            numericHealthIcon.color = numericHealthIconBaseColor;
+            numericHealthIcon.rectTransform.localScale = numericHealthIconBaseScale;
+        }
+
+        if (lowHealthEdgeWarningCanvasGroup != null)
+            lowHealthEdgeWarningCanvasGroup.alpha = 0f;
+    }
+
+    private void EnsureLowHealthEdgeWarningOverlay()
+    {
+        if (lowHealthEdgeWarningImage != null && lowHealthEdgeWarningCanvasGroup != null)
+            return;
+
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        if (parentCanvas == null)
+            parentCanvas = FindObjectOfType<Canvas>();
+        if (parentCanvas == null)
+            return;
+
+        Transform existing = parentCanvas.transform.Find("LowHealthEdgeWarningOverlay");
+        if (existing != null)
+        {
+            lowHealthEdgeWarningCanvasGroup = existing.GetComponent<CanvasGroup>();
+            lowHealthEdgeWarningImage = existing.GetComponent<Image>();
+            return;
+        }
+
+        GameObject overlayRoot = new GameObject(
+            "LowHealthEdgeWarningOverlay",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(Image));
+        RectTransform overlayRect = overlayRoot.GetComponent<RectTransform>();
+        overlayRect.SetParent(parentCanvas.transform, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+        overlayRect.SetAsLastSibling();
+
+        lowHealthEdgeWarningCanvasGroup = overlayRoot.GetComponent<CanvasGroup>();
+        lowHealthEdgeWarningCanvasGroup.alpha = 0f;
+        lowHealthEdgeWarningCanvasGroup.blocksRaycasts = false;
+        lowHealthEdgeWarningCanvasGroup.interactable = false;
+
+        lowHealthEdgeWarningImage = overlayRoot.GetComponent<Image>();
+        lowHealthEdgeWarningImage.sprite = ResolveLowHealthEdgeWarningSprite();
+        lowHealthEdgeWarningImage.color = lowHealthEdgeWarningColor;
+        lowHealthEdgeWarningImage.type = Image.Type.Simple;
+        lowHealthEdgeWarningImage.preserveAspect = false;
+        lowHealthEdgeWarningImage.raycastTarget = false;
+
+        lowHealthEdgeWarningOverlayAutoCreated = true;
+    }
+
+    private void RefreshLowHealthEdgeWarning(int currentHP)
+    {
+        EnsureLowHealthEdgeWarningOverlay();
+        if (lowHealthEdgeWarningCanvasGroup == null || lowHealthEdgeWarningImage == null)
+            return;
+
+        bool shouldShow =
+            playerHealth != null &&
+            !playerHealth.IsDead &&
+            currentHP <= Mathf.Max(1, lowHealthEdgeWarningHpThreshold) &&
+            (GameFlowController.Instance == null || GameFlowController.Instance.IsInGameplayState);
+
+        if (!shouldShow)
+        {
+            lowHealthEdgeWarningCanvasGroup.alpha = 0f;
+            return;
+        }
+
+        float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.Max(0.01f, lowHealthEdgeWarningPulseSpeed));
+        lowHealthEdgeWarningCanvasGroup.alpha = Mathf.Lerp(
+            Mathf.Clamp01(lowHealthEdgeWarningMinAlpha),
+            Mathf.Clamp01(lowHealthEdgeWarningMaxAlpha),
+            pulse);
+        lowHealthEdgeWarningImage.color = lowHealthEdgeWarningColor;
+    }
+
+    private static Sprite ResolveLowHealthEdgeWarningSprite()
+    {
+        if (runtimeLowHealthEdgeWarningSprite != null)
+            return runtimeLowHealthEdgeWarningSprite;
+
+        const int size = 128;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.name = "RuntimeLowHealthEdgeWarning";
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+
+        Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+        float maxDistance = center.magnitude;
+        Color clear = new Color(1f, 1f, 1f, 0f);
+        Color solid = new Color(1f, 1f, 1f, 1f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 pos = new Vector2(x, y);
+                float distance01 = Vector2.Distance(pos, center) / Mathf.Max(0.0001f, maxDistance);
+                float alpha = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 1f, distance01));
+                texture.SetPixel(x, y, Color.Lerp(clear, solid, alpha));
+            }
+        }
+
+        texture.Apply(false, true);
+        runtimeLowHealthEdgeWarningSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        runtimeLowHealthEdgeWarningSprite.name = "RuntimeLowHealthEdgeWarning";
+        return runtimeLowHealthEdgeWarningSprite;
     }
 
     private System.Collections.IEnumerator AnimateHealthIcon(Image icon, Color targetColor)

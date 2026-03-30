@@ -32,8 +32,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.54912, y: 0.54137, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.8, y: 0.8, z: 0.8}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -290,20 +290,20 @@ MonoBehaviour:
   sfxDeathVolume: 0.9
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
-  spriteHitboxScale: 1.02
-  maxHP: 1000
-  cashValue: 60
-  xpDrop: 20
+  spriteHitboxScale: 1
+  maxHP: 10000
+  cashValue: 0
+  xpDrop: 0
   cashPickupPrefab: {fileID: 0}
   pickupDropScatterRadius: 0.26
   pickupDropInnerRadiusRatio: 0.35
   pickupDropVerticalOffset: 0.05
   pickupDropMinSeparation: 0.28
   pickupDropPositionAttempts: 12
-  damagePopupColor: {r: 0.30495724, g: 0.75059134, b: 0.8396226, a: 1}
+  damagePopupColor: {r: 0.972549, g: 0.1764706, b: 0.14509805, a: 1}
   damagePopupFont: {fileID: 11400000, guid: 5ed8fdb7bcf15f247993ac9ea8fffd06, type: 2}
-  damagePopupTextSize: 20
-  damagePopupTextScale: 0.12
+  damagePopupTextSize: 15
+  damagePopupTextScale: 0.5
   damagePopupRiseSpeed: 1.5
   damagePopupLifetime: 0.9
   damagePopupFadeOutDuration: 0.35

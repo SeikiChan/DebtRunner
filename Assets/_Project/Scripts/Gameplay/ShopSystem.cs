@@ -25,6 +25,9 @@ public class ShopSystem : MonoBehaviour
         public TMP_Text buyButtonLabel;
         [LocalizedLabel("Icon Image / 图标")]
         public Image iconImage;
+        [NonSerialized] public RectTransform iconRect;
+        [NonSerialized] public Vector2 iconBaseSize;
+        [NonSerialized] public bool hasCachedIconSize;
     }
 
     [Serializable]
@@ -170,6 +173,7 @@ public class ShopSystem : MonoBehaviour
     [SerializeField, Min(8f)] private float offerTitleMaxFontSize = 29f;
     [SerializeField, Min(8f)] private float offerDescriptionMinFontSize = 12f;
     [SerializeField, Min(8f)] private float offerDescriptionMaxFontSize = 22f;
+    [SerializeField, Range(0.5f, 1f)] private float offerIconFitPadding = 0.86f;
 
     private readonly ShopOffer[] currentOffers = new ShopOffer[3];
 
@@ -321,11 +325,7 @@ public class ShopSystem : MonoBehaviour
                 if (ui.priceText != null) ui.priceText.text = "";
                 if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = "N/A";
                 if (ui.buyButton != null) ui.buyButton.interactable = false;
-                if (ui.iconImage != null)
-                {
-                    ui.iconImage.sprite = null;
-                    ui.iconImage.enabled = false;
-                }
+                ApplyOfferIcon(ui, null);
                 continue;
             }
 
@@ -333,11 +333,7 @@ public class ShopSystem : MonoBehaviour
             if (ui.titleText != null) ui.titleText.text = offer.definition.ItemTitle;
             if (ui.descText != null) ui.descText.text = offer.definition.Description;
             ApplyOfferTextLayout(ui);
-            if (ui.iconImage != null)
-            {
-                ui.iconImage.sprite = offer.definition.Icon;
-                ui.iconImage.enabled = offer.definition.Icon != null;
-            }
+            ApplyOfferIcon(ui, offer.definition.Icon);
 
             if (offer.purchased)
             {
@@ -375,6 +371,56 @@ public class ShopSystem : MonoBehaviour
             offerDescriptionMaxWidth,
             offerDescriptionMinFontSize,
             offerDescriptionMaxFontSize);
+    }
+
+    private void ApplyOfferIcon(ShopItemUIRefs ui, Sprite icon)
+    {
+        if (ui == null || ui.iconImage == null)
+            return;
+
+        CacheOfferIconLayout(ui);
+
+        ui.iconImage.sprite = icon;
+        ui.iconImage.enabled = icon != null;
+        ui.iconImage.preserveAspect = true;
+
+        if (ui.iconRect == null || !ui.hasCachedIconSize)
+            return;
+
+        ui.iconRect.sizeDelta = ui.iconBaseSize;
+        if (icon == null)
+            return;
+
+        float spriteWidth = Mathf.Max(1f, icon.rect.width);
+        float spriteHeight = Mathf.Max(1f, icon.rect.height);
+        float aspect = spriteWidth / spriteHeight;
+
+        float maxWidth = Mathf.Max(1f, ui.iconBaseSize.x * Mathf.Clamp(offerIconFitPadding, 0.5f, 1f));
+        float maxHeight = Mathf.Max(1f, ui.iconBaseSize.y * Mathf.Clamp(offerIconFitPadding, 0.5f, 1f));
+
+        float fittedWidth = maxWidth;
+        float fittedHeight = fittedWidth / aspect;
+        if (fittedHeight > maxHeight)
+        {
+            fittedHeight = maxHeight;
+            fittedWidth = fittedHeight * aspect;
+        }
+
+        ui.iconRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, fittedWidth);
+        ui.iconRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, fittedHeight);
+    }
+
+    private static void CacheOfferIconLayout(ShopItemUIRefs ui)
+    {
+        if (ui == null || ui.iconImage == null || ui.hasCachedIconSize)
+            return;
+
+        ui.iconRect = ui.iconImage.rectTransform;
+        if (ui.iconRect == null)
+            return;
+
+        ui.iconBaseSize = ui.iconRect.sizeDelta;
+        ui.hasCachedIconSize = true;
     }
 
     private static void ConfigureOfferText(TMP_Text text, float maxWidth, float minFontSize, float maxFontSize)
@@ -513,9 +559,9 @@ public class ShopSystem : MonoBehaviour
                 remainingEntries.Add(entry);
         }
 
-        if (ShouldGuaranteeActiveItemOffer())
+        if (ShouldGuaranteeActiveItemOffer(equippedActiveItem))
         {
-            List<ShopItemDefinition> activeCandidates = remainingEntries.FindAll(IsActiveItemDefinition);
+            List<ShopItemDefinition> activeCandidates = remainingEntries.FindAll(IsShopOfferableActiveItemDefinition);
             List<ShopItemDefinition> guaranteedActivePick = WeightedPickerUtility.PickUnique(
                 activeCandidates,
                 1,
@@ -556,11 +602,9 @@ public class ShopSystem : MonoBehaviour
         RefreshShopUI();
     }
 
-    private bool ShouldGuaranteeActiveItemOffer()
+    private bool ShouldGuaranteeActiveItemOffer(ActiveItemId equippedActiveItem)
     {
-        return !IsPreBossInvestmentShopActive()
-            && gameFlow != null
-            && !gameFlow.HasPurchasedActiveItem();
+        return !IsPreBossInvestmentShopActive() && equippedActiveItem == ActiveItemId.None;
     }
 
     private static bool IsActiveItemDefinition(ShopItemDefinition definition)
@@ -568,29 +612,35 @@ public class ShopSystem : MonoBehaviour
         return TryGetActiveItemId(definition, out _);
     }
 
+    private static bool IsShopOfferableActiveItemDefinition(ShopItemDefinition definition)
+    {
+        return TryGetActiveItemId(definition, out ActiveItemId itemId)
+            && IsSupportedShopActiveItem(itemId);
+    }
+
+    private static bool IsSupportedShopActiveItem(ActiveItemId itemId)
+    {
+        return itemId == ActiveItemId.SkiptraceBurst;
+    }
+
     private static bool TryGetActiveItemId(ShopItemDefinition definition, out ActiveItemId itemId)
     {
         itemId = ActiveItemId.None;
-        if (definition == null || definition.Effects == null)
+        if (definition == null)
             return false;
 
-        for (int i = 0; i < definition.Effects.Count; i++)
-        {
-            ShopItemEffect effect = definition.Effects[i];
-            if (effect != null && effect.effectType == ShopItemEffectType.EquipActiveItem)
-            {
-                itemId = (ActiveItemId)effect.intValue;
-                return itemId != ActiveItemId.None;
-            }
-        }
-
-        return false;
+        return definition.TryResolveActiveItemId(out itemId);
     }
 
     private static bool ShouldExcludeDefinitionFromOfferPool(ShopItemDefinition definition, ActiveItemId equippedActiveItem)
     {
+        if (!TryGetActiveItemId(definition, out ActiveItemId definitionItemId))
+            return false;
+
+        if (!IsSupportedShopActiveItem(definitionItemId))
+            return true;
+
         return equippedActiveItem != ActiveItemId.None
-            && TryGetActiveItemId(definition, out ActiveItemId definitionItemId)
             && definitionItemId == equippedActiveItem;
     }
 

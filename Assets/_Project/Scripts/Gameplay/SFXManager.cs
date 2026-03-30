@@ -54,15 +54,15 @@ public class SFXManager : MonoBehaviour
     [SerializeField, Min(0f)] private float pickupComboPitchStep = 0.06f;
     [SerializeField] private bool usePickupComboScaleSteps = true;
     [SerializeField, Min(1)] private int pickupComboStepRepeatCount = 1;
-    [SerializeField, Min(0.8f)] private float pickupComboMaxPitch = 1.34f;
-    [SerializeField, Min(0.5f)] private float pickupCollectBasePitch = 0.84f;
+    [SerializeField, Min(0.8f)] private float pickupComboMaxPitch = 1.26f;
+    [SerializeField, Min(0.5f)] private float pickupCollectBasePitch = 0.82f;
     [SerializeField, Min(0f)] private float pickupCollectPitchJitter = 0.001f;
-    [SerializeField, Min(0f)] private float pickupCollectMinIntervalSeconds = 0.018f;
-    [SerializeField, Min(0f)] private float pickupCollectAttackSeconds = 0.003f;
-    [SerializeField, Min(0f)] private float pickupCollectReleaseSeconds = 0.055f;
-    [SerializeField, Min(0.01f)] private float pickupCollectBurstWindowSeconds = 0.18f;
-    [SerializeField, Range(0f, 1f)] private float pickupCollectBurstVolumeDuckPerLayer = 0.10f;
-    [SerializeField, Range(0f, 1f)] private float pickupCollectMinBurstVolumeMultiplier = 0.72f;
+    [SerializeField, Min(0f)] private float pickupCollectMinIntervalSeconds = 0.022f;
+    [SerializeField, Min(0f)] private float pickupCollectAttackSeconds = 0.008f;
+    [SerializeField, Min(0f)] private float pickupCollectReleaseSeconds = 0.09f;
+    [SerializeField, Min(0.01f)] private float pickupCollectBurstWindowSeconds = 0.26f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectBurstVolumeDuckPerLayer = 0.18f;
+    [SerializeField, Range(0f, 1f)] private float pickupCollectMinBurstVolumeMultiplier = 0.42f;
     [SerializeField, Min(1)] private int pooled2DOneShotSources = 8;
 
     private readonly List<AudioSource> extra2DOneShotPool = new List<AudioSource>(8);

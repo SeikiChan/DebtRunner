@@ -59,7 +59,12 @@ public class StudioSplashScreen : MonoBehaviour
     {
         if (!finished && skipOnClick)
         {
-            if (Input.anyKeyDown || Input.GetMouseButtonDown(0) || GameInput.IsContinuePressed() || GameInput.IsBackPressed())
+            bool mouseClickPressed = Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2);
+            bool mouseInputAllowed = GameFlowController.Instance == null || GameFlowController.Instance.IsMousePointerInteractionAllowed;
+            bool nonMouseKeyPressed = Input.anyKeyDown && !mouseClickPressed;
+            bool allowedMouseSkip = mouseInputAllowed && mouseClickPressed;
+
+            if (nonMouseKeyPressed || allowedMouseSkip || GameInput.IsContinuePressed() || GameInput.IsBackPressed())
                 skipping = true;
         }
     }

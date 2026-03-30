@@ -44,10 +44,13 @@ public class BossHealthBarController : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (GameFlowController.Instance != null && !GameFlowController.Instance.IsInGameplayState)
+        if (GameFlowController.Instance != null)
         {
-            HideOverlay();
-            return;
+            if (!GameFlowController.Instance.IsInGameplayState || GameFlowController.Instance.IsPauseMenuOpen)
+            {
+                HideOverlay();
+                return;
+            }
         }
 
         RefreshTrackedBoss();

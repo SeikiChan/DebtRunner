@@ -115,6 +115,9 @@ public class UpgradeCardHoverLight : MonoBehaviour, IPointerEnterHandler, IPoint
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (GameFlowController.Instance != null && !GameFlowController.Instance.IsMousePointerInteractionAllowed)
+            return;
+
         isHovered = true;
         ApplyVisualState(true, false);
     }

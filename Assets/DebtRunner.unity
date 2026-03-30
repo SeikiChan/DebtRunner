@@ -447,6 +447,7 @@ MonoBehaviour:
   offerTitleMaxFontSize: 29
   offerDescriptionMinFontSize: 12
   offerDescriptionMaxFontSize: 22
+  offerIconFitPadding: 0.86
 --- !u!114 &14025916
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9356,6 +9357,21 @@ MonoBehaviour:
   numericShieldIcon: {fileID: 3100090003}
   numericShieldText: {fileID: 3100100003}
   numericValuePrefix: X
+  showMaxHealthInNumericDisplay: 1
+  numericHealthSeparator: ' / '
+  lowHealthWarningThresholdNormalized: 0.45
+  lowHealthCriticalThresholdNormalized: 0.22
+  numericHealthWarningColor: {r: 1, g: 0.76, b: 0.24, a: 1}
+  numericHealthCriticalColor: {r: 1, g: 0.3, b: 0.3, a: 1}
+  pulseLowHealthNumericDisplay: 1
+  lowHealthPulseSpeed: 6
+  lowHealthWarningPulseScale: 1.06
+  lowHealthCriticalPulseScale: 1.12
+  lowHealthEdgeWarningHpThreshold: 2
+  lowHealthEdgeWarningColor: {r: 1, g: 0.08, b: 0.08, a: 0.72}
+  lowHealthEdgeWarningMinAlpha: 0.18
+  lowHealthEdgeWarningMaxAlpha: 0.42
+  lowHealthEdgeWarningPulseSpeed: 3.2
   spacing: 50
   maxIconsPerRow: 5
   rowSpacing: 18
@@ -17520,7 +17536,13 @@ MonoBehaviour:
   enableKeyboardUINavigation: 1
   useWASDForUINavigation: 1
   useSpaceForUIConfirm: 1
+  titleMuteButtonName: Btn_Mute
+  titleMuteOffIconName: Icon_MuteOff
+  titleMuteOnIconName: Icon_MuteOn
   hideCursorDuringActiveGameplay: 1
+  requireManualMouseCursorSummon: 1
+  mouseCursorWakeDistancePixels: 3
+  mouseCursorIdleHideDelaySeconds: 1.25
   keyboardTabCyclesSelection: 1
   gamepadUINavigationDeadzone: 0.55
   gamepadUINavigationInitialRepeatDelay: 0.24
@@ -17541,6 +17563,7 @@ MonoBehaviour:
   gameplayTutorialMoveLifetime: 5.5
   gameplayTutorialDashLifetime: 5.5
   gameplayTutorialPickupLifetime: 7.5
+  gameplayTutorialRequiredMoveSeconds: 0.8
   gameplayTutorialFontSize: 20
   gameplayTutorialTextScale: 0.17
   gameplayTutorialCompleteFadeDuration: 1.17
@@ -17552,7 +17575,7 @@ MonoBehaviour:
   bossVictoryDissolveSeconds: 2.4
   bossVictoryShardCount: 10
   bossVictoryShardSpeed: 2.2
-  bossVictoryCameraShakeSeconds: 0.55
+  bossVictoryCameraShakeSeconds: 1
   bossVictoryCameraShakeAmplitude: 0.18
   bossVictoryCameraShakeFrequency: 34
   bossVictoryScreenFlashPrimaryColor: {r: 1, g: 1, b: 1, a: 1}
@@ -17774,15 +17797,15 @@ MonoBehaviour:
   pickupComboPitchStep: 0.06
   usePickupComboScaleSteps: 1
   pickupComboStepRepeatCount: 1
-  pickupComboMaxPitch: 1.34
-  pickupCollectBasePitch: 0.84
+  pickupComboMaxPitch: 1.26
+  pickupCollectBasePitch: 0.82
   pickupCollectPitchJitter: 0.001
-  pickupCollectMinIntervalSeconds: 0.018
-  pickupCollectAttackSeconds: 0.003
-  pickupCollectReleaseSeconds: 0.055
-  pickupCollectBurstWindowSeconds: 0.18
-  pickupCollectBurstVolumeDuckPerLayer: 0.1
-  pickupCollectMinBurstVolumeMultiplier: 0.72
+  pickupCollectMinIntervalSeconds: 0.022
+  pickupCollectAttackSeconds: 0.008
+  pickupCollectReleaseSeconds: 0.09
+  pickupCollectBurstWindowSeconds: 0.26
+  pickupCollectBurstVolumeDuckPerLayer: 0.18
+  pickupCollectMinBurstVolumeMultiplier: 0.42
   pooled2DOneShotSources: 8
 --- !u!114 &1102755125
 MonoBehaviour:
@@ -17953,7 +17976,7 @@ MonoBehaviour:
   itemProfiles:
   - itemId: 1
     displayName: Skiptrace Burst
-    cooldownSeconds: 2
+    cooldownSeconds: 1
     activeDurationSeconds: 0
     dashImpulse: 18
     dashInvulnerabilitySeconds: 0.28
@@ -17979,7 +18002,7 @@ MonoBehaviour:
     activeDurationSeconds: 4
     dashImpulse: 0
     dashInvulnerabilitySeconds: 0
-    moveSpeedPercent: 60
+    moveSpeedPercent: 25
     damagePercent: 0
     fireRatePercent: 0
     projectileSpeedPercent: 0
@@ -24652,6 +24675,7 @@ MonoBehaviour:
   defaultFullscreen: 1
   fullscreenMode: 1
   backButton: {fileID: 977997370}
+  keyboardSliderStep: 0.05
 --- !u!114 &1483194452
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -28060,6 +28084,7 @@ RectTransform:
   - {fileID: 491051065}
   - {fileID: 483593545}
   - {fileID: 1900689499}
+  - {fileID: 2119010001}
   - {fileID: 663515211}
   - {fileID: 1510640153}
   - {fileID: 1009603619}
@@ -33581,6 +33606,278 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2109002001}
+  m_CullTransparentMesh: 1
+--- !u!1 &2119010000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2119010001}
+  - component: {fileID: 2119010004}
+  - component: {fileID: 2119010003}
+  - component: {fileID: 2119010002}
+  m_Layer: 0
+  m_Name: Btn_Mute
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2119010001
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010000}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2119010011}
+  - {fileID: 2119010021}
+  m_Father: {fileID: 1699598276}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 768.6534, y: -729.1271}
+  m_SizeDelta: {x: 96, y: 96}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2119010002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 0
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 1, g: 1, b: 1, a: 1}
+    m_PressedColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+    m_SelectedColor: {r: 1, g: 1, b: 1, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 2119010003}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &2119010003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &2119010004
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010000}
+  m_CullTransparentMesh: 1
+--- !u!1 &2119010010
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2119010011}
+  - component: {fileID: 2119010013}
+  - component: {fileID: 2119010012}
+  m_Layer: 0
+  m_Name: Icon_MuteOff
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2119010011
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010010}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2119010001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2119010012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 8081198892514244191, guid: ab63c57d81c78c24180f131c764b9378, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &2119010013
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010010}
+  m_CullTransparentMesh: 1
+--- !u!1 &2119010020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2119010021}
+  - component: {fileID: 2119010023}
+  - component: {fileID: 2119010022}
+  m_Layer: 0
+  m_Name: Icon_MuteOn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &2119010021
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010020}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2119010001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2119010022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 9195250375225370209, guid: e01d4008b6b6eb44188e815cadeb02ee, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &2119010023
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119010020}
   m_CullTransparentMesh: 1
 --- !u!1 &2122128053
 GameObject:

@@ -82,6 +82,10 @@ public static class GameInput
 
     public static Vector2 ReadGameplayMoveInput()
     {
+        GameFlowController flow = GameFlowController.Instance;
+        if (flow != null && flow.IsGameplayTutorialActiveItemOnlyInputActive())
+            return Vector2.zero;
+
         return Vector2.ClampMagnitude(
             new Vector2(GetHorizontalAxisRaw(), GetVerticalAxisRaw()),
             1f);
@@ -89,6 +93,9 @@ public static class GameInput
 
     public static bool IsConfirmPressed()
     {
+        if (ShouldBlockNonTutorialGameplayInputs())
+            return false;
+
         return IsKeyboardConfirmPressed() || IsGamepadConfirmPressed();
     }
 
@@ -104,16 +111,25 @@ public static class GameInput
 
     public static bool IsAlternateConfirmPressed()
     {
+        if (ShouldBlockNonTutorialGameplayInputs())
+            return false;
+
         return IsAnyPressed(AlternateConfirmKeys);
     }
 
     public static bool IsBackPressed()
     {
+        if (ShouldBlockNonTutorialGameplayInputs())
+            return false;
+
         return IsAnyPressed(BackKeys);
     }
 
     public static bool IsPausePressed()
     {
+        if (ShouldBlockNonTutorialGameplayInputs())
+            return false;
+
         return IsAnyPressed(PauseKeys);
     }
 
@@ -124,6 +140,10 @@ public static class GameInput
 
     public static bool IsActiveItemPressed()
     {
+        GameFlowController flow = GameFlowController.Instance;
+        if (flow != null && flow.IsGameplayTutorialMoveOnlyInputActive())
+            return false;
+
         return IsKeyboardActiveItemPressed() || IsGamepadActiveItemPressed();
     }
 
@@ -139,7 +159,17 @@ public static class GameInput
 
     public static bool IsAnyActiveItemInputHeld()
     {
+        GameFlowController flow = GameFlowController.Instance;
+        if (flow != null && flow.IsGameplayTutorialMoveOnlyInputActive())
+            return false;
+
         return IsAnyHeld(KeyboardActiveItemKeys) || IsAnyHeld(GamepadActiveItemKeys);
+    }
+
+    private static bool ShouldBlockNonTutorialGameplayInputs()
+    {
+        GameFlowController flow = GameFlowController.Instance;
+        return flow != null && flow.AreNonTutorialGameplayInputsBlocked();
     }
 
     public static bool IsUIUpPressed()

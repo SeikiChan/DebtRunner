@@ -22,5 +22,5 @@ MonoBehaviour:
   weightPercent: 5
   effects:
   - effectType: 19
-    intValue: 3
+    intValue: 1
     floatValue: 0

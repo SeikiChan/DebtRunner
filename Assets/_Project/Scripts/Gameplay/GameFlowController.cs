@@ -9,6 +9,7 @@ using UnityEngine.UI;
 public class GameFlowController : MonoBehaviour
 {
     public static GameFlowController Instance { get; private set; }
+    private const string AudioMutedPlayerPrefsKey = "settings.audio_muted";
 
     public enum GameState { Title, Gameplay, Settlement, Shop, GameOver, Victory }
     public enum DeathType { KilledByMonster, FailedDebt }
@@ -26,6 +27,17 @@ public class GameFlowController : MonoBehaviour
     public bool IsInGameplayState => state == GameState.Gameplay;
     public bool IsPauseMenuOpen => pauseMenuOpen;
     public bool IsInShopState => state == GameState.Shop;
+    public bool IsMousePointerInteractionAllowed => !requireManualMouseCursorSummon || mouseCursorSummoned;
+    public bool IsGameplayTutorialMoveOnlyInputActive() =>
+        enableGameplayTutorial &&
+        state == GameState.Gameplay &&
+        gameplayTutorialStage == GameplayTutorialStage.WaitingForMove;
+    public bool IsGameplayTutorialActiveItemOnlyInputActive() =>
+        enableGameplayTutorial &&
+        state == GameState.Gameplay &&
+        gameplayTutorialStage == GameplayTutorialStage.WaitingForActiveItem;
+    public bool AreNonTutorialGameplayInputsBlocked() =>
+        IsGameplayTutorialMoveOnlyInputActive() || IsGameplayTutorialActiveItemOnlyInputActive();
 
     [SerializeField] private GameObject panelTitle;
     [SerializeField] private GameObject panelHUD;
@@ -142,8 +154,15 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool enableKeyboardUINavigation = true;
     [SerializeField] private bool useWASDForUINavigation = true;
     [SerializeField] private bool useSpaceForUIConfirm = true;
+    [Header("Title Audio")]
+    [SerializeField] private string titleMuteButtonName = "Btn_Mute";
+    [SerializeField] private string titleMuteOffIconName = "Icon_MuteOff";
+    [SerializeField] private string titleMuteOnIconName = "Icon_MuteOn";
     [Header("Cursor")]
     [SerializeField] private bool hideCursorDuringActiveGameplay = true;
+    [SerializeField] private bool requireManualMouseCursorSummon = true;
+    [SerializeField, Min(0f)] private float mouseCursorWakeDistancePixels = 3f;
+    [SerializeField, Min(0f)] private float mouseCursorIdleHideDelaySeconds = 1.25f;
     [SerializeField] private bool keyboardTabCyclesSelection = true;
     [SerializeField, Range(0.1f, 1f)] private float gamepadUINavigationDeadzone = 0.55f;
     [SerializeField, Min(0.01f)] private float gamepadUINavigationInitialRepeatDelay = 0.24f;
@@ -163,6 +182,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(0.5f)] private float gameplayTutorialMoveLifetime = 5.5f;
     [SerializeField, Min(0.5f)] private float gameplayTutorialDashLifetime = 5.5f;
     [SerializeField, Min(0.5f)] private float gameplayTutorialPickupLifetime = 7.5f;
+    [SerializeField, Min(0.1f)] private float gameplayTutorialRequiredMoveSeconds = 1.2f;
     [SerializeField, Min(0.1f)] private float gameplayTutorialFontSize = 5.4f;
     [SerializeField, Min(0.01f)] private float gameplayTutorialTextScale = 0.17f;
     [SerializeField, Min(0.05f)] private float gameplayTutorialCompleteFadeDuration = 0.7f;
@@ -313,6 +333,14 @@ public class GameFlowController : MonoBehaviour
     private GameObject keyboardNavigationRoot;
     private MoveDirection heldGamepadUIMoveDirection = MoveDirection.None;
     private float nextGamepadUINavigationTime;
+    private CursorInputGate cursorInputGate;
+    private StandaloneInputModule standaloneInputModule;
+    private bool mouseCursorSummoned;
+    private Vector2 lastObservedMousePosition;
+    private float lastMouseActivityUnscaledTime;
+    private bool hasObservedMousePosition;
+    private bool lastPointerInputAllowed = true;
+    private readonly Dictionary<BaseRaycaster, bool> pointerRaycasterStates = new Dictionary<BaseRaycaster, bool>();
     private float nextBossDefeatCheckTime = -10f;
     private bool bossSeenInCurrentBossRound;
     private int trackedBossRoundIndex = -1;
@@ -324,6 +352,7 @@ public class GameFlowController : MonoBehaviour
     private bool startRunQueuedAfterStory;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
+    private bool deferLevelUpRewardsUntilNextRoundStart;
     private readonly Dictionary<WeaponModeId, int> weaponModeRanks = new Dictionary<WeaponModeId, int>();
     private readonly Dictionary<WeaponBaseUpgradeId, int> weaponBaseUpgradeRanks = new Dictionary<WeaponBaseUpgradeId, int>();
     private DeathType currentDeathType = DeathType.KilledByMonster;
@@ -387,11 +416,16 @@ public class GameFlowController : MonoBehaviour
     private TMP_Text victoryThanksTitleText;
     private TMP_Text victoryThanksSubtitleText;
     private bool victoryThanksOverlayAutoCreated;
+    private Button titleMuteButton;
+    private Image titleMuteOffIcon;
+    private Image titleMuteOnIcon;
+    private bool audioMuted;
     private bool victoryCreditsVisible;
     private Vector3 gameplayTutorialSpawnPosition;
     private bool gameplayTutorialFirstKillShown;
     private bool gameplayTutorialFirstPickupShown;
     private int gameplayTutorialObservedActiveItemUseCount;
+    private float gameplayTutorialMoveHeldSeconds;
     private GameplayTutorialHintType activeGameplayTutorialHintType;
     private GameplayTutorialStage gameplayTutorialStage;
 
@@ -543,6 +577,7 @@ public class GameFlowController : MonoBehaviour
         }
 
         SettingsMenuController.ApplyStartupDisplaySettings();
+        ApplyAudioMuteState(LoadMutedAudioPreference(), savePreference: false);
         PrepareInitialMenuSafetyState();
         EnsureCountdownMaterialIsolated();
         EnsureGameplayRoundTextBound();
@@ -635,6 +670,23 @@ public class GameFlowController : MonoBehaviour
 
     private void OnDisable()
     {
+        mouseCursorSummoned = false;
+        hasObservedMousePosition = false;
+        lastMouseActivityUnscaledTime = 0f;
+        if (cursorInputGate != null)
+        {
+            cursorInputGate.PointerInputEnabled = true;
+            cursorInputGate.TouchInputEnabled = true;
+        }
+
+        foreach (KeyValuePair<BaseRaycaster, bool> pair in pointerRaycasterStates)
+        {
+            if (pair.Key != null)
+                pair.Key.enabled = pair.Value;
+        }
+
+        lastPointerInputAllowed = true;
+
         Cursor.visible = true;
     }
 
@@ -729,6 +781,7 @@ public class GameFlowController : MonoBehaviour
         creditsOpen = false;
         ClearGameplayTutorialHint();
         EnsureCreditsButtonsBound();
+        RefreshTitleMuteButtonVisual();
     }
 
     private void EnsureWeaponUpgradePool()
@@ -776,17 +829,143 @@ public class GameFlowController : MonoBehaviour
         return levelUpPanel != null && levelUpPanel.IsShowing;
     }
 
+    private void HandleMouseCursorActivity()
+    {
+        if (!requireManualMouseCursorSummon)
+            return;
+
+        Vector2 currentMousePosition = Input.mousePosition;
+        float now = Time.unscaledTime;
+
+        if (!hasObservedMousePosition)
+        {
+            lastObservedMousePosition = currentMousePosition;
+            lastMouseActivityUnscaledTime = now;
+            hasObservedMousePosition = true;
+            return;
+        }
+
+        float movedPixels = Vector2.Distance(currentMousePosition, lastObservedMousePosition);
+        if (!mouseCursorSummoned)
+        {
+            if (movedPixels < mouseCursorWakeDistancePixels)
+                return;
+
+            lastObservedMousePosition = currentMousePosition;
+            lastMouseActivityUnscaledTime = now;
+            mouseCursorSummoned = true;
+            RefreshCursorVisibility();
+            return;
+        }
+
+        if (movedPixels > 0.01f)
+        {
+            lastObservedMousePosition = currentMousePosition;
+            lastMouseActivityUnscaledTime = now;
+            return;
+        }
+
+        if (now - lastMouseActivityUnscaledTime < mouseCursorIdleHideDelaySeconds)
+            return;
+
+        mouseCursorSummoned = false;
+        lastObservedMousePosition = currentMousePosition;
+        RefreshCursorVisibility();
+    }
+
     private void RefreshCursorVisibility()
     {
-        bool shouldHideCursor =
-            hideCursorDuringActiveGameplay &&
-            state == GameState.Gameplay &&
-            !pauseMenuOpen &&
-            !storyIntroActive &&
-            !creditsOpen &&
-            !IsLevelUpPanelOpen();
+        bool showCursor;
+        if (requireManualMouseCursorSummon)
+        {
+            showCursor = mouseCursorSummoned;
+        }
+        else
+        {
+            bool shouldHideCursor = hideCursorDuringActiveGameplay && state == GameState.Gameplay;
+            showCursor = !shouldHideCursor;
+        }
 
-        Cursor.visible = !shouldHideCursor;
+        Cursor.visible = showCursor;
+        RefreshPointerInputGate();
+    }
+
+    private void ClearUISelection()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+            return;
+
+        if (eventSystem.currentSelectedGameObject != null)
+            eventSystem.SetSelectedGameObject(null);
+    }
+
+    private EventSystem EnsureCurrentEventSystem()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem != null)
+            return eventSystem;
+
+        EnsureUIEventSystem();
+        return EventSystem.current;
+    }
+
+    private void RefreshPointerInputGate()
+    {
+        EnsureUIEventSystem();
+        bool allowPointerInput = IsMousePointerInteractionAllowed;
+        if (cursorInputGate != null)
+        {
+            cursorInputGate.PointerInputEnabled = allowPointerInput;
+            cursorInputGate.TouchInputEnabled = allowPointerInput;
+        }
+
+        SyncPointerRaycasters(allowPointerInput);
+
+        if (!allowPointerInput && lastPointerInputAllowed)
+            ForcePointerExitOnLoadedSelectables();
+
+        lastPointerInputAllowed = allowPointerInput;
+    }
+
+    private void SyncPointerRaycasters(bool allowPointerInput)
+    {
+        BaseRaycaster[] raycasters = Resources.FindObjectsOfTypeAll<BaseRaycaster>();
+        for (int i = 0; i < raycasters.Length; i++)
+        {
+            BaseRaycaster raycaster = raycasters[i];
+            if (raycaster == null)
+                continue;
+            if (!raycaster.gameObject.scene.IsValid() || !raycaster.gameObject.scene.isLoaded)
+                continue;
+
+            if (!pointerRaycasterStates.ContainsKey(raycaster))
+                pointerRaycasterStates[raycaster] = raycaster.enabled;
+
+            bool desiredState = allowPointerInput ? pointerRaycasterStates[raycaster] : false;
+            if (raycaster.enabled != desiredState)
+                raycaster.enabled = desiredState;
+        }
+    }
+
+    private void ForcePointerExitOnLoadedSelectables()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+            return;
+
+        PointerEventData exitEvent = new PointerEventData(eventSystem);
+        Selectable[] selectables = Resources.FindObjectsOfTypeAll<Selectable>();
+        for (int i = 0; i < selectables.Length; i++)
+        {
+            Selectable selectable = selectables[i];
+            if (selectable == null)
+                continue;
+            if (!selectable.gameObject.scene.IsValid() || !selectable.gameObject.scene.isLoaded)
+                continue;
+
+            ExecuteEvents.Execute(selectable.gameObject, exitEvent, ExecuteEvents.pointerExitHandler);
+        }
     }
 
     private void EnsureDeathPanelsBound()
@@ -848,6 +1027,8 @@ public class GameFlowController : MonoBehaviour
 
     private void Update()
     {
+        HandleMouseCursorActivity();
+
         if (storyIntroActive)
         {
             HandleStoryIntroInput();
@@ -1024,7 +1205,7 @@ private void LevelUp()
 
 private bool ShouldDeferLevelUpRewardPresentation()
 {
-    return deferLevelUpRewardsDuringRoundClear && roundClearActive;
+    return (deferLevelUpRewardsDuringRoundClear && roundClearActive) || deferLevelUpRewardsUntilNextRoundStart;
 }
 
 private bool TryShowLevelUpRewardPanelNow()
@@ -1074,6 +1255,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
     if (state != GameState.Gameplay || IsRoundIntroActive || roundClearActive)
         return;
 
+    if (deferLevelUpRewardsUntilNextRoundStart)
+        return;
+
     if (IsLevelUpPanelOpen())
         return;
 
@@ -1083,6 +1267,30 @@ private void TryShowDeferredLevelUpRewardIfReady()
     pendingDeferredLevelUpChoices = Mathf.Max(0, pendingDeferredLevelUpChoices - 1);
     RunLogger.Event($"Deferred level-up reward presented. remaining={pendingDeferredLevelUpChoices}");
 }
+
+    private void BeginDeferringLevelUpRewardsUntilNextRoundStart()
+    {
+        if (deferLevelUpRewardsUntilNextRoundStart)
+            return;
+
+        deferLevelUpRewardsUntilNextRoundStart = true;
+        RunLogger.Event("Level-up rewards will be held until the next round starts.");
+    }
+
+    private void ReleaseDeferredLevelUpRewardsForNextRoundStart()
+    {
+        if (!deferLevelUpRewardsUntilNextRoundStart)
+            return;
+
+        deferLevelUpRewardsUntilNextRoundStart = false;
+        RunLogger.Event("Deferred level-up rewards released for next round start.");
+    }
+
+    private void ResetDeferredLevelUpRewardState()
+    {
+        pendingDeferredLevelUpChoices = 0;
+        deferLevelUpRewardsUntilNextRoundStart = false;
+    }
 
 
     /// <summary>
@@ -1574,28 +1782,29 @@ private void TryShowDeferredLevelUpRewardIfReady()
             }
         }
 
-    if (clearEnemyProjectilesAfterLevelUp)
-        ClearEnemyProjectiles();
+        if (clearEnemyProjectilesAfterLevelUp)
+            ClearEnemyProjectiles();
 
-    // 鎭㈠娓告垙鏃堕棿
-    Time.timeScale = 1f;
+        // 鎭㈠娓告垙鏃堕棿
+        Time.timeScale = 1f;
+        mouseCursorSummoned = false;
 
-    RefreshGameplayHudVisibility();
-    RefreshCursorVisibility();
+        RefreshGameplayHudVisibility();
+        RefreshCursorVisibility();
 
-    if (postLevelUpSafetyInvulnSeconds > 0f)
-    {
-        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
-        if (resolvedPlayerHealth != null)
-            resolvedPlayerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
+        if (postLevelUpSafetyInvulnSeconds > 0f)
+        {
+            PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+            if (resolvedPlayerHealth != null)
+                resolvedPlayerHealth.GrantTemporaryInvulnerability(postLevelUpSafetyInvulnSeconds);
+        }
+
+        string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
+        RunLogger.Event($"Upgrade selected: {upgradeTitle}");
+
+        TryShowDeferredLevelUpRewardIfReady();
+        RefreshBGMForCurrentGameplayContext();
     }
-
-    string upgradeTitle = upgrade != null ? upgrade.title : "<null>";
-    RunLogger.Event($"Upgrade selected: {upgradeTitle}");
-
-    TryShowDeferredLevelUpRewardIfReady();
-    RefreshBGMForCurrentGameplayContext();
-}
 
     /// <summary>鑾峰彇褰撳墠绛夌骇</summary>
     public int GetLevel() => level;
@@ -1646,7 +1855,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         level = 1;
         baseXpToNext = Mathf.Max(1, baseXpToNext);
         xpToNext = CalculateXpToNext(level);
-        pendingDeferredLevelUpChoices = 0;
+        ResetDeferredLevelUpRewardState();
         bossSeenInCurrentBossRound = false;
         trackedBossRoundIndex = -1;
         nextBossDefeatCheckTime = -10f;
@@ -1655,6 +1864,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
         gameplayTutorialObservedActiveItemUseCount = 0;
+        gameplayTutorialMoveHeldSeconds = 0f;
         gameplayTutorialStage = enableGameplayTutorial ? GameplayTutorialStage.WaitingForMove : GameplayTutorialStage.Inactive;
         runProgression.Reset();
         runProgression.BeginRound();
@@ -1719,13 +1929,14 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         RefreshHUD();
 
+        ShowRoundIntro();
+
         if (enableGameplayTutorial)
         {
             BeginGameplayTutorialSequence();
         }
         else
         {
-            ShowRoundIntro();
             StartRoundTimer();
         }
     }
@@ -1745,7 +1956,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopGameOverTransition(false);
         StopRoundTimer();
         Time.timeScale = 1f;
-        pendingDeferredLevelUpChoices = 0;
+        ResetDeferredLevelUpRewardState();
 
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
@@ -1792,6 +2003,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         gameplayTutorialFirstKillShown = false;
         gameplayTutorialFirstPickupShown = false;
         gameplayTutorialObservedActiveItemUseCount = 0;
+        gameplayTutorialMoveHeldSeconds = 0f;
         gameplayTutorialStage = GameplayTutorialStage.Inactive;
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
@@ -1836,7 +2048,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         StopGameOverTransition(false);
         StopRoundTimer();
         Time.timeScale = 1f;
-        pendingDeferredLevelUpChoices = 0;
+        ResetDeferredLevelUpRewardState();
 
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();
@@ -2070,8 +2282,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
         runProgression.BeginRound();
         LogCurrentEnemyDifficulty();
         SuppressActiveItemUseUntilRelease();
+        if (playerMotor != null)
+            playerMotor.ResetForRoundStart();
         SwitchState(GameState.Gameplay);
         TryPlayBossRoundBGM();
+        if (cameraFollow != null)
+            cameraFollow.SnapToTarget();
 
         ShowRoundIntro();
         StartRoundTimer();
@@ -2323,7 +2539,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         StopRoundTimer();
         StopRoundClearTransition(false);
-        pendingDeferredLevelUpChoices = 0;
+        ResetDeferredLevelUpRewardState();
         currentDeathType = DeathType.KilledByMonster;
 
         SetGameplaySystemsActive(false);
@@ -3009,6 +3225,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         if (pauseSettingsMenu != null)
             pauseSettingsMenu.ShowMenu();
+
+        ClearUISelection();
     }
 
     public void BackFromPauseSettings()
@@ -3218,7 +3436,22 @@ private void TryShowDeferredLevelUpRewardIfReady()
                         break;
                     case ShopItemEffectType.EquipActiveItem:
                         if (playerActiveItemController != null)
-                            playerActiveItemController.Equip((ActiveItemId)effect.intValue);
+                        {
+                            ActiveItemId serializedItemId = (ActiveItemId)effect.intValue;
+                            ActiveItemId resolvedItemId = serializedItemId;
+                            if (item != null && item.TryResolveActiveItemId(out ActiveItemId definitionItemId))
+                            {
+                                resolvedItemId = definitionItemId;
+                                if (serializedItemId != ActiveItemId.None && serializedItemId != definitionItemId)
+                                {
+                                    RunLogger.Warning(
+                                        $"Active item mismatch detected on '{item.ItemTitle}'. Serialized={serializedItemId}, resolved={definitionItemId}. Using resolved id.");
+                                }
+                            }
+
+                            if (resolvedItemId != ActiveItemId.None)
+                                playerActiveItemController.Equip(resolvedItemId);
+                        }
                         break;
                 }
             }
@@ -3628,11 +3861,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private bool IsStoryAdvanceInputDown()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (IsMousePointerInteractionAllowed && Input.GetMouseButtonDown(0))
             return true;
         if (GameInput.IsContinuePressed())
             return true;
-        if (Input.touchCount > 0)
+        if (IsMousePointerInteractionAllowed && Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
             if (touch.phase == TouchPhase.Began)
@@ -3826,6 +4059,8 @@ private void SwitchState(GameState next)
 
     GameState previous = state;
     state = next;
+    if (next == GameState.Gameplay && previous != GameState.Gameplay)
+        mouseCursorSummoned = false;
     if (previous != next)
         RunLogger.Event($"State {previous} -> {next}");
 
@@ -3965,15 +4200,72 @@ private void SwitchState(GameState next)
     {
         ClearGameplayTutorialHint();
 
+        Transform anchorTarget = ResolveGameplayTutorialHintAnchorTransform();
+        Vector3 anchorOffset = ResolveGameplayTutorialHintOffset(hintType, worldPosition, anchorTarget);
+        Vector3 spawnPosition = anchorTarget != null ? anchorTarget.position + anchorOffset : worldPosition;
+
         activeGameplayTutorialHint = WorldInstructionText.Spawn(
             content,
-            worldPosition,
+            spawnPosition,
             gameplayTutorialTextColor,
             gameplayTutorialFont,
             gameplayTutorialFontSize,
             gameplayTutorialTextScale,
-            lifetime);
+            lifetime,
+            anchorTarget,
+            anchorOffset,
+            ShouldPersistGameplayTutorialHintUntilCompleted(hintType));
         activeGameplayTutorialHintType = activeGameplayTutorialHint != null ? hintType : GameplayTutorialHintType.None;
+
+        if (cameraFollow != null)
+            cameraFollow.SnapToTarget();
+    }
+
+    private Transform ResolveGameplayTutorialHintAnchorTransform()
+    {
+        if (playerMotor != null)
+            return playerMotor.transform;
+        if (playerShooter != null)
+            return playerShooter.transform;
+
+        PlayerHealth resolvedPlayerHealth = ResolvePlayerHealth();
+        return resolvedPlayerHealth != null ? resolvedPlayerHealth.transform : null;
+    }
+
+    private Vector3 ResolveGameplayTutorialHintOffset(
+        GameplayTutorialHintType hintType,
+        Vector3 fallbackWorldPosition,
+        Transform anchorTarget)
+    {
+        if (anchorTarget == null)
+            return Vector3.zero;
+
+        switch (hintType)
+        {
+            case GameplayTutorialHintType.Move:
+            case GameplayTutorialHintType.ActiveItem:
+                return gameplayTutorialMoveOffset;
+
+            case GameplayTutorialHintType.Pickup:
+            case GameplayTutorialHintType.Debt:
+                return gameplayTutorialPickupOffset;
+
+            default:
+                return fallbackWorldPosition - anchorTarget.position;
+        }
+    }
+
+    private bool ShouldPersistGameplayTutorialHintUntilCompleted(GameplayTutorialHintType hintType)
+    {
+        switch (hintType)
+        {
+            case GameplayTutorialHintType.Move:
+            case GameplayTutorialHintType.ActiveItem:
+            case GameplayTutorialHintType.Pickup:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private void ClearGameplayTutorialHint()
@@ -3996,7 +4288,17 @@ private void SwitchState(GameState next)
 
         if (gameplayTutorialStage == GameplayTutorialStage.WaitingForMove)
         {
-            if (playerMotor == null || playerMotor.CurrentMoveInput.sqrMagnitude <= 0.001f)
+            if (playerMotor == null)
+                return;
+
+            if (playerMotor.CurrentMoveInput.sqrMagnitude <= 0.001f)
+            {
+                gameplayTutorialMoveHeldSeconds = 0f;
+                return;
+            }
+
+            gameplayTutorialMoveHeldSeconds += Time.deltaTime;
+            if (gameplayTutorialMoveHeldSeconds < Mathf.Max(0.1f, gameplayTutorialRequiredMoveSeconds))
                 return;
 
             // The move hint is only feedback. Its auto-expiry must not block tutorial progress.
@@ -4067,6 +4369,7 @@ private void SwitchState(GameState next)
         if (gameplayTutorialStage != GameplayTutorialStage.WaitingForMove)
             return;
 
+        gameplayTutorialMoveHeldSeconds = 0f;
         EnsurePlayerActiveItemControllerBound();
         if (playerActiveItemController != null &&
             playerActiveItemController.IsStarterDashEquipped &&
@@ -4125,6 +4428,7 @@ private void SwitchState(GameState next)
         gameplayTutorialStage = GameplayTutorialStage.Complete;
         gameplayTutorialFirstKillShown = true;
         gameplayTutorialFirstPickupShown = true;
+        gameplayTutorialMoveHeldSeconds = 0f;
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
         StartFormalGameplayAfterTutorial();
@@ -4150,6 +4454,7 @@ private void SwitchState(GameState next)
 private void RefreshTitleAndCreditsPanels()
 {
     EnsureCreditsButtonsBound();
+    EnsureTitleMuteButtonBound();
 
     bool hasCreditsPanel = EnsureCreditsPanelBound();
     bool inTitle = state == GameState.Title;
@@ -4174,6 +4479,8 @@ private void RefreshTitleAndCreditsPanels()
         panelTitle.SetActive(showTitle);
     if (hasCreditsPanel && panelCredits != null)
         panelCredits.SetActive(showCredits);
+
+    RefreshTitleMuteButtonVisual();
 }
 
 private bool EnsureVictoryThanksOverlay()
@@ -4276,11 +4583,35 @@ private bool EnsureCreditsPanelBound()
 private void EnsureCreditsButtonsBound()
 {
     BindButtonOnPanel(panelTitle, OpenCredits, "Btn_Credit", "Btn_Credits", "Btn_CreditsOpen");
+    EnsureTitleMuteButtonBound();
 
     if (!EnsureCreditsPanelBound())
         return;
 
     BindButtonOnPanel(panelCredits, CloseCredits, "Btn_Back", "Btn_CreditsBack", "Btn_CloseCredits");
+}
+
+private void EnsureTitleMuteButtonBound()
+{
+    if (panelTitle == null)
+        return;
+
+    if (titleMuteButton == null || titleMuteButton.gameObject == null)
+        titleMuteButton = FindButtonOnPanel(panelTitle, titleMuteButtonName);
+
+    if (titleMuteButton == null)
+        return;
+
+    titleMuteButton.onClick.RemoveListener(ToggleTitleAudioMute);
+    titleMuteButton.onClick.AddListener(ToggleTitleAudioMute);
+
+    if (titleMuteOffIcon == null || titleMuteOffIcon.gameObject == null)
+        titleMuteOffIcon = FindImageOnButton(titleMuteButton, titleMuteOffIconName);
+
+    if (titleMuteOnIcon == null || titleMuteOnIcon.gameObject == null)
+        titleMuteOnIcon = FindImageOnButton(titleMuteButton, titleMuteOnIconName);
+
+    RefreshTitleMuteButtonVisual();
 }
 
 private void EnsurePauseMenuButtonsBound()
@@ -4369,6 +4700,95 @@ private void RebindButtonOnPanel(GameObject panel, UnityAction action, string[] 
         button.onClick.RemoveListener(action);
         button.onClick.AddListener(action);
     }
+}
+
+private static Button FindButtonOnPanel(GameObject panel, string buttonName)
+{
+    if (panel == null || string.IsNullOrWhiteSpace(buttonName))
+        return null;
+
+    Button[] buttons = panel.GetComponentsInChildren<Button>(true);
+    for (int i = 0; i < buttons.Length; i++)
+    {
+        Button button = buttons[i];
+        if (button != null && button.name == buttonName)
+            return button;
+    }
+
+    return null;
+}
+
+private static Image FindImageOnButton(Button button, string imageName)
+{
+    if (button == null || string.IsNullOrWhiteSpace(imageName))
+        return null;
+
+    Image[] images = button.GetComponentsInChildren<Image>(true);
+    for (int i = 0; i < images.Length; i++)
+    {
+        Image image = images[i];
+        if (image != null && image.name == imageName)
+            return image;
+    }
+
+    return null;
+}
+
+private bool LoadMutedAudioPreference()
+{
+    return PlayerPrefs.GetInt(AudioMutedPlayerPrefsKey, 0) != 0;
+}
+
+private void SaveMutedAudioPreference(bool muted)
+{
+    PlayerPrefs.SetInt(AudioMutedPlayerPrefsKey, muted ? 1 : 0);
+    PlayerPrefs.Save();
+}
+
+private void ApplyAudioMuteState(bool muted, bool savePreference)
+{
+    audioMuted = muted;
+    AudioListener.pause = audioMuted;
+
+    if (savePreference)
+        SaveMutedAudioPreference(audioMuted);
+
+    RefreshTitleMuteButtonVisual();
+}
+
+private void RefreshTitleMuteButtonVisual()
+{
+    if (titleMuteButton == null || titleMuteButton.gameObject == null)
+        return;
+
+    if ((titleMuteOffIcon == null || titleMuteOffIcon.gameObject == null) && !string.IsNullOrWhiteSpace(titleMuteOffIconName))
+        titleMuteOffIcon = FindImageOnButton(titleMuteButton, titleMuteOffIconName);
+
+    if ((titleMuteOnIcon == null || titleMuteOnIcon.gameObject == null) && !string.IsNullOrWhiteSpace(titleMuteOnIconName))
+        titleMuteOnIcon = FindImageOnButton(titleMuteButton, titleMuteOnIconName);
+
+    if (titleMuteOffIcon != null)
+        titleMuteOffIcon.gameObject.SetActive(!audioMuted);
+
+    if (titleMuteOnIcon != null)
+        titleMuteOnIcon.gameObject.SetActive(audioMuted);
+}
+
+public void ToggleTitleAudioMute()
+{
+    bool nextMuted = !audioMuted;
+
+    if (!nextMuted)
+    {
+        ApplyAudioMuteState(false, savePreference: true);
+        PlayUIButtonClickSfx();
+        RunLogger.Event("Title mute toggled off.");
+        return;
+    }
+
+    PlayUIButtonClickSfx();
+    ApplyAudioMuteState(true, savePreference: true);
+    RunLogger.Event("Title mute toggled on.");
 }
 
 private void TryPlayBossRoundBGM()
@@ -4561,6 +4981,7 @@ private void ForceClosePauseMenu(bool resumeGameplayIfNeeded)
     {
         if (state == GameState.Gameplay && !IsRoundIntroActive && !roundClearActive)
         {
+            mouseCursorSummoned = false;
             Time.timeScale = 1f;
             SetGameplaySystemsActive(true);
         }
@@ -4986,15 +5407,31 @@ private void SetPauseMenuVisible(bool visible)
         if (!enableKeyboardUINavigation)
             return;
 
-        if (EventSystem.current != null)
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+            eventSystem = FindObjectOfType<EventSystem>();
+
+        if (eventSystem == null)
+        {
+            GameObject eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            eventSystem = eventSystemGo.GetComponent<EventSystem>();
+            RunLogger.Event($"EventSystem auto-created for keyboard UI navigation: {eventSystemGo.name}");
+        }
+
+        if (eventSystem == null)
             return;
 
-        EventSystem existing = FindObjectOfType<EventSystem>();
-        if (existing != null)
-            return;
+        if (standaloneInputModule == null || standaloneInputModule.gameObject != eventSystem.gameObject)
+            standaloneInputModule = eventSystem.GetComponent<StandaloneInputModule>();
 
-        GameObject eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-        RunLogger.Event($"EventSystem auto-created for keyboard UI navigation: {eventSystemGo.name}");
+        if (cursorInputGate == null || cursorInputGate.gameObject != eventSystem.gameObject)
+            cursorInputGate = eventSystem.GetComponent<CursorInputGate>();
+
+        if (cursorInputGate == null)
+            cursorInputGate = eventSystem.gameObject.AddComponent<CursorInputGate>();
+
+        if (standaloneInputModule != null && standaloneInputModule.inputOverride != cursorInputGate)
+            standaloneInputModule.inputOverride = cursorInputGate;
     }
 
     private void HandleKeyboardUINavigation()
@@ -5002,16 +5439,12 @@ private void SetPauseMenuVisible(bool visible)
         if (!enableKeyboardUINavigation)
             return;
 
-        EventSystem eventSystem = EventSystem.current;
+        EventSystem eventSystem = EnsureCurrentEventSystem();
         if (eventSystem == null)
-        {
-            EnsureUIEventSystem();
-            eventSystem = EventSystem.current;
-            if (eventSystem == null)
-                return;
-        }
+            return;
 
-        // We drive move/submit explicitly for stable "WASD + Space" behavior.
+        // Always disable Unity's built-in keyboard navigation so hidden selections
+        // in settings cannot keep consuming WASD/arrow events behind our back.
         if (eventSystem.sendNavigationEvents)
             eventSystem.sendNavigationEvents = false;
 
@@ -5377,6 +5810,7 @@ private void SetPauseMenuVisible(bool visible)
         EnsureRoundPresentationBound();
         bool useOverlay = roundPresentation != null && roundPresentation.PrepareRoundClearOverlay(roundIndex, totalRounds);
 
+        BeginDeferringLevelUpRewardsUntilNextRoundStart();
         roundClearActive = true;
         Time.timeScale = 0f;
         SetGameplaySystemsActive(false);
@@ -5678,6 +6112,7 @@ private void SetPauseMenuVisible(bool visible)
             SetRoundDebtVisible(true);
             Time.timeScale = 1f;
             SetGameplaySystemsActive(true);
+            ReleaseDeferredLevelUpRewardsForNextRoundStart();
             TryShowDeferredLevelUpRewardIfReady();
             return;
         }
@@ -5704,6 +6139,7 @@ private void SetPauseMenuVisible(bool visible)
                 if (state == GameState.Gameplay)
                     SetRoundDebtVisible(true);
 
+                ReleaseDeferredLevelUpRewardsForNextRoundStart();
                 TryShowDeferredLevelUpRewardIfReady();
                 RunLogger.Event("Round intro finished. Gameplay resumed.");
             });
@@ -5732,7 +6168,7 @@ private void SetPauseMenuVisible(bool visible)
 
     private void ClearPendingLevelUpRewardsForBossVictory()
     {
-        pendingDeferredLevelUpChoices = 0;
+        ResetDeferredLevelUpRewardState();
 
         if (levelUpPanel != null)
             levelUpPanel.ForceHideImmediate();

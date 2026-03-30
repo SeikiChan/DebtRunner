@@ -42,6 +42,7 @@ public class SettingsMenuController : MonoBehaviour
 
     [Header("Buttons")]
     [SerializeField] private Button backButton;
+    [SerializeField, Min(0.001f)] private float keyboardSliderStep = 0.05f;
 
     private readonly List<Vector2Int> availableResolutions = new List<Vector2Int>();
 
@@ -210,6 +211,24 @@ public class SettingsMenuController : MonoBehaviour
 
         int direction = moveDir == MoveDirection.Left ? -1 : 1;
 
+        if (volumeSlider != null && selected == volumeSlider.gameObject)
+        {
+            StepSlider(volumeSlider, direction);
+            return true;
+        }
+
+        if (bgmVolumeSlider != null && selected == bgmVolumeSlider.gameObject)
+        {
+            StepSlider(bgmVolumeSlider, direction);
+            return true;
+        }
+
+        if (sfxVolumeSlider != null && selected == sfxVolumeSlider.gameObject)
+        {
+            StepSlider(sfxVolumeSlider, direction);
+            return true;
+        }
+
         if (resolutionTMPDropdown != null && selected == resolutionTMPDropdown.gameObject)
         {
             StepResolution(direction);
@@ -230,6 +249,23 @@ public class SettingsMenuController : MonoBehaviour
         }
 
         return false;
+    }
+
+    private void StepSlider(Slider slider, int direction)
+    {
+        if (slider == null || direction == 0)
+            return;
+
+        float step = slider.wholeNumbers
+            ? Mathf.Max(1f, keyboardSliderStep)
+            : Mathf.Max(0.001f, keyboardSliderStep);
+
+        float nextValue = Mathf.Clamp(slider.value + (step * direction), slider.minValue, slider.maxValue);
+        if (Mathf.Approximately(nextValue, slider.value))
+            return;
+
+        slider.value = nextValue;
+        RestoreSelection(slider);
     }
 
     public bool TryHandleKeyboardSubmit(GameObject selected)
@@ -790,6 +826,7 @@ public class SettingsMenuController : MonoBehaviour
             return;
         chain.Add(selectable);
     }
+
 
     private void OnBackClicked()
     {

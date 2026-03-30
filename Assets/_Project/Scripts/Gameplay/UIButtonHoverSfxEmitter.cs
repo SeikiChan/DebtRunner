@@ -19,6 +19,8 @@ public class UIButtonHoverSfxEmitter : MonoBehaviour, IPointerEnterHandler
     {
         if (eventData == null)
             return;
+        if (GameFlowController.Instance != null && !GameFlowController.Instance.IsMousePointerInteractionAllowed)
+            return;
 
         if (onlyWhenInteractable && selectable != null && !selectable.IsInteractable())
             return;

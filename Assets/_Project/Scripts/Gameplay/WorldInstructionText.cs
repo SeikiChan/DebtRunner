@@ -24,6 +24,9 @@ public class WorldInstructionText : MonoBehaviour
     private Color completeColor = new Color(0.32f, 1f, 0.42f, 1f);
     private Camera cachedCamera;
     private Vector3 baseScale = Vector3.one;
+    private Transform followTarget;
+    private Vector3 followOffset;
+    private bool persistUntilCompleted;
 
     public bool IsCompleting => completing;
 
@@ -34,7 +37,10 @@ public class WorldInstructionText : MonoBehaviour
         TMP_FontAsset font,
         float fontSize,
         float scale,
-        float life)
+        float life,
+        Transform anchorTarget = null,
+        Vector3 anchorOffset = default,
+        bool persistUntilComplete = false)
     {
         if (string.IsNullOrWhiteSpace(content))
             return null;
@@ -43,7 +49,7 @@ public class WorldInstructionText : MonoBehaviour
         go.transform.position = worldPos;
 
         WorldInstructionText instruction = go.AddComponent<WorldInstructionText>();
-        instruction.Initialize(content, color, font, fontSize, scale, life);
+        instruction.Initialize(content, color, font, fontSize, scale, life, anchorTarget, anchorOffset, persistUntilComplete);
         return instruction;
     }
 
@@ -53,11 +59,17 @@ public class WorldInstructionText : MonoBehaviour
         TMP_FontAsset font,
         float fontSize,
         float scale,
-        float life)
+        float life,
+        Transform anchorTarget,
+        Vector3 anchorOffset,
+        bool persistUntilComplete)
     {
         lifetime = Mathf.Max(0.05f, life);
         textScale = Mathf.Max(0.01f, scale);
         textSize = Mathf.Max(0.1f, fontSize);
+        persistUntilCompleted = persistUntilComplete;
+        followTarget = anchorTarget;
+        followOffset = anchorOffset;
         fadeOutDuration = Mathf.Clamp(fadeOutDuration, 0.01f, lifetime);
         fadeInDuration = Mathf.Clamp(fadeInDuration, 0f, lifetime);
 
@@ -82,6 +94,7 @@ public class WorldInstructionText : MonoBehaviour
         baseOutlineColor = outlineColor;
         baseScale = Vector3.one * textScale;
         transform.localScale = baseScale;
+        RefreshFollowPosition();
 
         ApplyStyle();
         ApplyColor(baseColor, 0f);
@@ -95,12 +108,27 @@ public class WorldInstructionText : MonoBehaviour
 
         float dt = Time.deltaTime;
         timer += dt;
+        RefreshFollowPosition();
         RefreshFacing();
         UpdatePulse();
         UpdateVisual(dt);
 
-        if (timer >= lifetime)
+        if (ShouldDestroyAfterLifetime())
             Destroy(gameObject);
+    }
+
+    private bool ShouldDestroyAfterLifetime()
+    {
+        if (persistUntilCompleted && !completing)
+            return false;
+
+        return timer >= lifetime;
+    }
+
+    private void RefreshFollowPosition()
+    {
+        if (followTarget != null)
+            transform.position = followTarget.position + followOffset;
     }
 
     private void RefreshFacing()
@@ -129,9 +157,7 @@ public class WorldInstructionText : MonoBehaviour
         completeTimer = 0f;
         completeColor = color;
         completeDuration = Mathf.Max(0.05f, fadeDuration);
-        float minimumLifetime = timer + completeDuration;
-        if (lifetime > minimumLifetime)
-            lifetime = minimumLifetime;
+        lifetime = Mathf.Max(timer + completeDuration, timer + 0.01f);
     }
 
     private void UpdateVisual(float dt)
@@ -150,9 +176,12 @@ public class WorldInstructionText : MonoBehaviour
         if (fadeInDuration > 0f && timer < fadeInDuration)
             alpha *= Mathf.Clamp01(timer / fadeInDuration);
 
-        float fadeStart = Mathf.Max(0f, lifetime - fadeOutDuration);
-        if (timer >= fadeStart)
-            alpha *= Mathf.InverseLerp(lifetime, fadeStart, timer);
+        if (!persistUntilCompleted)
+        {
+            float fadeStart = Mathf.Max(0f, lifetime - fadeOutDuration);
+            if (timer >= fadeStart)
+                alpha *= Mathf.InverseLerp(lifetime, fadeStart, timer);
+        }
 
         ApplyColor(baseColor, alpha);
     }
