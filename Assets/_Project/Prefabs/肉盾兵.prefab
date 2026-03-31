@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da6cf6e56b9efdc4a91cd87cda8f921d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 0.5
+  moveSpeed: 0.34
   enableEnemySeparation: 1
   separationRadius: 1.25
   separationStrength: 7
@@ -192,7 +192,7 @@ MonoBehaviour:
   fitHitboxToSprite: 1
   preferPolygonHitbox: 1
   spriteHitboxScale: 1.02
-  maxHP: 50
+  maxHP: 80
   cashValue: 10
   xpDrop: 4
   cashPickupPrefab: {fileID: 0}

@@ -13,7 +13,7 @@ public class CameraFollow2D : MonoBehaviour
     [LocalizedLabel("设计分辨率高度")]
     [SerializeField, Min(1)] private int designHeight = 1080;
     [LocalizedLabel("设计正交大小")]
-    [SerializeField, Min(0.1f)] private float designOrthoSize = 5f;
+    [SerializeField, Min(0.1f)] private float designOrthoSize = 8.25f;
 
     private Camera cam;
 

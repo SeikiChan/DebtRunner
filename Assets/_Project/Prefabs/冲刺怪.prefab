@@ -35,7 +35,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.54912, y: 0.54137, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.88, y: 0.88, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -174,16 +174,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c277279cbc4da54588823a28f7c3623, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyDashAttack
-  normalDuration: 7.2
+  normalDuration: 5
   normalDurationJitter: 1.2
-  telegraphDuration: 1.05
+  telegraphDuration: 1.1
   dashDuration: 0.5
-  cooldownDuration: 1.6
+  cooldownDuration: 1
   dashSpeed: 11.5
   telegraphColor: {r: 0.9528302, g: 0.19223963, b: 0.13932894, a: 0.38431373}
   telegraphWidth: 0.35
   telegraphLength: 5
-  telegraphSortingOrder: 240
+  telegraphSortingOrder: -1
+  showTelegraphIndicator: 1
+  telegraphIndicatorText: '!'
+  telegraphIndicatorColor: {r: 1, g: 0.30884883, b: 0, a: 1}
+  telegraphIndicatorHeight: 1.5
+  telegraphIndicatorFontSize: 8
+  flashBodyDuringTelegraph: 1
+  telegraphFlashColor: {r: 1, g: 0.26, b: 0.26, a: 1}
+  telegraphFlashFrequency: 10
 --- !u!114 &2284842997876372299
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -353,6 +353,7 @@ public class GameFlowController : MonoBehaviour
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
     private bool deferLevelUpRewardsUntilNextRoundStart;
+    private Coroutine pendingRoundEndAfterLevelUpCo;
     private readonly Dictionary<WeaponModeId, int> weaponModeRanks = new Dictionary<WeaponModeId, int>();
     private readonly Dictionary<WeaponBaseUpgradeId, int> weaponBaseUpgradeRanks = new Dictionary<WeaponBaseUpgradeId, int>();
     private DeathType currentDeathType = DeathType.KilledByMonster;
@@ -1288,6 +1289,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void ResetDeferredLevelUpRewardState()
     {
+        if (pendingRoundEndAfterLevelUpCo != null)
+        {
+            StopCoroutine(pendingRoundEndAfterLevelUpCo);
+            pendingRoundEndAfterLevelUpCo = null;
+        }
+
         pendingDeferredLevelUpChoices = 0;
         deferLevelUpRewardsUntilNextRoundStart = false;
     }
@@ -2201,6 +2208,42 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
+        if (TryWaitForOpenLevelUpPanelsBeforeRoundEnd())
+            return;
+
+        ContinueIntoPostRoundFlow();
+    }
+
+    private bool TryWaitForOpenLevelUpPanelsBeforeRoundEnd()
+    {
+        if (!IsLevelUpPanelOpen())
+            return false;
+
+        if (pendingRoundEndAfterLevelUpCo == null)
+        {
+            pendingRoundEndAfterLevelUpCo = StartCoroutine(CompleteRoundEndAfterLevelUpsClose());
+            RunLogger.Event("Round end is waiting for the current level-up flow to finish before showing YOU PASS.");
+        }
+
+        return true;
+    }
+
+    private IEnumerator CompleteRoundEndAfterLevelUpsClose()
+    {
+        yield return WaitForLevelUpPanelToCloseRealtime();
+        pendingRoundEndAfterLevelUpCo = null;
+
+        if (state != GameState.Gameplay || roundClearActive || IsTimesUpActive)
+            yield break;
+
+        if (IsLevelUpPanelOpen())
+            yield break;
+
+        ContinueIntoPostRoundFlow();
+    }
+
+    private void ContinueIntoPostRoundFlow()
+    {
         EnsureRoundPresentationBound();
         if (roundPresentation == null || roundPresentation.ShowRoundClearTransition)
         {
@@ -2208,7 +2251,16 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return;
         }
 
+        FinalizeRoundEndCardCleanup();
         EnterSettlementAfterRoundEnd();
+    }
+
+    private void FinalizeRoundEndCardCleanup()
+    {
+        if (playerShooter != null)
+            playerShooter.ClearRoundEndProjectiles();
+
+        ClearRoundEndTransientObjects();
     }
 
     // UI Button: Settlement Continue
@@ -5814,6 +5866,7 @@ private void SetPauseMenuVisible(bool visible)
         roundClearActive = true;
         Time.timeScale = 0f;
         SetGameplaySystemsActive(false);
+        FinalizeRoundEndCardCleanup();
 
         roundClearCo = StartCoroutine(RoundClearRoutine(useOverlay));
         float duration = roundPresentation != null ? roundPresentation.RoundClearSeconds : roundClearSeconds;

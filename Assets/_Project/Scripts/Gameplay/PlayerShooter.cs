@@ -518,6 +518,11 @@ public class PlayerShooter : MonoBehaviour
         orbitProjectiles.Clear();
     }
 
+    public void ClearRoundEndProjectiles()
+    {
+        ClearOrbitProjectiles();
+    }
+
     public void ResetRuntimeStats()
     {
         damage = baseDamage;

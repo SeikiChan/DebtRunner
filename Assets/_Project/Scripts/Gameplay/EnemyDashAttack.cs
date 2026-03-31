@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 
 /// <summary>
@@ -35,9 +36,21 @@ public class EnemyDashAttack : MonoBehaviour
     [SerializeField, Min(1f)] private float telegraphLength = 8f;
     [LocalizedLabel("预警排序层级")]
     [SerializeField] private int telegraphSortingOrder = 240;
+    [Header("Telegraph Feedback / 起手反馈")]
+    [SerializeField] private bool showTelegraphIndicator = true;
+    [SerializeField] private string telegraphIndicatorText = "!";
+    [SerializeField] private Color telegraphIndicatorColor = new Color(1f, 0.92f, 0.2f, 1f);
+    [SerializeField, Min(0.1f)] private float telegraphIndicatorHeight = 1.15f;
+    [SerializeField, Min(1f)] private float telegraphIndicatorFontSize = 5.5f;
+    [SerializeField] private bool flashBodyDuringTelegraph = true;
+    [SerializeField] private Color telegraphFlashColor = new Color(1f, 0.2f, 0.2f, 1f);
+    [SerializeField, Min(0f)] private float telegraphFlashFrequency = 10f;
 
     private EnemyController enemyController;
     private Rigidbody2D rb;
+    private SpriteRenderer spriteRenderer;
+    private Color baseSpriteColor = Color.white;
+    private SpriteRenderer telegraphFlashOverlay;
 
     private DashState state;
     private float stateTimer;
@@ -45,12 +58,16 @@ public class EnemyDashAttack : MonoBehaviour
     private Vector2 dashStartPos;
     private float dashElapsed;
     private GameObject telegraphLine;
+    private TextMeshPro telegraphIndicator;
 
     private void Awake()
     {
         SanitizeValues();
         enemyController = GetComponent<EnemyController>();
         rb = GetComponent<Rigidbody2D>();
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (spriteRenderer != null)
+            baseSpriteColor = spriteRenderer.color;
     }
 
     private void OnEnable()
@@ -68,7 +85,10 @@ public class EnemyDashAttack : MonoBehaviour
     {
         if (enemyController != null)
             enemyController.SuppressChaseMovement = false;
+        RestoreSpriteColor();
+        HideTelegraphFlashOverlay();
         DestroyTelegraph();
+        DestroyTelegraphIndicator();
     }
 
     private void FixedUpdate()
@@ -84,6 +104,7 @@ public class EnemyDashAttack : MonoBehaviour
 
             case DashState.Telegraph:
                 UpdateTelegraphVisual();
+                UpdateTelegraphFeedback();
                 if (stateTimer <= 0f)
                     EnterState(DashState.Dash);
                 break;
@@ -108,25 +129,36 @@ public class EnemyDashAttack : MonoBehaviour
             case DashState.Normal:
                 if (enemyController != null)
                     enemyController.SuppressChaseMovement = false;
+                RestoreSpriteColor();
+                HideTelegraphFlashOverlay();
+                DestroyTelegraphIndicator();
                 stateTimer = Mathf.Max(0.5f, normalDuration + Random.Range(-normalDurationJitter, normalDurationJitter));
                 break;
 
             case DashState.Telegraph:
                 if (enemyController != null)
                     enemyController.SuppressChaseMovement = true;
+                RestoreSpriteColor();
                 stateTimer = telegraphDuration;
                 LockDashTarget();
                 SpawnTelegraph();
+                SpawnTelegraphIndicator();
                 break;
 
             case DashState.Dash:
                 stateTimer = dashDuration;
                 dashElapsed = 0f;
                 dashStartPos = rb != null ? rb.position : (Vector2)transform.position;
+                RestoreSpriteColor();
+                HideTelegraphFlashOverlay();
                 DestroyTelegraph();
+                DestroyTelegraphIndicator();
                 break;
 
             case DashState.Cooldown:
+                RestoreSpriteColor();
+                HideTelegraphFlashOverlay();
+                DestroyTelegraphIndicator();
                 stateTimer = cooldownDuration;
                 break;
         }
@@ -189,8 +221,17 @@ public class EnemyDashAttack : MonoBehaviour
         lr.endWidth = telegraphWidth;
         lr.startColor = telegraphColor;
         lr.endColor = telegraphColor;
-        lr.sortingOrder = telegraphSortingOrder;
         lr.positionCount = 2;
+
+        if (spriteRenderer != null)
+        {
+            lr.sortingLayerID = spriteRenderer.sortingLayerID;
+            lr.sortingOrder = spriteRenderer.sortingOrder - 1;
+        }
+        else
+        {
+            lr.sortingOrder = telegraphSortingOrder;
+        }
 
         Shader shader = Shader.Find("Sprites/Default");
         if (shader != null)
@@ -224,6 +265,113 @@ public class EnemyDashAttack : MonoBehaviour
         }
     }
 
+    private void SpawnTelegraphIndicator()
+    {
+        if (!showTelegraphIndicator || telegraphIndicator != null)
+            return;
+
+        GameObject indicatorObject = new GameObject("DashTelegraphIndicator");
+        indicatorObject.transform.SetParent(transform, false);
+        indicatorObject.transform.localPosition = new Vector3(0f, telegraphIndicatorHeight, 0f);
+
+        telegraphIndicator = indicatorObject.AddComponent<TextMeshPro>();
+        telegraphIndicator.text = string.IsNullOrWhiteSpace(telegraphIndicatorText) ? "!" : telegraphIndicatorText;
+        telegraphIndicator.fontSize = telegraphIndicatorFontSize;
+        telegraphIndicator.alignment = TextAlignmentOptions.Center;
+        telegraphIndicator.color = telegraphIndicatorColor;
+        telegraphIndicator.raycastTarget = false;
+        if (spriteRenderer != null)
+        {
+            telegraphIndicator.sortingLayerID = spriteRenderer.sortingLayerID;
+            telegraphIndicator.sortingOrder = spriteRenderer.sortingOrder + 1;
+        }
+        else
+        {
+            telegraphIndicator.sortingOrder = telegraphSortingOrder + 5;
+        }
+    }
+
+    private void UpdateTelegraphFeedback()
+    {
+        if (telegraphIndicator != null)
+        {
+            telegraphIndicator.transform.localPosition = new Vector3(0f, telegraphIndicatorHeight, 0f);
+            float pulse = 0.82f + (Mathf.Abs(Mathf.Sin(Time.time * 8f)) * 0.28f);
+            telegraphIndicator.transform.localScale = Vector3.one * pulse;
+        }
+
+        if (!flashBodyDuringTelegraph || spriteRenderer == null)
+            return;
+
+        float blend = 0.35f + (0.65f * Mathf.Abs(Mathf.Sin(Time.time * Mathf.Max(0.1f, telegraphFlashFrequency))));
+        spriteRenderer.color = Color.Lerp(baseSpriteColor, telegraphFlashColor, blend);
+        UpdateTelegraphFlashOverlay(blend);
+    }
+
+    private void DestroyTelegraphIndicator()
+    {
+        if (telegraphIndicator != null)
+        {
+            Destroy(telegraphIndicator.gameObject);
+            telegraphIndicator = null;
+        }
+    }
+
+    private void RestoreSpriteColor()
+    {
+        if (spriteRenderer != null)
+            spriteRenderer.color = baseSpriteColor;
+    }
+
+    private void EnsureTelegraphFlashOverlay()
+    {
+        if (telegraphFlashOverlay != null || spriteRenderer == null || spriteRenderer.sprite == null)
+            return;
+
+        GameObject overlayObject = new GameObject("DashTelegraphFlashOverlay");
+        overlayObject.transform.SetParent(spriteRenderer.transform, false);
+
+        telegraphFlashOverlay = overlayObject.AddComponent<SpriteRenderer>();
+        telegraphFlashOverlay.sprite = spriteRenderer.sprite;
+        telegraphFlashOverlay.sortingLayerID = spriteRenderer.sortingLayerID;
+        telegraphFlashOverlay.sortingOrder = spriteRenderer.sortingOrder + 1;
+        telegraphFlashOverlay.maskInteraction = spriteRenderer.maskInteraction;
+        telegraphFlashOverlay.drawMode = spriteRenderer.drawMode;
+        telegraphFlashOverlay.size = spriteRenderer.size;
+        telegraphFlashOverlay.flipX = spriteRenderer.flipX;
+        telegraphFlashOverlay.flipY = spriteRenderer.flipY;
+        telegraphFlashOverlay.enabled = false;
+
+        Shader shader = Shader.Find("Sprites/Default");
+        if (shader != null)
+            telegraphFlashOverlay.material = new Material(shader);
+    }
+
+    private void UpdateTelegraphFlashOverlay(float blend)
+    {
+        EnsureTelegraphFlashOverlay();
+        if (telegraphFlashOverlay == null || spriteRenderer == null)
+            return;
+
+        telegraphFlashOverlay.sprite = spriteRenderer.sprite;
+        telegraphFlashOverlay.flipX = spriteRenderer.flipX;
+        telegraphFlashOverlay.flipY = spriteRenderer.flipY;
+        telegraphFlashOverlay.drawMode = spriteRenderer.drawMode;
+        telegraphFlashOverlay.size = spriteRenderer.size;
+        telegraphFlashOverlay.transform.localScale = Vector3.one;
+        telegraphFlashOverlay.enabled = true;
+
+        Color overlayColor = telegraphFlashColor;
+        overlayColor.a *= Mathf.Clamp01(0.2f + (0.8f * blend));
+        telegraphFlashOverlay.color = overlayColor;
+    }
+
+    private void HideTelegraphFlashOverlay()
+    {
+        if (telegraphFlashOverlay != null)
+            telegraphFlashOverlay.enabled = false;
+    }
+
     private void SanitizeValues()
     {
         normalDuration = Mathf.Max(0.5f, normalDuration);
@@ -235,5 +383,9 @@ public class EnemyDashAttack : MonoBehaviour
         telegraphWidth = Mathf.Clamp(telegraphWidth, 0.02f, 0.35f);
         telegraphLength = Mathf.Clamp(telegraphLength, 1f, 12f);
         telegraphColor.a = Mathf.Clamp(telegraphColor.a, 0.15f, 1f);
+        telegraphIndicatorHeight = Mathf.Clamp(telegraphIndicatorHeight, 0.1f, 4f);
+        telegraphIndicatorFontSize = Mathf.Clamp(telegraphIndicatorFontSize, 1f, 12f);
+        telegraphFlashFrequency = Mathf.Clamp(telegraphFlashFrequency, 0f, 24f);
+        telegraphFlashColor.a = Mathf.Clamp01(telegraphFlashColor.a);
     }
 }
