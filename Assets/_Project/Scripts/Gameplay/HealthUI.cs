@@ -64,6 +64,8 @@ public class HealthUI : MonoBehaviour
     private Vector3 numericHealthTextBaseScale = Vector3.one;
     private Vector3 numericHealthIconBaseScale = Vector3.one;
     private bool numericVisualDefaultsCached;
+    private TMP_Text cachedNumericHealthTextSource;
+    private Image cachedNumericHealthIconSource;
     private Image lowHealthEdgeWarningImage;
     private CanvasGroup lowHealthEdgeWarningCanvasGroup;
     private bool lowHealthEdgeWarningOverlayAutoCreated;
@@ -82,6 +84,11 @@ public class HealthUI : MonoBehaviour
             RefreshLowHealthVisibility(playerHealth.CurrentHP, playerHealth.MaxHP);
             RefreshLowHealthEdgeWarning(playerHealth.CurrentHP);
         }
+    }
+
+    public void ClearTransientWarningVisuals()
+    {
+        ResetLowHealthVisualState();
     }
 
     private void OnDisable()
@@ -328,19 +335,24 @@ public class HealthUI : MonoBehaviour
         if (!UseNumericDisplay)
             return;
 
-        if (numericHealthText != null)
+        bool textSourceChanged = numericHealthText != cachedNumericHealthTextSource;
+        bool iconSourceChanged = numericHealthIcon != cachedNumericHealthIconSource;
+
+        if (numericHealthText != null && (!numericVisualDefaultsCached || textSourceChanged))
         {
             numericHealthTextBaseColor = numericHealthText.color;
             numericHealthTextBaseScale = numericHealthText.rectTransform.localScale;
-            numericVisualDefaultsCached = true;
+            cachedNumericHealthTextSource = numericHealthText;
         }
 
-        if (numericHealthIcon != null)
+        if (numericHealthIcon != null && (!numericVisualDefaultsCached || iconSourceChanged))
         {
             numericHealthIconBaseColor = numericHealthIcon.color;
             numericHealthIconBaseScale = numericHealthIcon.rectTransform.localScale;
-            numericVisualDefaultsCached = true;
+            cachedNumericHealthIconSource = numericHealthIcon;
         }
+
+        numericVisualDefaultsCached = numericHealthText != null || numericHealthIcon != null;
     }
 
     private void RefreshLowHealthVisibility(int currentHP, int currentMaxHP)

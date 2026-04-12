@@ -121,6 +121,7 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private AnimationCurve hpMultiplierCurve = AnimationCurve.Linear(0f, 1f, 1f, 1.8f);
     [LocalizedLabel("敌人速度倍率曲线")]
     [SerializeField] private AnimationCurve speedMultiplierCurve = AnimationCurve.Linear(0f, 1f, 1f, 1.35f);
+    [SerializeField, Min(1)] private int maxSpawnTicksPerFrame = 4;
 
     [Header("XP Drop / 经验掉落")]
     [LocalizedLabel("经验掉落预制体")]
@@ -155,6 +156,7 @@ public class EnemySpawner : MonoBehaviour
     private bool bossSpawnedThisRound;
     private int treasureSpawnsThisRound;
     private int pendingTreasureSpawnsThisRound;
+    private int pendingSpawnReservations;
     private EnemyController runtimeTreasurePrefab;
     private readonly Collider2D[] spawnSpacingHits = new Collider2D[32];
     private EnemyController[] runtimeEnemyPool;
@@ -271,6 +273,7 @@ public class EnemySpawner : MonoBehaviour
         trackedRound = -1;
         ResetRoundSpawnTracking();
         runtimeTreasurePrefab = null;
+        pendingSpawnReservations = 0;
         RefreshRuntimeSpawnSettings();
         int currentRound = GameFlowController.Instance != null ? Mathf.Max(1, GameFlowController.Instance.GetCurrentRound()) : 1;
         RefreshRuntimeEnemyPool(currentRound);
@@ -329,13 +332,7 @@ public class EnemySpawner : MonoBehaviour
         timer -= Time.deltaTime;
         if (timer > 0f) return;
 
-        timer = runtimeSpawnInterval;
-
-        if (enemiesRoot.childCount >= runtimeMaxAlive) return;
-        int canSpawn = Mathf.Max(0, runtimeMaxAlive - enemiesRoot.childCount);
-        int spawnCount = Mathf.Min(runtimeSpawnPerTick, canSpawn);
-        for (int i = 0; i < spawnCount; i++)
-            SpawnOne();
+        ProcessSpawnTicks();
     }
 
     private void SpawnOne()
@@ -343,6 +340,7 @@ public class EnemySpawner : MonoBehaviour
         EnemyController prefab = PickWeightedPrefab(out EnemySpawnArchetype archetype);
         if (prefab == null) return;
         RegisterSpawnSelection(archetype);
+        pendingSpawnReservations++;
 
         bool isTreasure = IsTreasurePrefab(prefab);
         if (isTreasure)
@@ -500,6 +498,7 @@ public class EnemySpawner : MonoBehaviour
         // Check if spawner still active
         if (this == null || !isActiveAndEnabled)
         {
+            pendingSpawnReservations = Mathf.Max(0, pendingSpawnReservations - 1);
             if (IsTreasurePrefab(prefab))
                 pendingTreasureSpawnsThisRound = Mathf.Max(0, pendingTreasureSpawnsThisRound - 1);
             yield break;
@@ -548,6 +547,8 @@ public class EnemySpawner : MonoBehaviour
     private EnemyController SpawnEnemy(EnemyController prefab, Vector3 pos, EnemySpawnArchetype archetype = EnemySpawnArchetype.Unknown)
     {
         if (prefab == null) return null;
+
+        pendingSpawnReservations = Mathf.Max(0, pendingSpawnReservations - 1);
 
         if (IsTreasurePrefab(prefab))
         {
@@ -850,6 +851,7 @@ public class EnemySpawner : MonoBehaviour
         bossSpawnedThisRound = false;
         treasureSpawnsThisRound = 0;
         pendingTreasureSpawnsThisRound = 0;
+        pendingSpawnReservations = 0;
         selectedSpawnsThisRound = 0;
         selectedMeleeSpawnsThisRound = 0;
         selectedDashSpawnsThisRound = 0;
@@ -1111,6 +1113,46 @@ public class EnemySpawner : MonoBehaviour
 
     #region Runtime Settings
 
+    private void ProcessSpawnTicks()
+    {
+        float interval = Mathf.Max(0.05f, runtimeSpawnInterval);
+        int processedTicks = 0;
+        int maxTicks = Mathf.Max(1, maxSpawnTicksPerFrame);
+
+        while (timer <= 0f && processedTicks < maxTicks)
+        {
+            timer += interval;
+            processedTicks++;
+            ProcessSingleSpawnTick();
+        }
+
+        if (timer <= 0f)
+            timer = 0f;
+    }
+
+    private void ProcessSingleSpawnTick()
+    {
+        int effectiveAliveCount = GetEffectiveAliveCount();
+        if (effectiveAliveCount >= runtimeMaxAlive)
+            return;
+
+        int canSpawn = Mathf.Max(0, runtimeMaxAlive - effectiveAliveCount);
+        int spawnCount = Mathf.Min(runtimeSpawnPerTick, canSpawn);
+        for (int i = 0; i < spawnCount; i++)
+        {
+            if (GetEffectiveAliveCount() >= runtimeMaxAlive)
+                break;
+
+            SpawnOne();
+        }
+    }
+
+    private int GetEffectiveAliveCount()
+    {
+        int liveCount = enemiesRoot != null ? enemiesRoot.childCount : 0;
+        return Mathf.Max(0, liveCount + pendingSpawnReservations);
+    }
+
     private void RefreshRuntimeSpawnSettings()
     {
         int currentRound = 1;
@@ -1122,15 +1164,18 @@ public class EnemySpawner : MonoBehaviour
 
         // Apply round curves on top of per-round config
         float t = GetRoundCurveT();
+        float intervalMul = useRoundCurves ? EvaluateRoundCurve(spawnIntervalCurve, t) : 1f;
+        float perTickMul = useRoundCurves ? EvaluateRoundCurve(spawnPerTickCurve, t) : 1f;
+        float maxAliveMul = useRoundCurves ? EvaluateRoundCurve(maxAliveCurve, t) : 1f;
         float hpMul = useRoundCurves ? EvaluateRoundCurve(hpMultiplierCurve, t) : 1f;
         float speedMul = useRoundCurves ? EvaluateRoundCurve(speedMultiplierCurve, t) : 1f;
         float countMul = GameFlowController.Instance != null
             ? Mathf.Max(1f, GameFlowController.Instance.GetCurrentEnemyCountMultiplier())
             : 1f;
 
-        runtimeSpawnInterval = Mathf.Max(0.05f, config.interval);
-        runtimeSpawnPerTick = Mathf.Max(1, Mathf.RoundToInt(config.perTick * countMul));
-        runtimeMaxAlive = Mathf.Max(1, Mathf.RoundToInt(config.maxAlive * countMul));
+        runtimeSpawnInterval = Mathf.Max(0.05f, config.interval * Mathf.Max(0.1f, intervalMul));
+        runtimeSpawnPerTick = Mathf.Max(1, Mathf.RoundToInt(config.perTick * Mathf.Max(0.1f, perTickMul) * countMul));
+        runtimeMaxAlive = Mathf.Max(1, Mathf.RoundToInt(config.maxAlive * Mathf.Max(0.1f, maxAliveMul) * countMul));
         runtimeEnemyHpMultiplier = Mathf.Max(0.1f, globalEnemyHpMultiplier * hpMul);
         runtimeEnemySpeedMultiplier = Mathf.Max(0.1f, globalEnemySpeedMultiplier * speedMul);
     }

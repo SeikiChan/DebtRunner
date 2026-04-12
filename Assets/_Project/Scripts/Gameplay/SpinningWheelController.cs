@@ -105,6 +105,7 @@ public class SpinningWheelController : MonoBehaviour
     private bool firstRoundFreeDrawAvailable;
     private bool hasPendingResult;
     private PrizeOutcomeType pendingOutcome = PrizeOutcomeType.ThankYou;
+    private int pendingDrawCostCharged;
 
     public bool IsDrawInProgress => hasPendingResult || (animator != null && animator.IsSpinning);
 
@@ -191,7 +192,10 @@ public class SpinningWheelController : MonoBehaviour
         if (settlePendingResult)
             ResolvePendingResult();
         else
+        {
             hasPendingResult = false;
+            pendingDrawCostCharged = 0;
+        }
 
         if (animator != null)
             animator.CancelAndReset();
@@ -326,13 +330,28 @@ public class SpinningWheelController : MonoBehaviour
         if (isFreeDraw)
         {
             firstRoundFreeDrawAvailable = false;
+            pendingDrawCostCharged = 0;
             RefreshDrawLabel();
         }
 
-        if (!isFreeDraw && !gameFlow.TrySpendCash(drawCost))
+        if (shopSystem != null)
+        {
+            if (!shopSystem.TryCommitWheelDraw(isFreeDraw, out int chargedCost))
+            {
+                PushInfo("Not enough cash to roll.");
+                return;
+            }
+
+            pendingDrawCostCharged = chargedCost;
+        }
+        else if (!isFreeDraw && !gameFlow.TrySpendCash(drawCost))
         {
             PushInfo("Not enough cash to roll.");
             return;
+        }
+        else if (!isFreeDraw)
+        {
+            pendingDrawCostCharged = drawCost;
         }
 
         pendingOutcome = RollOutcome(useBoost);
@@ -498,13 +517,15 @@ public class SpinningWheelController : MonoBehaviour
 
         PrizeOutcomeType outcome = pendingOutcome;
         hasPendingResult = false;
+        int chargedCost = pendingDrawCostCharged;
+        pendingDrawCostCharged = 0;
 
         switch (outcome)
         {
             case PrizeOutcomeType.Cash:
             {
                 int reward = cashOutcomeRefundsDrawCost
-                    ? Mathf.Max(0, drawCost)
+                    ? Mathf.Max(0, chargedCost)
                     : UnityEngine.Random.Range(cashRewardRange.x, cashRewardRange.y + 1);
                 gameFlow?.AddCash(reward);
                 if (cashOutcomeRefundsDrawCost)

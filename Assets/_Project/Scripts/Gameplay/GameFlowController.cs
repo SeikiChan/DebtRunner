@@ -55,6 +55,7 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private RoundPresentationController roundPresentation;
     [SerializeField] private BossHealthBarController bossHealthBar;
     [SerializeField] private PlayerActiveItemController playerActiveItemController;
+    [SerializeField] private FirstRunHudGuideController firstRunHudGuideController;
 
     [Header("Story Intro / 开场漫画")]
     [SerializeField] private bool enableStoryComicIntro = true;
@@ -271,6 +272,9 @@ public class GameFlowController : MonoBehaviour
     [SerializeField, Min(0.1f)] private float lockedModeOfferWeight = 1.35f;
     [SerializeField, Min(0.1f)] private float lockedBaseOfferWeight = 0.8f;
     [SerializeField, Min(0f)] private float lowerRankModeCatchUpWeightBonus = 0.3f;
+    [SerializeField, Min(1)] private int fanSpreadProjectileCap = 16;
+    [SerializeField, Min(0)] private int fanSpreadOverflowDamageAdd = 4;
+    [SerializeField, Min(0f)] private float fanSpreadOverflowFireRateAdd = 0.006f;
     [SerializeField, Min(1)] private int orbitRingProjectileCap = 8;
     [SerializeField, Min(0)] private int orbitRingOverflowDamageAdd = 6;
     [SerializeField, Min(0f)] private float orbitRingOverflowFireRateAdd = 0.01f;
@@ -350,6 +354,8 @@ public class GameFlowController : MonoBehaviour
     private bool storyAdvanceRequested;
     private Coroutine storyIntroCo;
     private bool startRunQueuedAfterStory;
+    private bool showHudGuideOnQueuedRun = true;
+    private bool showHudGuideForCurrentRun = true;
     private readonly RunProgressionState runProgression = new RunProgressionState();
     private int pendingDeferredLevelUpChoices;
     private bool deferLevelUpRewardsUntilNextRoundStart;
@@ -406,6 +412,7 @@ public class GameFlowController : MonoBehaviour
     private int previousRoundCashEarned;
     private Coroutine gameplayTutorialCo;
     private Coroutine gameplayTutorialDebtFollowupCo;
+    private Coroutine firstRunHudGuideCo;
     private Coroutine bossVictorySequenceCo;
     private Coroutine victoryPresentationCo;
     private WorldInstructionText activeGameplayTutorialHint;
@@ -599,6 +606,7 @@ public class GameFlowController : MonoBehaviour
         EnsureRoundPresentationBound();
         EnsureBossHealthBarBound();
         EnsurePlayerActiveItemControllerBound();
+        EnsureFirstRunHudGuideBound();
         EnsurePauseMenuButtonsBound();
 
         try { EnsureDeathPanelsBound(); }
@@ -702,6 +710,9 @@ public class GameFlowController : MonoBehaviour
         if (bossHealthBar == null)
             bossHealthBar = GetComponent<BossHealthBarController>();
 
+        if (firstRunHudGuideController == null && panelHUD != null)
+            firstRunHudGuideController = panelHUD.GetComponent<FirstRunHudGuideController>();
+
         if (roundPresentation != null)
             SyncRoundPresentationConfig();
 
@@ -756,6 +767,7 @@ public class GameFlowController : MonoBehaviour
 
     private void OnDestroy()
     {
+        StopFirstRunHudGuideSequence(false);
         StopStoryIntroPresentation(true);
 
         if (countdownRuntimeMaterial != null)
@@ -767,6 +779,8 @@ public class GameFlowController : MonoBehaviour
 
     private void PrepareInitialMenuSafetyState()
     {
+        EnsureFirstRunHudGuideBound();
+        StopFirstRunHudGuideSequence(false);
         EnsureCreditsPanelBound();
         EnsureLevelUpPanelBound();
         if (panelTitle != null) panelTitle.SetActive(true);
@@ -1471,7 +1485,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
             case WeaponModeId.FanSpread:
                 return nextRank <= 1
                     ? "One throw becomes a fan."
-                    : "Fan ↑ More cards. Wider fan.";
+                    : IsFanSpreadAtProjectileCap()
+                        ? "Fan ↑ Cap reached. Wider fan. Faster throw. Harder hits."
+                        : "Fan ↑ More cards. Wider fan.";
             case WeaponModeId.PierceLine:
                 return nextRank <= 1
                     ? "Cards push through the line."
@@ -1603,10 +1619,15 @@ private void TryShowDeferredLevelUpRewardIfReady()
                 break;
 
             case WeaponModeId.FanSpread:
-                effects.Add(CreateEffect(WeaponUpgradeEffectType.ExtraProjectilesAdd, 1));
+                int currentExtraProjectiles = playerShooter != null ? playerShooter.GetExtraProjectileCount() : 0;
+                int remainingFanSpreadProjectiles = Mathf.Max(0, Mathf.Max(1, fanSpreadProjectileCap) - currentExtraProjectiles);
+                int addedFanSpreadProjectiles = Mathf.Min(1, remainingFanSpreadProjectiles);
+                if (addedFanSpreadProjectiles > 0)
+                    effects.Add(CreateEffect(WeaponUpgradeEffectType.ExtraProjectilesAdd, addedFanSpreadProjectiles));
                 effects.Add(CreateEffect(WeaponUpgradeEffectType.SpreadAngleAdd, floatValue: nextRank <= 2 ? 3f : 2f));
                 if (nextRank >= 3)
                     effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: 0.008f));
+                AddFanSpreadOverflowBonuses(effects, 1 - addedFanSpreadProjectiles);
                 break;
 
             case WeaponModeId.PierceLine:
@@ -1683,6 +1704,28 @@ private void TryShowDeferredLevelUpRewardIfReady()
             return false;
 
         return playerShooter.GetOrbitProjectileCount() >= Mathf.Max(1, orbitRingProjectileCap);
+    }
+
+    private bool IsFanSpreadAtProjectileCap()
+    {
+        if (playerShooter == null)
+            return false;
+
+        return playerShooter.GetExtraProjectileCount() >= Mathf.Max(1, fanSpreadProjectileCap);
+    }
+
+    private void AddFanSpreadOverflowBonuses(List<WeaponUpgradeEffect> effects, int overflowProjectileCount)
+    {
+        if (effects == null || overflowProjectileCount <= 0)
+            return;
+
+        int damageAdd = Mathf.Max(0, fanSpreadOverflowDamageAdd) * overflowProjectileCount;
+        if (damageAdd > 0)
+            effects.Add(CreateEffect(WeaponUpgradeEffectType.DamageAdd, damageAdd));
+
+        float fireRateAdd = Mathf.Max(0f, fanSpreadOverflowFireRateAdd) * overflowProjectileCount;
+        if (fireRateAdd > 0f)
+            effects.Add(CreateEffect(WeaponUpgradeEffectType.FireRateAdd, floatValue: fireRateAdd));
     }
 
     private void AddOrbitOverflowBonuses(List<WeaponUpgradeEffect> effects, int overflowProjectileCount, bool includeFireRate)
@@ -1840,6 +1883,12 @@ private void TryShowDeferredLevelUpRewardIfReady()
     public void StartRun()
     {
         PlayUIButtonClickSfx();
+        BeginRun(showHudGuide: true);
+    }
+
+    private void BeginRun(bool showHudGuide)
+    {
+        showHudGuideOnQueuedRun = showHudGuide;
         if (TryPlayStoryIntroBeforeRun())
             return;
 
@@ -1848,6 +1897,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private void StartRunGameplayFlow()
     {
+        showHudGuideForCurrentRun = showHudGuideOnQueuedRun;
+        showHudGuideOnQueuedRun = false;
+
         // 鎭㈠娓告垙鏃堕棿锛堜互闃茶繕鍦ㄦ殏鍋滅姸鎬侊級
         StopPlayerLossPresentation();
         StopRoundClearTransition(false);
@@ -1916,6 +1968,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         gameplayTutorialSpawnPosition = ResolveGameplayTutorialAnchorPosition();
         ClearGameplayTutorialHint();
         StopGameplayTutorialSequence();
+        StopFirstRunHudGuideSequence(false);
 
         // 闅愯棌鍗囩骇闈㈡澘骞堕噸缃鍣?
         if (levelUpPanel != null)
@@ -1937,15 +1990,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
         RefreshHUD();
 
         ShowRoundIntro();
-
-        if (enableGameplayTutorial)
-        {
-            BeginGameplayTutorialSequence();
-        }
-        else
-        {
-            StartRoundTimer();
-        }
+        BeginOpeningGameplayFlowAfterRoundIntro();
     }
 
     [ContextMenu("Debug/Jump To Boss Round")]
@@ -2349,7 +2394,8 @@ private void TryShowDeferredLevelUpRewardIfReady()
     // UI Button: Restart锛堢洿鎺ュ紑濮嬫父鎴忥級
     public void Restart()
     {
-        StartRun();
+        PlayUIButtonClickSfx();
+        BeginRun(showHudGuide: false);
     }
 
     private void SuppressActiveItemUseUntilRelease(float minimumUnscaledLockSeconds = 0.08f)
@@ -3681,6 +3727,107 @@ private void TryShowDeferredLevelUpRewardIfReady()
             ResolvePlayerHealth());
     }
 
+    private void EnsureFirstRunHudGuideBound()
+    {
+        if (panelHUD == null)
+            return;
+
+        if (firstRunHudGuideController == null)
+            firstRunHudGuideController = panelHUD.GetComponent<FirstRunHudGuideController>();
+
+        if (firstRunHudGuideController == null)
+            firstRunHudGuideController = panelHUD.AddComponent<FirstRunHudGuideController>();
+
+        if (firstRunHudGuideController == null)
+            return;
+
+        firstRunHudGuideController.Bind(healthUI, textCash, textDebt, textCountdown);
+    }
+
+    private void BeginOpeningGameplayFlowAfterRoundIntro()
+    {
+        if (TryStartFirstRunHudGuideSequence())
+            return;
+
+        ContinueOpeningGameplayFlow();
+    }
+
+    private void ContinueOpeningGameplayFlow()
+    {
+        if (enableGameplayTutorial)
+        {
+            BeginGameplayTutorialSequence();
+        }
+        else
+        {
+            StartRoundTimer();
+        }
+    }
+
+    private bool TryStartFirstRunHudGuideSequence()
+    {
+        if (!showHudGuideForCurrentRun)
+            return false;
+
+        EnsureFirstRunHudGuideBound();
+        if (firstRunHudGuideController == null || !firstRunHudGuideController.ShouldShowGuide())
+            return false;
+
+        StopFirstRunHudGuideSequence(false);
+        firstRunHudGuideCo = StartCoroutine(FirstRunHudGuideSequence());
+        return true;
+    }
+
+    private void StopFirstRunHudGuideSequence(bool restoreGameplayState)
+    {
+        if (firstRunHudGuideCo != null)
+        {
+            StopCoroutine(firstRunHudGuideCo);
+            firstRunHudGuideCo = null;
+        }
+
+        if (firstRunHudGuideController != null)
+            firstRunHudGuideController.StopGuideImmediate();
+
+        if (!restoreGameplayState || state != GameState.Gameplay)
+            return;
+
+        Time.timeScale = 1f;
+        RefreshGameplaySystemsForCurrentState();
+        RefreshGameplayHudVisibility();
+    }
+
+    private IEnumerator FirstRunHudGuideSequence()
+    {
+        while (state == GameState.Gameplay && (IsRoundIntroActive || roundClearActive || storyIntroActive))
+            yield return null;
+
+        EnsureFirstRunHudGuideBound();
+        if (state != GameState.Gameplay || !showHudGuideForCurrentRun || firstRunHudGuideController == null || !firstRunHudGuideController.ShouldShowGuide())
+        {
+            firstRunHudGuideCo = null;
+            yield break;
+        }
+
+        Time.timeScale = 0f;
+        SetGameplaySystemsActive(false);
+        RefreshGameplayHudVisibility();
+
+        yield return firstRunHudGuideController.PlayGuideSequence();
+
+        if (state != GameState.Gameplay)
+        {
+            firstRunHudGuideCo = null;
+            yield break;
+        }
+
+        Time.timeScale = 1f;
+        RefreshGameplaySystemsForCurrentState();
+        RefreshGameplayHudVisibility();
+        ContinueOpeningGameplayFlow();
+        firstRunHudGuideCo = null;
+    }
+
     private void SyncRoundPresentationConfig()
     {
         if (roundPresentation == null)
@@ -4119,6 +4266,9 @@ private void SwitchState(GameState next)
     if (previous == GameState.Shop && next != GameState.Shop && shopSystem != null)
         shopSystem.OnShopClosed();
 
+    if (next != GameState.Gameplay)
+        StopFirstRunHudGuideSequence(false);
+
     if (state != GameState.Title)
         creditsOpen = false;
     if (state != GameState.Victory)
@@ -4137,7 +4287,12 @@ private void SwitchState(GameState next)
         panelLevelUp.SetActive(false);
     if (panelSettlement) panelSettlement.SetActive(state == GameState.Settlement);
     if (panelShop) panelShop.SetActive(state == GameState.Shop);
-    if (healthUI != null) healthUI.SetHiddenForShop(state == GameState.Shop);
+    if (healthUI != null)
+    {
+        healthUI.SetHiddenForShop(state == GameState.Shop);
+        if (state != GameState.Gameplay)
+            healthUI.ClearTransientWarningVisuals();
+    }
     
     // 绂诲紑GameOver鐘舵€佹椂闅愯棌姝讳骸闈㈡澘
     if (previous == GameState.GameOver)

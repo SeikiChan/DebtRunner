@@ -71,6 +71,9 @@ public class ShopSystem : MonoBehaviour
     [SerializeField, Range(0.35f, 0.95f)] private float gambleCostToOfferPriceRatio = 0.42f;
     [SerializeField, Min(1)] private int gambleCostMin = 35;
     [SerializeField, Min(1)] private int gambleCostMax = 120;
+    [SerializeField, Min(0f)] private float gambleCostPerDrawPercent = 0.25f;
+    [SerializeField, Min(0)] private int gambleCostFlatIncreasePerDraw = 15;
+    [SerializeField, Min(1)] private int gambleCostVisitHardCap = 900;
     [SerializeField] private bool enforceWheelRiskModel = true;
     [SerializeField, Range(0f, 1f)] private float wheelPositiveOutcomeChance = 0.68f;
     [SerializeField] private bool wheelCashRefundByCost = false;
@@ -184,6 +187,7 @@ public class ShopSystem : MonoBehaviour
     private int pendingFreeRefreshCharges;
     private bool receivedFreeItemThisVisit;
     private int runtimeGambleCost;
+    private int gambleDrawsThisVisit;
     private int refreshTimesThisVisit;
     private Color[] defaultTitleColors;
     private Color[] defaultPriceColors;
@@ -207,6 +211,7 @@ public class ShopSystem : MonoBehaviour
         pendingFreeItemCharges = 0;
         pendingFreeRefreshCharges = 0;
         receivedFreeItemThisVisit = false;
+        gambleDrawsThisVisit = 0;
         refreshTimesThisVisit = 0;
         GenerateOffers();
         bool isPreBossShop = IsPreBossInvestmentShopActive();
@@ -223,7 +228,7 @@ public class ShopSystem : MonoBehaviour
         else if (gameFlow != null && gameFlow.GetCurrentRound() == 1)
             SetInfo("Spend cash to upgrade. Your first roll this shop is FREE.");
         else
-            SetInfo($"Spend cash to upgrade. Roll costs ${ResolveRuntimeGambleCost()} — big rewards await!");
+            SetInfo($"Spend cash to upgrade. Roll starts at ${ResolveRuntimeGambleCost()} and gets pricier each spin.");
         RefreshShopUI();
     }
 
@@ -250,6 +255,43 @@ public class ShopSystem : MonoBehaviour
     public void ShowPrizeInfo(string message)
     {
         SetInfo(message);
+    }
+
+    public bool TryCommitWheelDraw(bool isFreeDraw, out int chargedCost)
+    {
+        chargedCost = 0;
+        if (gameFlow == null)
+            return false;
+
+        if (!isFreeDraw)
+        {
+            chargedCost = GetCurrentGambleCost();
+            if (chargedCost > 0 && gameFlow.GetCashAmount() < chargedCost)
+                return false;
+        }
+
+        gambleDrawsThisVisit++;
+        runtimeGambleCost = ResolveRuntimeGambleCost();
+
+        if (chargedCost <= 0)
+        {
+            RefreshShopUI();
+            return true;
+        }
+
+        if (gameFlow.TrySpendCash(chargedCost))
+            return true;
+
+        gambleDrawsThisVisit = Mathf.Max(0, gambleDrawsThisVisit - 1);
+        runtimeGambleCost = ResolveRuntimeGambleCost();
+        RefreshShopUI();
+        return false;
+    }
+
+    public int GetCurrentGambleCost()
+    {
+        runtimeGambleCost = ResolveRuntimeGambleCost();
+        return runtimeGambleCost;
     }
 
     public int AddFreeItemCharges(int amount)
@@ -757,6 +799,25 @@ public class ShopSystem : MonoBehaviour
     }
 
     private int ResolveRuntimeGambleCost()
+    {
+        int baseCost = ResolveBaseRuntimeGambleCost();
+        if (baseCost <= 0 || gambleDrawsThisVisit <= 0)
+            return Mathf.Max(0, baseCost);
+
+        double multiplier = 1d + Mathf.Max(0f, gambleCostPerDrawPercent);
+        double scaledCost = baseCost * Math.Pow(multiplier, gambleDrawsThisVisit);
+        scaledCost += Mathf.Max(0, gambleCostFlatIncreasePerDraw) * gambleDrawsThisVisit;
+
+        int visitHardCap = gambleCostVisitHardCap > 0 ? gambleCostVisitHardCap : int.MaxValue;
+        if (scaledCost >= visitHardCap)
+            return visitHardCap;
+        if (scaledCost >= int.MaxValue)
+            return int.MaxValue;
+
+        return Mathf.Max(baseCost, Mathf.RoundToInt((float)scaledCost));
+    }
+
+    private int ResolveBaseRuntimeGambleCost()
     {
         float itemScale = GetItemPriceScaleForCurrentRound();
         int floor = Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(1, gambleCostMin) * itemScale));

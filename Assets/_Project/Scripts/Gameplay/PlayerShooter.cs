@@ -4,6 +4,9 @@ using UnityEngine;
 public class PlayerShooter : MonoBehaviour
 {
     private const float DefaultOrbitVisualSizeMultiplier = 3f;
+    private const int MaxExtraProjectilesSafetyCap = 24;
+    private const int MaxOnHitScatterCountSafetyCap = 16;
+    private const int MaxNovaProjectileCountSafetyCap = 36;
 
     [SerializeField] private PlayerMotor2D motor;
     [SerializeField] private Projectile projectilePrefab;
@@ -621,16 +624,16 @@ public class PlayerShooter : MonoBehaviour
         damage = Mathf.Max(1, damage);
         projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
         fireInterval = Mathf.Max(0.01f, fireInterval);
-        extraProjectiles = Mathf.Max(0, extraProjectiles);
+        extraProjectiles = Mathf.Clamp(extraProjectiles, 0, MaxExtraProjectilesSafetyCap);
         spreadAngleStep = Mathf.Max(0f, spreadAngleStep);
         pierceCount = Mathf.Max(0, pierceCount);
         knockbackMultiplier = Mathf.Max(0f, knockbackMultiplier);
-        onHitScatterCount = Mathf.Max(0, onHitScatterCount);
+        onHitScatterCount = Mathf.Clamp(onHitScatterCount, 0, MaxOnHitScatterCountSafetyCap);
         onHitScatterAngle = Mathf.Max(0f, onHitScatterAngle);
         orbitProjectileCount = Mathf.Max(0, orbitProjectileCount);
         orbitRadius = Mathf.Max(0f, orbitRadius);
         orbitAngularSpeed = Mathf.Max(0f, orbitAngularSpeed);
-        novaProjectileCount = Mathf.Max(0, novaProjectileCount);
+        novaProjectileCount = Mathf.Clamp(novaProjectileCount, 0, MaxNovaProjectileCountSafetyCap);
         novaBurstInterval = Mathf.Max(0.45f, novaBurstInterval);
         returnSpeedMultiplier = Mathf.Max(1f, returnSpeedMultiplier);
         novaTimer = Mathf.Min(novaTimer, Mathf.Max(0.25f, novaBurstInterval));
@@ -643,6 +646,7 @@ public class PlayerShooter : MonoBehaviour
 
     public int GetDamage() => GetResolvedDamage();
     public float GetFireRate() => 1f / GetResolvedFireInterval();
+    public int GetExtraProjectileCount() => extraProjectiles;
     public int GetOrbitProjectileCount() => orbitProjectileCount;
 
     public void AddDamagePercent(float percent)

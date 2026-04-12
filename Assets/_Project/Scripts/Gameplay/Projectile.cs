@@ -7,8 +7,9 @@ public class Projectile : MonoBehaviour
     [SerializeField] private float scatterSeekRadius = 4.5f;
     [SerializeField] private float scatterDamageScale = 0.7f;
 
-    private const int MaxActiveProjectiles = 200;
+    private const int MaxActiveProjectiles = 600;
     private static int activeCount;
+    private static float nextSpawnCapWarningTime;
     private static readonly Dictionary<int, Stack<Projectile>> pooledProjectiles = new Dictionary<int, Stack<Projectile>>();
     private static readonly Collider2D[] scatterHitBuffer = new Collider2D[128];
     private static readonly List<EnemyController> scatterCandidates = new List<EnemyController>(32);
@@ -58,7 +59,14 @@ public class Projectile : MonoBehaviour
         // Refuse new spawns before reusing/instantiating anything, otherwise a freshly
         // instantiated projectile can remain visible in-scene when we early-out at cap.
         if (countTowardCap && activeCount >= MaxActiveProjectiles)
+        {
+            if (Time.unscaledTime >= nextSpawnCapWarningTime)
+            {
+                nextSpawnCapWarningTime = Time.unscaledTime + 1f;
+                RunLogger.Warning($"Projectile spawn cap hit. active={activeCount}, cap={MaxActiveProjectiles}");
+            }
             return null;
+        }
 
         Projectile projectile = null;
         while (pool.Count > 0 && projectile == null)
@@ -97,6 +105,7 @@ public class Projectile : MonoBehaviour
 
         pooledProjectiles.Clear();
         activeCount = 0;
+        nextSpawnCapWarningTime = 0f;
     }
 
     public static int DespawnAllActiveInScene()
