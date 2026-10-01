@@ -27,7 +27,10 @@ Unity 6 / URP 2D top-down roguelite prototype led by a 4-person student team and
 
 The prototype connects game-state flow, player movement, auto-target combat, enemy spawning, projectile logic, XP and level-up rewards, settlement flow, shop loop, and game-over handling.
 
+## QA Portfolio Sample
+
+See the [Game QA & Simplified Chinese LQA portfolio sample](docs/game-qa-lqa-portfolio-sample.md) for a transparent summary of QA work performed and clearly labeled test-design examples. Proposed cases are not presented as historical test results or commercial LQA experience.
+
 ## Why it matters
 
 DEBT RUNNER demonstrates production coordination, gameplay systems integration, iterative QA, and the ability to turn ambiguous creative requirements into a scoped, testable prototype.
-
