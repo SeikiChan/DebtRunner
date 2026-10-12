@@ -6,6 +6,7 @@ using UnityEngine;
 public class ShopItemDefinition : ScriptableObject
 {
     [Header("Display")]
+    [SerializeField] private string localizationKey = "";
     [SerializeField] private string itemTitle = "New Shop Item";
     [SerializeField, TextArea] private string description = "";
     [SerializeField] private Sprite icon;
@@ -20,6 +21,11 @@ public class ShopItemDefinition : ScriptableObject
 
     public string ItemTitle => itemTitle;
     public string Description => description;
+    public string LocalizationKey => localizationKey;
+    public string LocalizedTitle => string.IsNullOrWhiteSpace(localizationKey)
+        ? itemTitle : LocalizationTable.Get(localizationKey + ".title", itemTitle);
+    public string LocalizedDescription => string.IsNullOrWhiteSpace(localizationKey)
+        ? description : LocalizationTable.Get(localizationKey + ".description", description);
     public Sprite Icon => icon;
     public int Price => Mathf.Max(0, price);
     public UpgradeRarity Rarity => rarity;

@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 7
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Fast Hands II
-  description: Throw even faster and leave enemies no room to breathe.
+  localizationKey: upgrade.definition.fast_hands_2
+  upgradeTitle: 疾速出手 II
+  description: 投掷速度进一步提升，让敌人无处喘息。
   icon: {fileID: -8918892806109341172, guid: c91b992a496632b4e926bc3ae4039956, type: 3}
   rarity: 1
   weightPercent: 7

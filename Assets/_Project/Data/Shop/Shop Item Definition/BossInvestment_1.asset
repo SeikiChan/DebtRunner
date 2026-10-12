@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_1
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Skiptrace Tuition
-  description: +0.01% move speed.
+  localizationKey: shop.item.collector_training
+  itemTitle: 追债特训
+  description: 移动速度 +0.01%。
   icon: {fileID: 0}
   price: 4200
   rarity: 2

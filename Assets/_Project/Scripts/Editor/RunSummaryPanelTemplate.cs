@@ -62,7 +62,7 @@ public static class RunSummaryPanelTemplate
         float yPos = 170f;
 
         // Title text (VICTORY / DEFEATED)
-        TMP_Text titleText = CreateTMPText("TitleText", contentRect, "RUN SUMMARY", 36, FontStyles.Bold);
+        TMP_Text titleText = CreateTMPText("TitleText", contentRect, "本局总结", 36, FontStyles.Bold);
         RectTransform titleRect = ((RectTransform)titleText.transform);
         titleRect.anchoredPosition = new Vector2(0f, yPos);
         titleRect.sizeDelta = new Vector2(460f, 50f);
@@ -71,7 +71,7 @@ public static class RunSummaryPanelTemplate
         yPos -= 55f;
 
         // Result text (subtitle)
-        TMP_Text resultText = CreateTMPText("ResultText", contentRect, "You cleared all debts!", 20, FontStyles.Normal);
+        TMP_Text resultText = CreateTMPText("ResultText", contentRect, "你已还清所有债务！", 20, FontStyles.Normal);
         RectTransform resultRect = ((RectTransform)resultText.transform);
         resultRect.anchoredPosition = new Vector2(0f, yPos);
         resultRect.sizeDelta = new Vector2(460f, 36f);
@@ -90,7 +90,7 @@ public static class RunSummaryPanelTemplate
 
         // Stats text (monospaced-style)
         TMP_Text statsText = CreateTMPText("StatsText", contentRect,
-            "Enemies Killed:    0\nCash Earned:       $0\nXP Earned:         0\nRounds Survived:   0\nFinal Level:       1",
+            "击败敌人：    0\n获得现金：       $0\n获得经验：         0\n存活回合：   0\n最终等级：       1",
             18, FontStyles.Normal);
         RectTransform statsRect = ((RectTransform)statsText.transform);
         statsRect.anchoredPosition = new Vector2(0f, yPos - 50f);
@@ -105,11 +105,11 @@ public static class RunSummaryPanelTemplate
         float btnHeight = 45f;
         float btnSpacing = 20f;
 
-        Button restartBtn = CreateButton("Btn_Restart", contentRect, "RESTART",
+        Button restartBtn = CreateButton("Btn_Restart", contentRect, "重新开始",
             new Vector2(-btnWidth / 2f - btnSpacing / 2f, btnY), new Vector2(btnWidth, btnHeight),
             new Color(0.2f, 0.7f, 0.3f, 1f));
 
-        Button menuBtn = CreateButton("Btn_MainMenu", contentRect, "MAIN MENU",
+        Button menuBtn = CreateButton("Btn_MainMenu", contentRect, "主菜单",
             new Vector2(btnWidth / 2f + btnSpacing / 2f, btnY), new Vector2(btnWidth, btnHeight),
             new Color(0.4f, 0.4f, 0.45f, 1f));
 

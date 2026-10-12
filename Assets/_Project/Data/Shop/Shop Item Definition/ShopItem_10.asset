@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_10
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Grace Window
-  description: 'ACTIVE: Space to buy time.
+  localizationKey: shop.item.grace_window
+  itemTitle: 宽限时刻
+  description: '主动：按空格键进入宽限状态。
 
-    4s speed and safety.'
+    持续 4 秒，提升移动速度并获得无敌。'
   icon: {fileID: -446512839691000868, guid: 293e2b38a973071458c2f1aff2a9e59b, type: 3}
   price: 170
   rarity: 1

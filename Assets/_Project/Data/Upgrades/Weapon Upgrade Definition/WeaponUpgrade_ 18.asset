@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 18
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Audit Barrage
-  description: Flood the front with enough paperwork to bury a lane.
+  localizationKey: upgrade.definition.audit_barrage
+  upgradeTitle: 审计弹幕
+  description: 向前方倾泻大量卡牌，封锁整条路线。
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4

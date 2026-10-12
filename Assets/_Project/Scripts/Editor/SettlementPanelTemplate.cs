@@ -55,7 +55,7 @@ public static class SettlementPanelTemplate
             frameRect,
             new Vector2(0f, 285f),
             new Vector2(1000f, 90f),
-            "ROUND CLEARED",
+            "回合完成",
             72f,
             FontStyles.Bold,
             new Color(0.95f, 0.85f, 0.60f, 1f),
@@ -80,9 +80,9 @@ public static class SettlementPanelTemplate
         leftBg.raycastTarget = false;
         AddGoldOutline(leftPanel.gameObject, 3f);
 
-        TMP_Text valCashEarned = CreateSummaryRow(leftPanel, 95f, "CASH EARNED", new Color(0.18f, 0.95f, 0.82f, 1f), " +$0");
-        TMP_Text valDebtPayment = CreateSummaryRow(leftPanel, 0f, "DEBT PAYMENT", new Color(1f, 0.33f, 0.40f, 1f), " -$0");
-        TMP_Text valNetCash = CreateSummaryRow(leftPanel, -95f, "NET CASH", new Color(0.22f, 1f, 0.42f, 1f), " +$0");
+        TMP_Text valCashEarned = CreateSummaryRow(leftPanel, 95f, "获得现金", new Color(0.18f, 0.95f, 0.82f, 1f), " +$0");
+        TMP_Text valDebtPayment = CreateSummaryRow(leftPanel, 0f, "偿还债务", new Color(1f, 0.33f, 0.40f, 1f), " -$0");
+        TMP_Text valNetCash = CreateSummaryRow(leftPanel, -95f, "现金结余", new Color(0.22f, 1f, 0.42f, 1f), " +$0");
 
         CreateSeparator(leftPanel, 48f);
         CreateSeparator(leftPanel, -48f);
@@ -98,7 +98,7 @@ public static class SettlementPanelTemplate
             rightPanel,
             new Vector2(0f, 130f),
             new Vector2(340f, 48f),
-            "NEXT ROUND DEBT",
+            "下回合债务",
             42f,
             FontStyles.Bold,
             new Color(0.95f, 0.78f, 0.34f, 1f),
@@ -122,7 +122,7 @@ public static class SettlementPanelTemplate
             rightPanel,
             new Vector2(0f, -64f),
             new Vector2(320f, 44f),
-            "ROUNDS LEFT",
+            "剩余回合",
             38f,
             FontStyles.Bold,
             new Color(0.95f, 0.78f, 0.34f, 1f),
@@ -144,7 +144,7 @@ public static class SettlementPanelTemplate
             frameRect,
             new Vector2(0f, -285f),
             new Vector2(320f, 74f),
-            "NEXT",
+            "继续",
             new Color(0.95f, 0.66f, 0.22f, 1f),
             new Color(0.13f, 0.08f, 0.02f, 1f));
 
@@ -316,6 +316,12 @@ public static class SettlementPanelTemplate
             TextAlignmentOptions.Center);
         RectTransform labelRect = labelText.rectTransform;
         Stretch(labelRect);
+        labelText.textWrappingMode = TextWrappingModes.NoWrap;
+        labelText.overflowMode = TextOverflowModes.Ellipsis;
+        labelText.margin = new Vector4(12f, 0f, 12f, 0f);
+        labelText.fontSizeMin = 28f;
+        labelText.fontSizeMax = 50f;
+        labelText.enableAutoSizing = true;
 
         return btnObj.GetComponent<Button>();
     }

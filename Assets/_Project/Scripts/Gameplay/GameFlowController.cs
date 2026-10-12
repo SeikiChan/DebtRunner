@@ -62,14 +62,17 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private bool lockStorySkipOnFirstPlay = true;
     [SerializeField] private string storyPlayedFlagKey = "DebtRunner.StoryComicPlayed";
     [SerializeField] private List<StoryComicPage> storyComicPages = new List<StoryComicPage>();
+    private readonly Dictionary<int, Sprite> chineseStorySprites = new Dictionary<int, Sprite>();
+    private StoryComicPage activeStoryComicPage;
+    private int activeStoryComicPageIndex;
     [SerializeField] private CanvasGroup storyIntroOverlay;
     [SerializeField] private Image storyIntroBackground;
     [SerializeField] private Image storyIntroPageImage;
     [SerializeField] private TMP_Text storyIntroHintText;
     [SerializeField] private Button storyIntroSkipButton;
     [SerializeField] private TMP_Text storyIntroSkipButtonText;
-    [SerializeField] private string storyIntroHintTemplate = "Click to continue";
-    [SerializeField] private string storyIntroSkipButtonLabel = "Skip Story";
+    [SerializeField] private string storyIntroHintTemplate = "点击继续";
+    [SerializeField] private string storyIntroSkipButtonLabel = "跳过剧情";
 
     [SerializeField] private Transform enemiesRoot;
     [SerializeField] private Transform projectilesRoot;
@@ -92,7 +95,7 @@ public class GameFlowController : MonoBehaviour
     [HideInInspector, SerializeField] private TMP_Text roundIntroDebtText;
     [HideInInspector, SerializeField] private TMP_Text roundIntroContinueHintText;
     [HideInInspector, SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
-    [HideInInspector, SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
+    [HideInInspector, SerializeField] private string roundIntroContinueHintMessage = "按任意键继续";
     [HideInInspector, SerializeField] private float roundIntroFadeInSeconds = 0.15f;
     [HideInInspector, SerializeField] private float roundIntroFadeOutSeconds = 0.30f;
 
@@ -100,8 +103,8 @@ public class GameFlowController : MonoBehaviour
     [HideInInspector, SerializeField] private TMP_Text roundClearTitleText;
     [HideInInspector, SerializeField] private TMP_Text roundClearSubText;
     [HideInInspector, SerializeField] private bool showRoundClearTransition = true;
-    [HideInInspector, SerializeField] private string roundClearTitleMessage = "YOU PASS!";
-    [HideInInspector, SerializeField] private string roundClearSubMessage = "Round Cleared";
+    [HideInInspector, SerializeField] private string roundClearTitleMessage = "本回合完成！";
+    [HideInInspector, SerializeField] private string roundClearSubMessage = "已成功清场";
     [HideInInspector, SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
     [HideInInspector, SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
     [HideInInspector, SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
@@ -116,7 +119,7 @@ public class GameFlowController : MonoBehaviour
     [HideInInspector, SerializeField] private CanvasGroup timesUpOverlay;
     [HideInInspector, SerializeField] private TMP_Text timesUpTitleText;
     [HideInInspector, SerializeField] private bool showTimesUpTransition = true;
-    [HideInInspector, SerializeField] private string timesUpTitleMessage = "TIME'S UP";
+    [HideInInspector, SerializeField] private string timesUpTitleMessage = "时间到";
     [HideInInspector, SerializeField, Min(0f)] private float timesUpSeconds = 1f;
     [HideInInspector, SerializeField, Min(0f)] private float timesUpFadeInSeconds = 0.08f;
     [HideInInspector, SerializeField, Min(0f)] private float timesUpFadeOutSeconds = 0.12f;
@@ -125,8 +128,8 @@ public class GameFlowController : MonoBehaviour
     [HideInInspector, SerializeField] private TMP_Text gameOverTransitionTitleText;
     [HideInInspector, SerializeField] private TMP_Text gameOverTransitionSubText;
     [HideInInspector, SerializeField] private bool showGameOverTransition = true;
-    [HideInInspector, SerializeField] private string gameOverTransitionTitleMessage = "YOU LOSS";
-    [HideInInspector, SerializeField] private string gameOverTransitionSubMessage = "Run Failed";
+    [HideInInspector, SerializeField] private string gameOverTransitionTitleMessage = "本局失败";
+    [HideInInspector, SerializeField] private string gameOverTransitionSubMessage = "挑战结束";
     [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionSeconds = 1.1f;
     [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionFadeInSeconds = 0.12f;
     [HideInInspector, SerializeField, Min(0f)] private float gameOverTransitionFadeOutSeconds = 0.18f;
@@ -172,10 +175,10 @@ public class GameFlowController : MonoBehaviour
     [Header("Gameplay Tutorial")]
     [SerializeField] private bool enableGameplayTutorial = true;
     [SerializeField] private TMP_FontAsset gameplayTutorialFont;
-    [SerializeField, TextArea(2, 3)] private string gameplayTutorialMoveText = "MOVE WITH WASD";
-    [SerializeField, TextArea(1, 2)] private string gameplayTutorialDashText = "PRESS SPACE TO DASH";
-    [SerializeField, TextArea(2, 4)] private string gameplayTutorialPickupText = "PICK UP DROPS FROM KILLS\nXP LEVELS YOU UP. CASH PAYS DEBT.";
-    [SerializeField, TextArea(2, 4)] private string gameplayTutorialDebtText = "WORK HARD. PAY BACK.\nTHE COLLECTOR NEVER MISSES A PAYMENT.";
+    [SerializeField, TextArea(2, 3)] private string gameplayTutorialMoveText = "使用 WASD 移动";
+    [SerializeField, TextArea(1, 2)] private string gameplayTutorialDashText = "按空格键冲刺";
+    [SerializeField, TextArea(2, 4)] private string gameplayTutorialPickupText = "拾取击败敌人后掉落的物品\n获得经验可以升级，现金可以偿还债务。";
+    [SerializeField, TextArea(2, 4)] private string gameplayTutorialDebtText = "努力战斗，偿还债务。\n催债人从不会错过任何一期还款。";
     [SerializeField] private Color gameplayTutorialTextColor = new Color(0.96f, 0.97f, 0.93f, 1f);
     [SerializeField] private Color gameplayTutorialCompleteColor = new Color(0.34f, 1f, 0.44f, 1f);
     [SerializeField] private Vector3 gameplayTutorialMoveOffset = new Vector3(0f, 2.55f, 0f);
@@ -208,8 +211,8 @@ public class GameFlowController : MonoBehaviour
     [SerializeField] private Color bossVictoryShardColor = new Color(1f, 0.68f, 0.36f, 0.95f);
 
     [Header("Victory Presentation")]
-    [SerializeField] private string victoryThanksText = "THANKS FOR PLAYING";
-    [SerializeField] private string victoryThanksSubText = "Debt paid. For now.";
+    [SerializeField] private string victoryThanksText = "感谢游玩";
+    [SerializeField] private string victoryThanksSubText = "债务暂时还清了。";
     [SerializeField, Min(0.1f)] private float victoryThanksSeconds = 2.4f;
     [SerializeField, Min(0.1f)] private float victoryCreditsSeconds = 5f;
     [SerializeField, Min(0.05f)] private float victoryPresentationFadeSeconds = 0.35f;
@@ -607,6 +610,7 @@ public class GameFlowController : MonoBehaviour
         EnsureBossHealthBarBound();
         EnsurePlayerActiveItemControllerBound();
         EnsureFirstRunHudGuideBound();
+        EnsureMainMenuLocalizationBound();
         EnsurePauseMenuButtonsBound();
 
         try { EnsureDeathPanelsBound(); }
@@ -677,8 +681,14 @@ public class GameFlowController : MonoBehaviour
         RefreshCursorVisibility();
     }
 
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += OnLocaleChanged;
+    }
+
     private void OnDisable()
     {
+        LocalizationTable.LocaleChanged -= OnLocaleChanged;
         mouseCursorSummoned = false;
         hasObservedMousePosition = false;
         lastMouseActivityUnscaledTime = 0f;
@@ -769,6 +779,13 @@ public class GameFlowController : MonoBehaviour
     {
         StopFirstRunHudGuideSequence(false);
         StopStoryIntroPresentation(true);
+
+        foreach (Sprite sprite in chineseStorySprites.Values)
+        {
+            if (sprite != null)
+                Destroy(sprite);
+        }
+        chineseStorySprites.Clear();
 
         if (countdownRuntimeMaterial != null)
         {
@@ -1405,8 +1422,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         int nextRank = GetModeRank(mode) + 1;
         string title = GetModeUpgradeTitle(mode);
-        WeaponUpgrade upgrade = new WeaponUpgrade(title, GetModeUpgradeDescription(mode, nextRank), ResolveGeneratedUpgradeIcon(title))
+        WeaponUpgrade upgrade = new WeaponUpgrade(
+            title,
+            GetModeUpgradeDescription(mode, nextRank),
+            ResolveGeneratedUpgradeIcon(GetModeUpgradeTitleFallback(mode)))
         {
+            titleLocalizationKey = GetModeUpgradeTitleKey(mode),
+            descriptionLocalizationKey = GetModeUpgradeDescriptionKey(mode, nextRank),
             rarity = GetModeUpgradeRarity(nextRank),
             trackType = WeaponUpgradeTrackType.Mode,
             modeId = mode,
@@ -1421,8 +1443,13 @@ private void TryShowDeferredLevelUpRewardIfReady()
     {
         int nextRank = GetBaseUpgradeRank(baseUpgradeId) + 1;
         string title = GetBaseUpgradeTitle(baseUpgradeId);
-        WeaponUpgrade upgrade = new WeaponUpgrade(title, GetBaseUpgradeDescription(baseUpgradeId, nextRank), ResolveGeneratedUpgradeIcon(title))
+        WeaponUpgrade upgrade = new WeaponUpgrade(
+            title,
+            GetBaseUpgradeDescription(baseUpgradeId, nextRank),
+            ResolveGeneratedUpgradeIcon(GetBaseUpgradeTitleFallback(baseUpgradeId)))
         {
+            titleLocalizationKey = GetBaseUpgradeTitleKey(baseUpgradeId),
+            descriptionLocalizationKey = GetBaseUpgradeDescriptionKey(baseUpgradeId, nextRank),
             rarity = nextRank >= 4 ? UpgradeRarity.Uncommon : UpgradeRarity.Common,
             trackType = WeaponUpgradeTrackType.Base,
             baseUpgradeId = baseUpgradeId,
@@ -1444,103 +1471,160 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
     private string GetModeUpgradeTitle(WeaponModeId mode)
     {
+        return LocalizationTable.Get(GetModeUpgradeTitleKey(mode), GetModeUpgradeTitleFallback(mode));
+    }
+
+    private static string GetModeUpgradeTitleKey(WeaponModeId mode)
+    {
+        switch (mode)
+        {
+            case WeaponModeId.OrbitRing: return "upgrade.mode.orbit.title";
+            case WeaponModeId.NovaWave: return "upgrade.mode.nova.title";
+            case WeaponModeId.OnHitScatter: return "upgrade.mode.scatter.title";
+            case WeaponModeId.FanSpread: return "upgrade.mode.fan.title";
+            case WeaponModeId.PierceLine: return "upgrade.mode.pierce.title";
+            case WeaponModeId.ReturnFlight: return "upgrade.mode.return.title";
+            default: return "upgrade.mode.shift.title";
+        }
+    }
+
+    private static string GetModeUpgradeTitleFallback(WeaponModeId mode)
+    {
+        switch (mode)
+        {
+            case WeaponModeId.OrbitRing: return "催收之环";
+            case WeaponModeId.NovaWave: return "最后通牒";
+            case WeaponModeId.OnHitScatter: return "小字条款";
+            case WeaponModeId.FanSpread: return "双重入账";
+            case WeaponModeId.PierceLine: return "纸面重击";
+            case WeaponModeId.ReturnFlight: return "原路退回";
+            default: return "模式切换";
+        }
+    }
+
+    private string GetModeUpgradeDescriptionKey(WeaponModeId mode, int nextRank)
+    {
         switch (mode)
         {
             case WeaponModeId.OrbitRing:
-                return "Collection Ring";
+                return nextRank <= 1 ? "upgrade.mode.orbit.description.first" :
+                    IsOrbitRingAtProjectileCap() ? "upgrade.mode.orbit.description.cap" : "upgrade.mode.orbit.description.more";
             case WeaponModeId.NovaWave:
-                return "Final Notice";
+                return nextRank <= 1 ? "upgrade.mode.nova.description.first" : "upgrade.mode.nova.description.higher";
             case WeaponModeId.OnHitScatter:
-                return "Fine Print";
+                return nextRank <= 1 ? "upgrade.mode.scatter.description.first" : "upgrade.mode.scatter.description.higher";
             case WeaponModeId.FanSpread:
-                return "Double Entry";
+                return nextRank <= 1 ? "upgrade.mode.fan.description.first" :
+                    IsFanSpreadAtProjectileCap() ? "upgrade.mode.fan.description.cap" : "upgrade.mode.fan.description.more";
             case WeaponModeId.PierceLine:
-                return "Hard Copy";
+                return nextRank <= 1 ? "upgrade.mode.pierce.description.first" : "upgrade.mode.pierce.description.higher";
             case WeaponModeId.ReturnFlight:
-                return "Return To Sender";
-            default:
-                return "Mode Shift";
+                return nextRank <= 1 ? "upgrade.mode.return.description.first" : "upgrade.mode.return.description.higher";
+            default: return string.Empty;
         }
     }
 
     private string GetModeUpgradeDescription(WeaponModeId mode, int nextRank)
     {
+        string fallback;
         switch (mode)
         {
             case WeaponModeId.OrbitRing:
-                if (nextRank <= 1)
-                    return "Collector cards orbit you.";
-
-                return IsOrbitRingAtProjectileCap()
-                    ? "Orbit ↑ Cap reached. Hits harder. Spins faster."
-                    : "Orbit ↑ More cards. Wider ring. Faster spin.";
+                fallback = nextRank <= 1 ? "催收卡牌环绕在你身边。" :
+                    IsOrbitRingAtProjectileCap() ? "环绕弹幕 ↑ 数量已达上限，伤害更高，旋转更快。" : "环绕弹幕 ↑ 卡牌更多，范围更广，旋转更快。";
+                break;
             case WeaponModeId.NovaWave:
-                return nextRank <= 1
-                    ? "A warning pulse bursts out."
-                    : "Pulse ↑ Sooner. Wider. More paper.";
+                fallback = nextRank <= 1 ? "释放一圈警示冲击波。" : "冲击波 ↑ 释放更频繁，范围更广，卡牌更多。";
+                break;
             case WeaponModeId.OnHitScatter:
-                return nextRank <= 1
-                    ? "Hits burst into chasing slips."
-                    : "Slips ↑ More slips. Wider scatter. Better chase.";
+                fallback = nextRank <= 1 ? "命中时散出追踪债单。" : "债单 ↑ 数量更多，散射更广，追踪更快。";
+                break;
             case WeaponModeId.FanSpread:
-                return nextRank <= 1
-                    ? "One throw becomes a fan."
-                    : IsFanSpreadAtProjectileCap()
-                        ? "Fan ↑ Cap reached. Wider fan. Faster throw. Harder hits."
-                        : "Fan ↑ More cards. Wider fan.";
+                fallback = nextRank <= 1 ? "一次投掷化作扇形攻击。" :
+                    IsFanSpreadAtProjectileCap() ? "扇形弹幕 ↑ 数量已达上限，范围更广，投掷更快，伤害更高。" : "扇形弹幕 ↑ 卡牌更多，攻击范围更广。";
+                break;
             case WeaponModeId.PierceLine:
-                return nextRank <= 1
-                    ? "Cards push through the line."
-                    : "Pierce ↑ Deeper carry.";
+                fallback = nextRank <= 1 ? "卡牌贯穿敌人阵线。" : "穿透 ↑ 卡牌可贯穿更多敌人。";
+                break;
             case WeaponModeId.ReturnFlight:
-                return nextRank <= 1
-                    ? "Cards loop back for a second pass."
-                    : "Return ↑ Faster return. Harder on the way back.";
+                fallback = nextRank <= 1 ? "卡牌飞出后会折返，再次攻击。" : "回旋 ↑ 折返更快，回程伤害更高。";
+                break;
             default:
-                return string.Empty;
+                fallback = string.Empty;
+                break;
         }
+
+        return LocalizationTable.Get(GetModeUpgradeDescriptionKey(mode, nextRank), fallback);
     }
 
     private string GetBaseUpgradeTitle(WeaponBaseUpgradeId baseUpgradeId)
     {
+        return LocalizationTable.Get(GetBaseUpgradeTitleKey(baseUpgradeId), GetBaseUpgradeTitleFallback(baseUpgradeId));
+    }
+
+    private static string GetBaseUpgradeTitleKey(WeaponBaseUpgradeId baseUpgradeId)
+    {
+        switch (baseUpgradeId)
+        {
+            case WeaponBaseUpgradeId.QuickStamp: return "upgrade.base.quick_stamp.title";
+            case WeaponBaseUpgradeId.StampedLedger: return "upgrade.base.stamped_ledger.title";
+            case WeaponBaseUpgradeId.AirMail: return "upgrade.base.air_mail.title";
+            case WeaponBaseUpgradeId.FastHands: return "upgrade.base.fast_hands.title";
+            default: return string.Empty;
+        }
+    }
+
+    private static string GetBaseUpgradeTitleFallback(WeaponBaseUpgradeId baseUpgradeId)
+    {
+        switch (baseUpgradeId)
+        {
+            case WeaponBaseUpgradeId.QuickStamp: return "快速盖章";
+            case WeaponBaseUpgradeId.StampedLedger: return "盖章账簿";
+            case WeaponBaseUpgradeId.AirMail: return "空中投递";
+            case WeaponBaseUpgradeId.FastHands: return "疾速出手";
+            default: return "基础强化";
+        }
+    }
+
+    private static string GetBaseUpgradeDescriptionKey(WeaponBaseUpgradeId baseUpgradeId, int nextRank)
+    {
         switch (baseUpgradeId)
         {
             case WeaponBaseUpgradeId.QuickStamp:
-                return "Quick Stamp";
+                return nextRank <= 1 ? "upgrade.base.quick_stamp.description.first" : "upgrade.base.quick_stamp.description.higher";
             case WeaponBaseUpgradeId.StampedLedger:
-                return "Stamped Ledger";
+                return nextRank <= 1 ? "upgrade.base.stamped_ledger.description.first" : "upgrade.base.stamped_ledger.description.higher";
             case WeaponBaseUpgradeId.AirMail:
-                return "Air Mail";
+                return nextRank <= 1 ? "upgrade.base.air_mail.description.first" : "upgrade.base.air_mail.description.higher";
             case WeaponBaseUpgradeId.FastHands:
-                return "Fast Hands";
-            default:
-                return "Base Upgrade";
+                return nextRank <= 1 ? "upgrade.base.fast_hands.description.first" : "upgrade.base.fast_hands.description.higher";
+            default: return string.Empty;
         }
     }
 
     private string GetBaseUpgradeDescription(WeaponBaseUpgradeId baseUpgradeId, int nextRank)
     {
+        string fallback;
         switch (baseUpgradeId)
         {
             case WeaponBaseUpgradeId.QuickStamp:
-                return nextRank <= 1
-                    ? "Cards leave your hand with more snap."
-                    : "Projectile Speed ↑ Faster travel.";
+                fallback = nextRank <= 1 ? "卡牌出手更快，飞行速度更高。" : "投射速度 ↑ 卡牌飞得更快。";
+                break;
             case WeaponBaseUpgradeId.StampedLedger:
-                return nextRank <= 1
-                    ? "Heavier hits on every card."
-                    : "Damage ↑ Boosts both locked modes.";
+                fallback = nextRank <= 1 ? "每张卡牌的打击都更重。" : "伤害 ↑ 同时强化已选的两种攻击模式。";
+                break;
             case WeaponBaseUpgradeId.AirMail:
-                return nextRank <= 1
-                    ? "Cards fly faster and farther."
-                    : "Flight ↑ Faster travel. Longer reach.";
+                fallback = nextRank <= 1 ? "卡牌飞得更快、更远。" : "飞行 ↑ 速度更快，射程更远。";
+                break;
             case WeaponBaseUpgradeId.FastHands:
-                return nextRank <= 1
-                    ? "Attack Speed ↑ Throw cards more often."
-                    : "Attack Speed ↑ Higher firing frequency.";
+                fallback = nextRank <= 1 ? "攻击速度 ↑ 更频繁地投出卡牌。" : "攻击速度 ↑ 投掷频率进一步提高。";
+                break;
             default:
-                return string.Empty;
+                fallback = string.Empty;
+                break;
         }
+
+        return LocalizationTable.Get(GetBaseUpgradeDescriptionKey(baseUpgradeId, nextRank), fallback);
     }
 
     private Sprite ResolveGeneratedUpgradeIcon(string title)
@@ -2348,7 +2432,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         if (shopSystem != null && shopSystem.IsPrizeDrawInProgress())
         {
-            shopSystem.ShowPrizeInfo("Draw is still spinning.");
+            shopSystem.ShowPrizeInfo(LocalizationTable.Get("wheel.info.spinning", "转盘还在旋转，请稍候。"));
             return;
         }
 
@@ -2802,9 +2886,9 @@ private void TryShowDeferredLevelUpRewardIfReady()
         victoryThanksOverlay.transform.SetAsLastSibling();
 
         if (victoryThanksTitleText != null)
-            victoryThanksTitleText.text = string.IsNullOrWhiteSpace(victoryThanksText) ? "THANKS FOR PLAYING" : victoryThanksText;
+            LocalizationTable.SetText(victoryThanksTitleText, "victory.thanks.title", victoryThanksText);
         if (victoryThanksSubtitleText != null)
-            victoryThanksSubtitleText.text = string.IsNullOrWhiteSpace(victoryThanksSubText) ? string.Empty : victoryThanksSubText;
+            LocalizationTable.SetText(victoryThanksSubtitleText, "victory.thanks.subtitle", victoryThanksSubText);
 
         float fadeDuration = Mathf.Max(0.01f, victoryPresentationFadeSeconds);
         yield return FadeCanvasGroupRealtime(victoryThanksOverlay, 0f, 1f, fadeDuration);
@@ -3914,7 +3998,10 @@ private void TryShowDeferredLevelUpRewardIfReady()
         }
 
         if (storyIntroSkipButtonText != null)
-            storyIntroSkipButtonText.text = string.IsNullOrWhiteSpace(storyIntroSkipButtonLabel) ? "Skip Story" : storyIntroSkipButtonLabel;
+        {
+            LocalizationTable.SetText(storyIntroSkipButtonText, "story.skip", storyIntroSkipButtonLabel);
+            ApplyStoryIntroTextStyle(storyIntroSkipButtonText);
+        }
 
         if (storyIntroSkipButton != null)
         {
@@ -4017,9 +4104,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
         int totalSteps,
         bool allowSkip)
     {
+        activeStoryComicPage = page;
+        activeStoryComicPageIndex = pageIndex;
         if (storyIntroPageImage != null)
         {
-            storyIntroPageImage.sprite = page.PageSprite;
+            storyIntroPageImage.sprite = GetStoryPageSprite(page, pageIndex);
             storyIntroPageImage.preserveAspect = true;
 
             float reveal = stepCount <= 1 ? 1f : Mathf.Lerp(0.35f, 1f, step / (float)stepCount);
@@ -4030,9 +4119,11 @@ private void TryShowDeferredLevelUpRewardIfReady()
 
         if (storyIntroHintText != null)
         {
-            string template = string.IsNullOrWhiteSpace(storyIntroHintTemplate)
-                ? "Click to continue"
+            ApplyStoryIntroTextStyle(storyIntroHintText);
+            string fallback = string.IsNullOrWhiteSpace(storyIntroHintTemplate)
+                ? "点击继续"
                 : storyIntroHintTemplate;
+            string template = LocalizationTable.Get("story.continue", fallback);
 
             // Keep hint clean by default: no panel counter and no skip-key prompt.
             if (template.Contains("{0}") || template.Contains("{1}"))
@@ -4040,6 +4131,35 @@ private void TryShowDeferredLevelUpRewardIfReady()
             else
                 storyIntroHintText.text = template;
         }
+    }
+
+    private Sprite GetStoryPageSprite(StoryComicPage page, int pageIndex)
+    {
+        if (page == null || LocalizationTable.CurrentLocale != "zh-CN")
+            return page != null ? page.PageSprite : null;
+
+        if (chineseStorySprites.TryGetValue(pageIndex, out Sprite cached))
+            return cached != null ? cached : page.PageSprite;
+
+        Texture2D texture = Resources.Load<Texture2D>($"Localization/Comic/p{pageIndex}");
+        if (texture == null)
+        {
+            Debug.LogWarning($"Chinese comic page {pageIndex} is missing from Resources/Localization/Comic.");
+            chineseStorySprites[pageIndex] = null;
+            return page.PageSprite;
+        }
+
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f), 100f);
+        if (sprite == null)
+        {
+            Debug.LogWarning($"Could not create Chinese comic page {pageIndex}.");
+            chineseStorySprites[pageIndex] = null;
+            return page.PageSprite;
+        }
+        sprite.name = $"ComicPage_{pageIndex}_zh-CN";
+        chineseStorySprites[pageIndex] = sprite;
+        return sprite;
     }
 
     private void HandleStoryIntroInput()
@@ -4241,7 +4361,7 @@ private void TryShowDeferredLevelUpRewardIfReady()
             30f,
             Color.white);
         storyIntroSkipButtonText.fontStyle = FontStyles.Normal;
-        storyIntroSkipButtonText.text = string.IsNullOrWhiteSpace(storyIntroSkipButtonLabel) ? "Skip Story" : storyIntroSkipButtonLabel;
+        LocalizationTable.SetText(storyIntroSkipButtonText, "story.skip", storyIntroSkipButtonLabel);
 
         storyIntroOverlay.gameObject.SetActive(false);
         return true;
@@ -4412,7 +4532,7 @@ private void SwitchState(GameState next)
         Vector3 spawnPosition = anchorTarget != null ? anchorTarget.position + anchorOffset : worldPosition;
 
         activeGameplayTutorialHint = WorldInstructionText.Spawn(
-            content,
+            GetGameplayTutorialText(hintType, content),
             spawnPosition,
             gameplayTutorialTextColor,
             gameplayTutorialFont,
@@ -4426,6 +4546,23 @@ private void SwitchState(GameState next)
 
         if (cameraFollow != null)
             cameraFollow.SnapToTarget();
+    }
+
+    private static string GetGameplayTutorialText(GameplayTutorialHintType hintType, string fallback)
+    {
+        switch (hintType)
+        {
+            case GameplayTutorialHintType.Move:
+                return LocalizationTable.Get("tutorial.move", fallback);
+            case GameplayTutorialHintType.ActiveItem:
+                return LocalizationTable.Get("tutorial.dash", fallback);
+            case GameplayTutorialHintType.Pickup:
+                return LocalizationTable.Get("tutorial.pickup", fallback);
+            case GameplayTutorialHintType.Debt:
+                return LocalizationTable.Get("tutorial.debt", fallback);
+            default:
+                return fallback;
+        }
     }
 
     private Transform ResolveGameplayTutorialHintAnchorTransform()
@@ -4664,6 +4801,7 @@ private void RefreshTitleAndCreditsPanels()
     EnsureTitleMuteButtonBound();
 
     bool hasCreditsPanel = EnsureCreditsPanelBound();
+    LocalizeStaticPanels();
     bool inTitle = state == GameState.Title;
     if (inTitle && creditsOpen && !hasCreditsPanel)
     {
@@ -4829,6 +4967,64 @@ private void EnsurePauseMenuButtonsBound()
     RebindButtonOnPanel(panelPauseMenu, ResumeFromPauseMenu, new[] { "Btn_BackToGame", "Btn_Resume" }, ResumeFromPauseMenu);
     RebindButtonOnPanel(panelPauseMenu, OpenPauseSettings, new[] { "Btn_Settings", "Btn_Option", "Btn_Options" }, OpenPauseSettings);
     RebindButtonOnPanel(panelPauseMenu, QuitFromPauseMenu, new[] { "Btn_Quit", "Btn_BackToMenu", "Btn_ReturnToTitle" }, BackToMenu, QuitGame, QuitFromPauseMenu);
+    LocalizePauseMenuButtons();
+}
+
+private void LocalizePauseMenuButtons()
+{
+    if (panelPauseMenu == null)
+        return;
+
+    Button[] buttons = panelPauseMenu.GetComponentsInChildren<Button>(true);
+    for (int i = 0; i < buttons.Length; i++)
+    {
+        Button button = buttons[i];
+        if (button == null)
+            continue;
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label == null)
+            continue;
+
+        string name = button.name.ToLowerInvariant();
+        string currentText = label.text != null ? label.text.Trim() : string.Empty;
+        string key = null;
+        string fallback = null;
+
+        if (name == "btn_backtogame" || name == "btn_resume" ||
+            currentText == "返回游戏" || currentText == "Resume")
+        {
+            key = "pause.resume";
+            fallback = "Resume";
+        }
+        else if (name == "btn_settings" || name == "btn_setting" || name == "btn_option" || name == "btn_options" ||
+                 currentText == "设置" || currentText == "Settings")
+        {
+            key = "menu.settings";
+            fallback = "Settings";
+        }
+        else if (name == "btn_quit" || name == "btn_exit" || name == "btn_backtomenu" || name == "btn_returntotitle" ||
+                 currentText == "退出" || currentText == "Quit" || currentText == "Exit")
+        {
+            key = "pause.quit";
+            fallback = "Quit";
+        }
+
+        if (!string.IsNullOrEmpty(key))
+            LocalizationTable.SetText(label, key, fallback);
+    }
+}
+
+private void EnsureMainMenuLocalizationBound()
+{
+    if (panelTitle == null)
+        return;
+
+    MainMenuLocalizationController localizer = GetComponent<MainMenuLocalizationController>();
+    if (localizer == null)
+        localizer = gameObject.AddComponent<MainMenuLocalizationController>();
+
+    localizer.Bind(panelTitle);
 }
 
 private void BindButtonOnPanel(GameObject panel, UnityAction action, params string[] buttonNames)
@@ -5349,6 +5545,7 @@ private void SetPauseMenuVisible(bool visible)
 
     private void ApplySettlement()
     {
+        LocalizeStaticPanels();
         int due = CalcDue(roundIndex);
         int nextRound = roundIndex + 1;
         int nextDue = CalcDue(nextRound);
@@ -5362,12 +5559,27 @@ private void SetPauseMenuVisible(bool visible)
             $"Settlement preview: round={roundIndex}, cashEarned={cashEarned}, cashOnHand={cash}, due={due}, net={netCash}, nextDue={nextDue}, roundsLeft={roundsLeft}");
 
         // Legacy fields (backward-compatible with older settlement panels).
-        if (textDue) textDue.text = $"Debt Payment: -{FormatCurrency(due)}";
-        if (textPaid) textPaid.text = $"Cash Earned: +{FormatCurrency(cashEarned)}";
+        if (textDue)
+        {
+            string dueTemplate = LocalizationTable.Get(
+                "settlement.debt_payment",
+                LocalizationTable.CurrentLocale == "en" ? "Debt payment: -{0}" : "偿还债务：-{0}");
+            textDue.text = string.Format(dueTemplate, FormatCurrency(due));
+        }
+        if (textPaid)
+        {
+            string cashTemplate = LocalizationTable.Get(
+                "settlement.cash_earned",
+                LocalizationTable.CurrentLocale == "en" ? "Cash earned: +{0}" : "获得现金：+{0}");
+            textPaid.text = string.Format(cashTemplate, FormatCurrency(cashEarned));
+        }
         if (textRemainingDebt)
-            textRemainingDebt.text = hasNextRound
-                ? $"Next Round Debt: {nextDebtText}"
-                : "Next Round Debt: -";
+        {
+            string nextDebtTemplate = LocalizationTable.Get(
+                "settlement.next_debt",
+                LocalizationTable.CurrentLocale == "en" ? "Next round debt: {0}" : "下回合债务：{0}");
+            textRemainingDebt.text = string.Format(nextDebtTemplate, nextDebtText);
+        }
 
         // New settlement template fields.
         if (textSettlementCashEarned) textSettlementCashEarned.text = $"+{FormatCurrency(cashEarned)}";
@@ -5394,7 +5606,13 @@ private void SetPauseMenuVisible(bool visible)
 
         if (textRound) textRound.text = GetGameplayRoundHudText();
         if (textCash) textCash.text = $"{Mathf.Max(0, cash):N0}";
-        if (textDebt) textDebt.text = $"DEBT: {GetDebtDisplay(roundIndex)}";
+        if (textDebt)
+        {
+            string fallback = LocalizationTable.CurrentLocale == "en" ? "DEBT: {0}" : "债务：{0}";
+            textDebt.text = string.Format(
+                LocalizationTable.Get("hud.debt", fallback),
+                GetDebtDisplay(roundIndex));
+        }
         // 鍊掕鏃跺湪Update涓洿鏂帮紝杩欓噷鍙垵濮嬪寲
         if (state != GameState.Gameplay && textCountdown != null)
         {
@@ -5405,9 +5623,136 @@ private void SetPauseMenuVisible(bool visible)
 
     private string GetGameplayRoundHudText()
     {
-        return IsCurrentRoundBoss()
-            ? "BOSS ROUND"
-            : $"ROUND {roundIndex:00}/{totalRounds:00}";
+        if (IsCurrentRoundBoss())
+        {
+            string bossFallback = LocalizationTable.CurrentLocale == "en" ? "BOSS ROUND" : "头目回合";
+            return LocalizationTable.Get("hud.round.boss", bossFallback);
+        }
+
+        string roundFallback = LocalizationTable.CurrentLocale == "en"
+            ? "ROUND {0:00}/{1:00}"
+            : "第 {0:00}/{1:00} 回合";
+        return string.Format(
+            LocalizationTable.Get("hud.round.normal", roundFallback),
+            roundIndex,
+            totalRounds);
+    }
+
+    private void ApplyStoryIntroTextStyle(TMP_Text text)
+    {
+        if (text == null)
+            return;
+
+        TMP_FontAsset font = LocalizationTable.CurrentLocale == "zh-CN"
+            ? Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF")
+            : TMP_Settings.defaultFontAsset;
+        if (font != null)
+        {
+            text.font = font;
+            text.fontSharedMaterial = font.material;
+        }
+
+        // The scene's old font color is black, which disappears over comic art.
+        text.color = Color.white;
+        text.outlineColor = new Color(0f, 0f, 0f, 0.85f);
+        text.outlineWidth = 0.04f;
+
+        if (text == storyIntroSkipButtonText)
+        {
+            // Keep the short label at a fixed size through locale changes.
+            text.fontStyle = FontStyles.Normal;
+            text.enableAutoSizing = false;
+            text.fontSize = 30f;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.alignment = TextAlignmentOptions.Center;
+
+            RectTransform rect = text.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(12f, 4f);
+            rect.offsetMax = new Vector2(-12f, -4f);
+
+            if (storyIntroSkipButton != null && storyIntroSkipButton.targetGraphic is Image background)
+                background.color = new Color(0f, 0f, 0f, 0.72f);
+        }
+    }
+
+    private void OnLocaleChanged()
+    {
+        LocalizePauseMenuButtons();
+        LocalizeStaticPanels();
+        RefreshHUD();
+        UpdateCountdownDisplay();
+        if (storyIntroSkipButtonText != null)
+        {
+            LocalizationTable.SetText(storyIntroSkipButtonText, "story.skip", storyIntroSkipButtonLabel);
+            ApplyStoryIntroTextStyle(storyIntroSkipButtonText);
+        }
+        if (storyIntroHintText != null && storyIntroActive)
+        {
+            LocalizationTable.SetText(storyIntroHintText, "story.continue", storyIntroHintTemplate);
+            ApplyStoryIntroTextStyle(storyIntroHintText);
+        }
+        if (storyIntroActive && storyIntroPageImage != null && activeStoryComicPage != null)
+            storyIntroPageImage.sprite = GetStoryPageSprite(activeStoryComicPage, activeStoryComicPageIndex);
+        if (activeGameplayTutorialHint != null)
+            activeGameplayTutorialHint.SetContent(GetGameplayTutorialText(activeGameplayTutorialHintType, string.Empty));
+    }
+
+    private void LocalizeStaticPanels()
+    {
+        SetPanelText(panelSettlement, "Frame/Title", "settlement.title", "回合完成");
+        SetPanelText(panelSettlement, "Frame/Subtitle", "settlement.subtitle", "领取现金并偿还债务");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_CASHEARNED", "settlement.label.cash_earned", "获得现金");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_DEBTPAYMENT", "settlement.label.debt_payment", "偿还债务");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_NETCASH", "settlement.label.net_cash", "现金结余");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_获得现金", "settlement.label.cash_earned", "获得现金");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_偿还债务", "settlement.label.debt_payment", "偿还债务");
+        SetPanelText(panelSettlement, "Frame/SummaryPanel/Label_现金结余", "settlement.label.net_cash", "现金结余");
+        SetPanelText(panelSettlement, "Frame/DebtPanel/Text_NextDebtLabel", "settlement.label.next_debt", "下回合债务");
+        SetPanelText(panelSettlement, "Frame/DebtPanel/Text_RoundsLeftLabel", "settlement.label.rounds_left", "剩余回合");
+        SetPanelButtonText(panelSettlement, "Frame/Btn_SettlementNext", "settlement.continue", "继续");
+
+        SetPanelText(panelCredits, "Frame/Title", "credits.title", "制作人员");
+        SetPanelText(panelCredits, "Frame/Subtitle", "credits.subtitle", "Debt Runner 制作团队");
+        SetPanelText(panelCredits, "Frame/CreditsList/Role_YilunHuang", "credits.role.yilun", "美术指导 / 游戏设计 / 程序 / 音效设计");
+        SetPanelText(panelCredits, "Frame/CreditsList/Role_YipuYuan", "credits.role.yipu", "UI 设计");
+        SetPanelText(panelCredits, "Frame/CreditsList/Role_ZiqiWang", "credits.role.ziqi", "角色设计 / 道具设计");
+        SetPanelText(panelCredits, "Frame/CreditsList/Role_LilitBaghdasaryan", "credits.role.lilit", "场景设计");
+        SetPanelText(panelCredits, "Frame/CreditsList/Role_ToddGorang", "credits.role.todd", "导师支持");
+        SetPanelButtonText(panelCredits, "Frame/Btn_CreditsBack", "credits.back", "返回");
+    }
+
+    private static void SetPanelText(GameObject panel, string path, string key, string fallback)
+    {
+        if (panel == null)
+            return;
+        Transform child = panel.transform.Find(path);
+        if (child != null)
+            LocalizationTable.SetText(child.GetComponent<TMP_Text>(), key, fallback);
+    }
+
+    private static void SetPanelButtonText(GameObject panel, string path, string key, string fallback)
+    {
+        if (panel == null)
+            return;
+        Transform child = panel.transform.Find(path);
+        if (child != null)
+        {
+            TMP_Text label = child.GetComponentInChildren<TMP_Text>(true);
+            LocalizationTable.SetText(label, key, fallback);
+            if (key == "settlement.continue" && label != null)
+            {
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.overflowMode = TextOverflowModes.Ellipsis;
+                label.margin = new Vector4(12f, 0f, 12f, 0f);
+                label.fontSize = 50f;
+                label.fontSizeMin = 28f;
+                label.fontSizeMax = 50f;
+                label.enableAutoSizing = true;
+            }
+        }
     }
 
     private void UpdateCountdownDisplay()
@@ -5433,7 +5778,8 @@ private void SetPauseMenuVisible(bool visible)
 
         if (IsCurrentRoundBoss())
         {
-            textCountdown.text = "BOSS";
+            string fallback = LocalizationTable.CurrentLocale == "en" ? "BOSS" : "头目";
+            textCountdown.text = LocalizationTable.Get("hud.countdown.boss", fallback);
             ResetCountdownStyle();
             return;
         }
@@ -6534,7 +6880,7 @@ private void SetPauseMenuVisible(bool visible)
     private string GetDebtDisplay(int round)
     {
         if (round == GetBossRoundIndex())
-            return "INF";
+            return "∞";
         return $"${CalcDue(round)}";
     }
 

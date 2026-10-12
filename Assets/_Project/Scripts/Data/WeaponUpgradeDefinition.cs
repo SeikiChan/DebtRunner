@@ -5,6 +5,7 @@ using UnityEngine;
 public class WeaponUpgradeDefinition : ScriptableObject
 {
     [Header("Display")]
+    [SerializeField] private string localizationKey = "";
     [SerializeField] private string upgradeTitle = "New Weapon Upgrade";
     [SerializeField, TextArea] private string description = "";
     [SerializeField] private Sprite icon;
@@ -19,6 +20,7 @@ public class WeaponUpgradeDefinition : ScriptableObject
 
     public string UpgradeTitle => upgradeTitle;
     public string Description => description;
+    public string LocalizationKey => localizationKey;
     public Sprite Icon => icon;
     public UpgradeRarity Rarity => rarity;
     public float WeightPercent => Mathf.Max(0f, weightPercent);
@@ -28,6 +30,11 @@ public class WeaponUpgradeDefinition : ScriptableObject
     public WeaponUpgrade CreateRuntimeUpgrade()
     {
         WeaponUpgrade upgrade = new WeaponUpgrade(upgradeTitle, description, icon);
+        if (!string.IsNullOrWhiteSpace(localizationKey))
+        {
+            upgrade.titleLocalizationKey = localizationKey + ".title";
+            upgrade.descriptionLocalizationKey = localizationKey + ".description";
+        }
         upgrade.rarity = rarity;
         upgrade.effects = new List<WeaponUpgradeEffect>();
 

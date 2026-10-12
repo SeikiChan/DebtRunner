@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 10
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Closing Loop
-  description: The circling cards quicken and keep chewing through anyone nearby.
+  localizationKey: upgrade.definition.closing_loop
+  upgradeTitle: 回环加速
+  description: 环绕卡牌转得更快，持续打击附近的敌人。
   icon: {fileID: -1744947764177000098, guid: df089f72a7697eb44979a12885faa32f, type: 3}
   rarity: 3
   weightPercent: 5

@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 17
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Foreclosure Sweep
-  description: Throw a harder warning wave when the pack starts to close in.
+  localizationKey: upgrade.definition.foreclosure_sweep
+  upgradeTitle: 止赎横扫
+  description: 怪物逼近时，释放威力更强的警示波。
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4

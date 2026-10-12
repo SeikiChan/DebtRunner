@@ -15,6 +15,9 @@ public class WorldInstructionText : MonoBehaviour
 
     private TextMeshPro textMesh;
     private Material textMaterial;
+    private TMP_FontAsset requestedFont;
+    private static TMP_FontAsset chineseFontAsset;
+    private bool usesChineseFont;
     private Color baseColor;
     private Color baseOutlineColor;
     private float timer;
@@ -29,6 +32,16 @@ public class WorldInstructionText : MonoBehaviour
     private bool persistUntilCompleted;
 
     public bool IsCompleting => completing;
+
+    public void SetContent(string content)
+    {
+        if (textMesh != null)
+        {
+            textMesh.text = content ?? string.Empty;
+            if (ApplyFontForContent(textMesh.text))
+                ApplyStyle();
+        }
+    }
 
     public static WorldInstructionText Spawn(
         string content,
@@ -85,10 +98,8 @@ public class WorldInstructionText : MonoBehaviour
         textMesh.sortingOrder = 280;
         textMesh.richText = false;
 
-        if (font != null)
-            textMesh.font = font;
-        else if (TMP_Settings.defaultFontAsset != null)
-            textMesh.font = TMP_Settings.defaultFontAsset;
+        requestedFont = font != null ? font : TMP_Settings.defaultFontAsset;
+        ApplyFontForContent(content);
 
         baseColor = color;
         baseOutlineColor = outlineColor;
@@ -195,8 +206,47 @@ public class WorldInstructionText : MonoBehaviour
         if (textMaterial == null)
             return;
 
+        if (textMaterial.HasProperty(ShaderUtilities.ID_FaceColor))
+            textMaterial.SetColor(ShaderUtilities.ID_FaceColor, Color.white);
         if (textMaterial.HasProperty(ShaderUtilities.ID_OutlineWidth))
-            textMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth, Mathf.Clamp01(outlineWidth));
+            textMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth,
+                usesChineseFont ? 0.04f : Mathf.Clamp01(outlineWidth));
+    }
+
+    private bool ApplyFontForContent(string content)
+    {
+        if (textMesh == null)
+            return false;
+
+        if (ContainsCjk(content) && chineseFontAsset == null)
+            chineseFontAsset = Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF");
+
+        TMP_FontAsset targetFont = ContainsCjk(content) && chineseFontAsset != null
+            ? chineseFontAsset
+            : requestedFont;
+        bool nextUsesChineseFont = targetFont != null && targetFont == chineseFontAsset;
+        if (targetFont == null || (textMesh.font == targetFont && usesChineseFont == nextUsesChineseFont))
+            return false;
+
+        usesChineseFont = nextUsesChineseFont;
+        textMesh.font = targetFont;
+        textMaterial = null;
+        return true;
+    }
+
+    private static bool ContainsCjk(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return false;
+
+        foreach (char character in value)
+        {
+            if ((character >= '\u3400' && character <= '\u4DBF') ||
+                (character >= '\u4E00' && character <= '\u9FFF'))
+                return true;
+        }
+
+        return false;
     }
 
     private void ApplyColor(Color color, float alphaMultiplier)

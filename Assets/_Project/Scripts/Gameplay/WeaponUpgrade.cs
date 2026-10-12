@@ -6,6 +6,8 @@ public class WeaponUpgrade
 {
     public string title;
     public string description;
+    public string titleLocalizationKey;
+    public string descriptionLocalizationKey;
     public Sprite icon;
     public UpgradeRarity rarity = UpgradeRarity.Common;
     public WeaponUpgradeTrackType trackType = WeaponUpgradeTrackType.Legacy;

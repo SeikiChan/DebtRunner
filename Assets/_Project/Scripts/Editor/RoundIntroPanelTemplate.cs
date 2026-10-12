@@ -135,7 +135,7 @@ public static class RoundIntroPanelTemplate
         // Round text — "ROUND 1/5"
         CreateText(root.transform, "RoundText",
             new Vector2(0f, 165f), new Vector2(980f, 120f),
-            88f, gold, FontStyles.Bold, "ROUND 1/5");
+            88f, gold, FontStyles.Bold, "第 1/5 回合");
 
         // Lower decorative line
         CreateLine(root.transform, "LineBottom", -190f, gold);
@@ -143,12 +143,12 @@ public static class RoundIntroPanelTemplate
         // Debt text — "DEBT OWED\n$220"
         CreateText(root.transform, "DebtText",
             new Vector2(0f, -55f), new Vector2(980f, 300f),
-            90f, gold, FontStyles.Bold, "DEBT   OWED\n$220");
+            90f, gold, FontStyles.Bold, "待偿债务\n$220");
 
         // Continue hint text
         TMP_Text hintTmp = CreateText(root.transform, "ContinueHintText",
             new Vector2(0f, -250f), new Vector2(980f, 80f),
-            36f, Color.white, FontStyles.Normal, "Press Any Key to Continue");
+            36f, Color.white, FontStyles.Normal, "按任意键继续");
         hintTmp.gameObject.SetActive(false);
 
         root.SetActive(false);
@@ -175,12 +175,12 @@ public static class RoundIntroPanelTemplate
         // Title text — "ROUND CLEAR"
         CreateText(root.transform, "RoundClearTitleText",
             new Vector2(0f, 46f), new Vector2(1000f, 180f),
-            96f, clearAccent, FontStyles.Bold, "ROUND CLEAR");
+            96f, clearAccent, FontStyles.Bold, "回合完成");
 
         // Sub text — "Round 1/5"
         CreateText(root.transform, "RoundClearSubText",
             new Vector2(0f, -110f), new Vector2(1000f, 180f),
-            46f, Color.white, FontStyles.Normal, "Round 1/5");
+            46f, Color.white, FontStyles.Normal, "第 1/5 回合");
 
         root.SetActive(false);
         Undo.RegisterCreatedObjectUndo(root, "Create Round Clear Panel");

@@ -21,17 +21,49 @@ public class UpgradeCard : MonoBehaviour
     private RectTransform cardImageRect;
     private Vector2 cardImageBaseSize;
     private bool hasCachedCardImageSize;
+    private TMP_FontAsset originalTitleFont;
+    private Material originalTitleMaterial;
+    private FontStyles originalTitleStyle;
+    private float originalTitleSpacing;
+    private TMP_FontAsset originalDescriptionFont;
+    private Material originalDescriptionMaterial;
+    private FontStyles originalDescriptionStyle;
+    private float originalDescriptionSpacing;
 
     private void Awake()
     {
         hoverLight = GetComponent<UpgradeCardHoverLight>();
         CacheCardImageLayout();
+        if (titleText != null)
+        {
+            originalTitleFont = titleText.font;
+            originalTitleMaterial = titleText.fontSharedMaterial;
+            originalTitleStyle = titleText.fontStyle;
+            originalTitleSpacing = titleText.characterSpacing;
+        }
+        if (descriptionText != null)
+        {
+            originalDescriptionFont = descriptionText.font;
+            originalDescriptionMaterial = descriptionText.fontSharedMaterial;
+            originalDescriptionStyle = descriptionText.fontStyle;
+            originalDescriptionSpacing = descriptionText.characterSpacing;
+        }
     }
 
     private void Start()
     {
         if (selectButton != null)
             selectButton.onClick.AddListener(OnCardSelected);
+    }
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += RefreshLocalizedText;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= RefreshLocalizedText;
     }
 
     public void SetupCard(WeaponUpgrade upgrade, System.Action<WeaponUpgrade> onSelect)
@@ -46,13 +78,72 @@ public class UpgradeCard : MonoBehaviour
         if (hoverLight != null)
             hoverLight.SetRarity(upgrade != null ? upgrade.rarity : UpgradeRarity.Common);
 
-        if (titleText != null)
-            titleText.text = upgrade != null ? upgrade.title : string.Empty;
-
-        if (descriptionText != null)
-            descriptionText.text = upgrade != null ? FormatUpgradeDescription(upgrade) : string.Empty;
+        RefreshLocalizedText();
 
         ApplyCardIcon(upgrade != null ? upgrade.icon : null);
+    }
+
+    private void RefreshLocalizedText()
+    {
+        if (titleText != null)
+        {
+            string title = upgradeData != null ? upgradeData.title : string.Empty;
+            titleText.text = upgradeData != null && !string.IsNullOrWhiteSpace(upgradeData.titleLocalizationKey)
+                ? LocalizationTable.Get(upgradeData.titleLocalizationKey, title)
+                : title;
+            ApplyTitleTypography();
+        }
+
+        if (descriptionText != null)
+        {
+            string description = upgradeData != null ? FormatUpgradeDescription(upgradeData) : string.Empty;
+            descriptionText.text = upgradeData != null && !string.IsNullOrWhiteSpace(upgradeData.descriptionLocalizationKey)
+                ? LocalizationTable.Get(upgradeData.descriptionLocalizationKey, description)
+                : description;
+            ApplyDescriptionTypography();
+        }
+    }
+
+    private void ApplyTitleTypography()
+    {
+        if (LocalizationTable.CurrentLocale != "zh-CN")
+        {
+            titleText.font = originalTitleFont;
+            titleText.fontSharedMaterial = originalTitleMaterial;
+            titleText.fontStyle = originalTitleStyle;
+            titleText.characterSpacing = originalTitleSpacing;
+            return;
+        }
+
+        TMP_FontAsset displayFont = Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF");
+        if (displayFont != null)
+        {
+            titleText.font = displayFont;
+            titleText.fontSharedMaterial = displayFont.material;
+        }
+        titleText.fontStyle = FontStyles.Normal;
+        titleText.characterSpacing = 4f;
+    }
+
+    private void ApplyDescriptionTypography()
+    {
+        if (LocalizationTable.CurrentLocale != "zh-CN")
+        {
+            descriptionText.font = originalDescriptionFont;
+            descriptionText.fontSharedMaterial = originalDescriptionMaterial;
+            descriptionText.fontStyle = originalDescriptionStyle;
+            descriptionText.characterSpacing = originalDescriptionSpacing;
+            return;
+        }
+
+        TMP_FontAsset chineseFont = Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF");
+        if (chineseFont != null)
+        {
+            descriptionText.font = chineseFont;
+            descriptionText.fontSharedMaterial = chineseFont.material;
+        }
+        descriptionText.fontStyle = FontStyles.Normal;
+        descriptionText.characterSpacing = 2f;
     }
 
     private void OnCardSelected()
@@ -156,34 +247,34 @@ public class UpgradeCard : MonoBehaviour
         switch (effectType)
         {
             case WeaponUpgradeEffectType.DamageAdd:
-                return "ATK+";
+                return LocalizationTable.Get("upgrade.effect.damage", "攻击+");
             case WeaponUpgradeEffectType.FireRateAdd:
-                return "ASPD UP";
+                return LocalizationTable.Get("upgrade.effect.fire_rate", "攻速↑");
             case WeaponUpgradeEffectType.ProjectileSpeedAdd:
-                return "SPD UP";
+                return LocalizationTable.Get("upgrade.effect.projectile_speed", "移速↑");
             case WeaponUpgradeEffectType.ExtraProjectilesAdd:
-                return "SHOT+";
+                return LocalizationTable.Get("upgrade.effect.projectiles", "弹幕+");
             case WeaponUpgradeEffectType.SpreadAngleAdd:
-                return "WIDE UP";
+                return LocalizationTable.Get("upgrade.effect.spread", "扩散↑");
             case WeaponUpgradeEffectType.PierceAdd:
-                return "PIERCE+";
+                return LocalizationTable.Get("upgrade.effect.pierce", "穿透+");
             case WeaponUpgradeEffectType.KnockbackMultiplierAdd:
-                return "KB UP";
+                return LocalizationTable.Get("upgrade.effect.knockback", "击退↑");
             case WeaponUpgradeEffectType.OnHitScatterCountAdd:
-                return "BLOOM+";
+                return LocalizationTable.Get("upgrade.effect.scatter_count", "爆裂+");
             case WeaponUpgradeEffectType.OnHitScatterAngleAdd:
-                return "BLOOM UP";
+                return LocalizationTable.Get("upgrade.effect.scatter_angle", "爆裂↑");
             case WeaponUpgradeEffectType.OrbitProjectileCountAdd:
-                return "RING+";
+                return LocalizationTable.Get("upgrade.effect.orbit_count", "环绕+");
             case WeaponUpgradeEffectType.OrbitRadiusAdd:
             case WeaponUpgradeEffectType.OrbitAngularSpeedAdd:
-                return "RING UP";
+                return LocalizationTable.Get("upgrade.effect.orbit_power", "环绕↑");
             case WeaponUpgradeEffectType.NovaProjectileCountAdd:
             case WeaponUpgradeEffectType.NovaIntervalAdd:
-                return "WAVE+";
+                return LocalizationTable.Get("upgrade.effect.nova", "波动+");
             case WeaponUpgradeEffectType.ReturnEnable:
             case WeaponUpgradeEffectType.ReturnSpeedMultiplierAdd:
-                return "RETURN";
+                return LocalizationTable.Get("upgrade.effect.return", "回旋");
             default:
                 return string.Empty;
         }

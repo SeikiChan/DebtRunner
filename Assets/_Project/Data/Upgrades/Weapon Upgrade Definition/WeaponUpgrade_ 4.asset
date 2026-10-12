@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 4
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Hard Copy
-  description: Give your paperwork enough bite to punch through the front line.
+  localizationKey: upgrade.definition.hard_copy
+  upgradeTitle: 纸面重击
+  description: 让卡牌更具冲击力，贯穿敌人前线。
   icon: {fileID: -6107326561498071994, guid: d85c4dd89cdba8442ae29c78ffa67894, type: 3}
   rarity: 0
   weightPercent: 7

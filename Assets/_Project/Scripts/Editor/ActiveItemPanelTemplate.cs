@@ -45,11 +45,15 @@ public static class ActiveItemPanelTemplate
             rootRect,
             new Vector2(16f, -14f),
             new Vector2(190f, 30f),
-            "ACTIVE ITEM",
+            "主动道具",
             24f,
             FontStyles.Bold,
             new Color(0.99f, 0.95f, 0.86f, 1f),
             TextAlignmentOptions.Left);
+        itemNameText.enableAutoSizing = true;
+        itemNameText.fontSizeMin = 14f;
+        itemNameText.fontSizeMax = 24f;
+        itemNameText.overflowMode = TextOverflowModes.Truncate;
 
         TMP_Text statusText = CreateText(
             "Text_Status",

@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_6
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Second Wind Clause
-  description: Gain 1 revive.
+  localizationKey: shop.item.rebirth_clause
+  itemTitle: 重生条款
+  description: 获得 1 次复活机会。
   icon: {fileID: 0}
   price: 9000
   rarity: 3

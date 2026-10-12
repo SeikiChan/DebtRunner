@@ -25,6 +25,22 @@ public class StudioSplashScreen : MonoBehaviour
     private bool finished;
     private bool skipping;
 
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += LocalizePresentedBy;
+        LocalizePresentedBy();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= LocalizePresentedBy;
+    }
+
+    private void LocalizePresentedBy()
+    {
+        LocalizationTable.SetText(presentedByText, "splash.presented_by", "Presented by");
+    }
+
     public bool IsFinished => finished;
 
     public void Play(System.Action onComplete = null)

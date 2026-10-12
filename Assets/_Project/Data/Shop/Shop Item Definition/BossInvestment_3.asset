@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_3
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Rapid Filing
-  description: +0.01% fire rate.
+  localizationKey: shop.item.fast_filing
+  itemTitle: 快速立案
+  description: 攻击速度 +0.01%。
   icon: {fileID: 0}
   price: 5900
   rarity: 2

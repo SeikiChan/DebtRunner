@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 9
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Fine Print II
-  description: Each impact scatters more paperwork into nearby debtors.
+  localizationKey: upgrade.definition.fine_print_2
+  upgradeTitle: 小字条款 II
+  description: 每次命中都会将更多债单散向附近的债务人。
   icon: {fileID: 7034660610512690298, guid: 55e4ce7fcf3231d4d9dd29ef46ecea7a, type: 3}
   rarity: 1
   weightPercent: 6

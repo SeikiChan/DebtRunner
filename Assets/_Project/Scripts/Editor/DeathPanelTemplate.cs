@@ -22,9 +22,9 @@ public class DeathPanelTemplate
         CreatePanel(new PanelConfig
         {
             panelName          = "Panel_Death_Monster",
-            title              = "SLAIN!",
-            reason             = "KILLED BY MONSTER",
-            description        = "You were defeated by enemies in battle.",
+            title              = "你被击败了！",
+            reason             = "遭到怪物击杀",
+            description        = "你在战斗中被敌人击败。",
             titleColor         = new Color(1f, 0.2f, 0.2f, 1f),        // 红色
             reasonColor        = new Color(1f, 0.8f, 0.2f, 1f),        // 金色
             bgOverlayColor     = new Color(0.15f, 0f, 0f, 0.7f),       // 深红遮罩
@@ -47,9 +47,9 @@ public class DeathPanelTemplate
         CreatePanel(new PanelConfig
         {
             panelName          = "Panel_Death_Debt",
-            title              = "DEBT DEFAULTED!",
-            reason             = "DEBT FAILURE",
-            description        = "You couldn't pay back your debt. The collectors are coming.",
+            title              = "债务违约！",
+            reason             = "偿债失败",
+            description        = "你无力偿还债务，催债人已经追上来了。",
             titleColor         = new Color(1f, 0.75f, 0.15f, 1f),      // 金色
             reasonColor        = new Color(0.9f, 0.4f, 0.4f, 1f),      // 浅红
             bgOverlayColor     = new Color(0.08f, 0.06f, 0f, 0.75f),   // 深黄遮罩
@@ -155,7 +155,7 @@ public class DeathPanelTemplate
         // ── 提示文字 ──
         CreateText("TipText", contentRect,
             new Vector2(0, -140), new Vector2(800, 60),
-            "Press Any Key to Continue...", 24, FontStyles.Italic, new Color(0.8f, 0.8f, 0.8f, 0.6f), 0f);
+            "按任意键继续……", 24, FontStyles.Italic, new Color(0.8f, 0.8f, 0.8f, 0.6f), 0f);
 
         // ── 按钮容器 ──
         GameObject buttonsContainer = new GameObject("ButtonsContainer");
@@ -167,10 +167,10 @@ public class DeathPanelTemplate
         buttonsRect.anchoredPosition = new Vector2(0, -240);
 
         Button restartBtn = CreateButton("Btn_Restart", buttonsRect,
-            new Vector2(-120, 0), "Restart", new Color(0.2f, 0.6f, 1f, 1f));
+            new Vector2(-120, 0), "重新开始", new Color(0.2f, 0.6f, 1f, 1f));
 
         Button menuBtn = CreateButton("Btn_MainMenu", buttonsRect,
-            new Vector2(120, 0), "Main Menu", new Color(0.2f, 0.6f, 1f, 1f));
+            new Vector2(120, 0), "主菜单", new Color(0.2f, 0.6f, 1f, 1f));
 
         // ── 添加 DeathPanel 组件并通过 SerializedObject 连接所有引用 ──
         DeathPanel deathPanel = panelRoot.AddComponent<DeathPanel>();

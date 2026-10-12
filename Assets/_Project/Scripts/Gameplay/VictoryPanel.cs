@@ -19,16 +19,16 @@ public class VictoryPanel : MonoBehaviour
 
     [Header("文案配置")]
     [LocalizedLabel("胜利标题 / Victory Title")]
-    [SerializeField] private string victoryTitle = "DEBT CLEAR";
+    [SerializeField] private string victoryTitle = "债务清零";
     
     [LocalizedLabel("胜利副标题 / Victory Subtitle")]
-    [SerializeField] private string victorySubtitle = "YOU'RE FREE";
+    [SerializeField] private string victorySubtitle = "重获自由";
 
     [LocalizedLabel("胜利统计文本 / Victory Stats Text")]
     [SerializeField] private TMP_Text victoryStatsText;
     
     [LocalizedLabel("统计文本模板 / Stats Template")]
-    [SerializeField] private string statsTemplate = "Total Rounds Survived: {0}\nTotal Cash Earned: {1}\nFinal Level: {2}";
+    [SerializeField] private string statsTemplate = "存活回合：{0}\n累计现金：{1}\n最终等级：{2}";
 
     [Header("可替换素材")]
     [LocalizedLabel("胜利背景 / Victory Background")]
@@ -42,13 +42,31 @@ public class VictoryPanel : MonoBehaviour
     public Button mainMenuButton;
     
     [LocalizedLabel("End Game Button Text / 游戏结束按钮文本")]
-    [SerializeField] private string endGameButtonText = "End Game";
+    [SerializeField] private string endGameButtonText = "结束游戏";
     
     [LocalizedLabel("Main Menu Button Text / 返回主菜单按钮文本")]
-    [SerializeField] private string mainMenuButtonText = "Main Menu";
+    [SerializeField] private string mainMenuButtonText = "返回主菜单";
 
     private CanvasGroup canvasGroup;
     private RectTransform rectTransform;
+    private int shownRound, shownCash, shownLevel;
+    private bool hasShown;
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += RefreshLocalizedContent;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= RefreshLocalizedContent;
+    }
+
+    private void RefreshLocalizedContent()
+    {
+        if (hasShown)
+            UpdatePanelContent(shownRound, shownCash, shownLevel);
+    }
 
     private void Awake()
     {
@@ -91,6 +109,10 @@ public class VictoryPanel : MonoBehaviour
     /// </summary>
     public void ShowVictoryPanel(int finalRound, int totalCash, int finalLevel)
     {
+        shownRound = finalRound;
+        shownCash = totalCash;
+        shownLevel = finalLevel;
+        hasShown = true;
         UpdatePanelContent(finalRound, totalCash, finalLevel);
 
         // 确保面板在最上层并激活
@@ -124,15 +146,15 @@ public class VictoryPanel : MonoBehaviour
     private void UpdatePanelContent(int finalRound, int totalCash, int finalLevel)
     {
         if (victoryTitleText != null)
-            victoryTitleText.text = victoryTitle;
+            LocalizationTable.SetText(victoryTitleText, "victory.title", victoryTitle);
 
         if (victorySubtitleText != null)
-            victorySubtitleText.text = victorySubtitle;
+            LocalizationTable.SetText(victorySubtitleText, "victory.subtitle", victorySubtitle);
 
         // 显示统计信息
         if (victoryStatsText != null)
         {
-            victoryStatsText.text = string.Format(statsTemplate, finalRound, totalCash, finalLevel);
+            victoryStatsText.text = string.Format(LocalizationTable.Get("victory.stats", statsTemplate), finalRound, totalCash, finalLevel);
         }
 
         // 应用背景素材
@@ -145,14 +167,14 @@ public class VictoryPanel : MonoBehaviour
         if (endGameButton != null)
         {
             TextMeshProUGUI t = endGameButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (t != null) t.text = endGameButtonText;
+            LocalizationTable.SetText(t, "victory.end", endGameButtonText);
             endGameButton.gameObject.SetActive(true);
         }
 
         if (mainMenuButton != null)
         {
             TextMeshProUGUI t = mainMenuButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (t != null) t.text = mainMenuButtonText;
+            LocalizationTable.SetText(t, "victory.menu", mainMenuButtonText);
             mainMenuButton.gameObject.SetActive(true);
         }
 

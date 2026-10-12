@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_7
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Vaulted Relic
-  description: Collectible relic. +0.01% move, damage, fire rate, projectile speed.
+  localizationKey: shop.item.sealed_relic
+  itemTitle: 封存遗物
+  description: 可收集的遗物。移动速度、伤害、攻击速度和投射速度各 +0.01%。
   icon: {fileID: 0}
   price: 9800
   rarity: 4

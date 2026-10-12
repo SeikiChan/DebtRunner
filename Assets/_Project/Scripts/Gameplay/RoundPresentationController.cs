@@ -14,7 +14,7 @@ public class RoundPresentationController : MonoBehaviour
     [SerializeField] private TMP_Text roundIntroDebtText;
     [SerializeField] private TMP_Text roundIntroContinueHintText;
     [SerializeField] private bool roundIntroRequireAnyKeyToContinue = true;
-    [SerializeField] private string roundIntroContinueHintMessage = "Press Any Key to Continue";
+    [SerializeField] private string roundIntroContinueHintMessage = "按任意键继续";
     [SerializeField, Min(0f)] private float roundIntroFadeInSeconds = 0.15f;
     [SerializeField, Min(0f)] private float roundIntroFadeOutSeconds = 0.3f;
 
@@ -23,8 +23,8 @@ public class RoundPresentationController : MonoBehaviour
     [SerializeField] private TMP_Text roundClearTitleText;
     [SerializeField] private TMP_Text roundClearSubText;
     [SerializeField] private bool showRoundClearTransition = true;
-    [SerializeField] private string roundClearTitleMessage = "YOU PASS!";
-    [SerializeField] private string roundClearSubMessage = "Round Cleared";
+    [SerializeField] private string roundClearTitleMessage = "本回合完成！";
+    [SerializeField] private string roundClearSubMessage = "已成功清场";
     [SerializeField, Min(0f)] private float roundClearSeconds = 1.2f;
     [SerializeField, Min(0f)] private float roundClearFadeInSeconds = 0.12f;
     [SerializeField, Min(0f)] private float roundClearFadeOutSeconds = 0.18f;
@@ -34,7 +34,7 @@ public class RoundPresentationController : MonoBehaviour
     [SerializeField] private CanvasGroup timesUpOverlay;
     [SerializeField] private TMP_Text timesUpTitleText;
     [SerializeField] private bool showTimesUpTransition = true;
-    [SerializeField] private string timesUpTitleMessage = "TIME'S UP";
+    [SerializeField] private string timesUpTitleMessage = "时间到";
     [SerializeField, Min(0f)] private float timesUpSeconds = 1f;
     [SerializeField, Min(0f)] private float timesUpFadeInSeconds = 0.08f;
     [SerializeField, Min(0f)] private float timesUpFadeOutSeconds = 0.12f;
@@ -44,8 +44,8 @@ public class RoundPresentationController : MonoBehaviour
     [SerializeField] private TMP_Text gameOverTransitionTitleText;
     [SerializeField] private TMP_Text gameOverTransitionSubText;
     [HideInInspector, SerializeField] private bool showGameOverTransition = true;
-    [SerializeField] private string gameOverTransitionTitleMessage = "YOU LOSS";
-    [SerializeField] private string gameOverTransitionSubMessage = "Run Failed";
+    [SerializeField] private string gameOverTransitionTitleMessage = "本局失败";
+    [SerializeField] private string gameOverTransitionSubMessage = "挑战结束";
     [SerializeField, Min(0f)] private float gameOverTransitionSeconds = 1.1f;
     [SerializeField, Min(0f)] private float gameOverTransitionFadeInSeconds = 0.12f;
     [SerializeField, Min(0f)] private float gameOverTransitionFadeOutSeconds = 0.18f;
@@ -57,6 +57,13 @@ public class RoundPresentationController : MonoBehaviour
     private bool roundClearOverlayAutoCreated;
     private bool timesUpOverlayAutoCreated;
     private bool gameOverTransitionOverlayAutoCreated;
+    private TMP_FontAsset originalTimesUpFont;
+    private Material originalTimesUpMaterial;
+    private FontStyles originalTimesUpStyle;
+    private float originalTimesUpFontSize;
+    private float originalTimesUpSpacing;
+    private Color originalTimesUpColor;
+    private bool timesUpStyleCaptured;
 
     private Coroutine roundIntroCo;
     private Coroutine timesUpCo;
@@ -540,43 +547,82 @@ public class RoundPresentationController : MonoBehaviour
     private void UpdateRoundIntroText(int roundIndex, int totalRounds, string debtDisplay)
     {
         if (roundIntroRoundText != null)
-            roundIntroRoundText.text = $"ROUND {roundIndex}/{totalRounds}";
+            roundIntroRoundText.text = string.Format(LocalizationTable.Get("round.intro.round", "第 {0}/{1} 回合"), roundIndex, totalRounds);
 
         if (roundIntroDebtText != null)
-            roundIntroDebtText.text = $"DEBT   OWED\n{debtDisplay}";
+            roundIntroDebtText.text = string.Format(LocalizationTable.Get("round.intro.debt", "待偿债务\n{0}"), debtDisplay);
 
         if (roundIntroContinueHintText != null)
-            roundIntroContinueHintText.text = roundIntroContinueHintMessage;
+            roundIntroContinueHintText.text = LocalizationTable.Get("round.intro.continue", roundIntroContinueHintMessage);
     }
 
     private void UpdateTimesUpText()
     {
         if (timesUpTitleText != null)
-            timesUpTitleText.text = timesUpTitleMessage;
+        {
+            timesUpTitleText.text = LocalizationTable.Get("round.times_up", timesUpTitleMessage);
+            ApplyTimesUpTypography();
+        }
+    }
+
+    private void ApplyTimesUpTypography()
+    {
+        if (!timesUpStyleCaptured)
+        {
+            originalTimesUpFont = timesUpTitleText.font;
+            originalTimesUpMaterial = timesUpTitleText.fontSharedMaterial;
+            originalTimesUpStyle = timesUpTitleText.fontStyle;
+            originalTimesUpFontSize = timesUpTitleText.fontSize;
+            originalTimesUpSpacing = timesUpTitleText.characterSpacing;
+            originalTimesUpColor = timesUpTitleText.color;
+            timesUpStyleCaptured = true;
+        }
+
+        if (LocalizationTable.CurrentLocale != "zh-CN")
+        {
+            timesUpTitleText.font = originalTimesUpFont;
+            timesUpTitleText.fontSharedMaterial = originalTimesUpMaterial;
+            timesUpTitleText.fontStyle = originalTimesUpStyle;
+            timesUpTitleText.fontSize = originalTimesUpFontSize;
+            timesUpTitleText.characterSpacing = originalTimesUpSpacing;
+            timesUpTitleText.color = originalTimesUpColor;
+            return;
+        }
+
+        TMP_FontAsset displayFont = Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF");
+        if (displayFont != null)
+        {
+            timesUpTitleText.font = displayFont;
+            timesUpTitleText.fontSharedMaterial = displayFont.material;
+        }
+        timesUpTitleText.fontStyle = FontStyles.Normal;
+        timesUpTitleText.fontSize = 86f;
+        timesUpTitleText.characterSpacing = 9f;
+        timesUpTitleText.color = new Color(0.92f, 0.82f, 0.69f, 1f);
     }
 
     private void UpdateRoundClearText(int roundIndex, int totalRounds)
     {
         if (roundClearTitleText != null)
-            roundClearTitleText.text = roundClearTitleMessage;
+            roundClearTitleText.text = LocalizationTable.Get("round.clear.title", roundClearTitleMessage);
 
         if (roundClearSubText == null)
             return;
 
-        string baseText = string.IsNullOrWhiteSpace(roundClearSubMessage) ? "Round Cleared" : roundClearSubMessage;
-        roundClearSubText.text = $"{baseText}\nRound {roundIndex}/{totalRounds}";
+        roundClearSubText.text = string.Format(LocalizationTable.Get("round.clear.subtitle", "已成功清场\n第 {0}/{1} 回合"), roundIndex, totalRounds);
     }
 
     private void UpdateGameOverTransitionText(bool failedDebt)
     {
         if (gameOverTransitionTitleText != null)
-            gameOverTransitionTitleText.text = gameOverTransitionTitleMessage;
+            gameOverTransitionTitleText.text = LocalizationTable.Get("round.game_over.title", gameOverTransitionTitleMessage);
 
         if (gameOverTransitionSubText == null)
             return;
 
-        string causeText = failedDebt ? "Debt Unpaid" : "Killed by Monster";
-        gameOverTransitionSubText.text = $"{gameOverTransitionSubMessage}\n{causeText}";
+        string causeKey = failedDebt ? "round.game_over.debt" : "round.game_over.monster";
+        string causeText = LocalizationTable.Get(causeKey, failedDebt ? "未能偿还债务" : "被怪物击败");
+        gameOverTransitionSubText.text = string.Format(LocalizationTable.Get("round.game_over.subtitle", "挑战结束\n{0}"), causeText);
     }
 
     private bool EnsureRoundIntroOverlay()

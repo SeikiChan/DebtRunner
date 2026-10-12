@@ -21,17 +21,6 @@ public class QuitConfirmDialog : MonoBehaviour
     [SerializeField] private GameObject pauseQuitPanelRoot;
     [SerializeField] private GameObject titleExitPanelRoot;
 
-    [Header("Fallback Copy / 默认文案")]
-    [SerializeField] private string pauseQuitConfirmTitleMessage = "QUIT RUN?";
-    [SerializeField, TextArea(2, 3)] private string pauseQuitConfirmBodyMessage = "Return to the title screen?\nYour current run progress will be lost.";
-    [SerializeField] private string titleExitConfirmTitleMessage = "EXIT GAME?";
-    [SerializeField, TextArea(1, 2)] private string titleExitConfirmBodyMessage = "Close the game now?";
-    [SerializeField] private string confirmButtonLabel = "QUIT";
-    [SerializeField] private string cancelButtonLabel = "CANCEL";
-    [SerializeField] private bool useSceneAuthoredPauseText = true;
-    [SerializeField] private bool useSceneAuthoredTitleText = true;
-    [SerializeField] private bool useSceneAuthoredButtonLabels = true;
-
     [Header("Shared Style / 共用样式")]
     [SerializeField] private Color backdropColor = new Color(0f, 0f, 0f, 0.72f);
     [SerializeField] private Color panelColor = new Color(0.11f, 0.12f, 0.14f, 0.97f);
@@ -72,8 +61,14 @@ public class QuitConfirmDialog : MonoBehaviour
         HideAllPanelsImmediate();
     }
 
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += HandleLocaleChanged;
+    }
+
     private void OnDisable()
     {
+        LocalizationTable.LocaleChanged -= HandleLocaleChanged;
         HideAllPanelsImmediate();
         activePanel = null;
         confirmAction = null;
@@ -91,10 +86,7 @@ public class QuitConfirmDialog : MonoBehaviour
         SyncPanels();
         return OpenPanel(
             pausePanel,
-            pauseQuitConfirmTitleMessage,
-            pauseQuitConfirmBodyMessage,
-            applyConfiguredText: !useSceneAuthoredPauseText,
-            applyConfiguredButtonLabels: !useSceneAuthoredButtonLabels,
+            true,
             onConfirm,
             onCancel);
     }
@@ -104,10 +96,7 @@ public class QuitConfirmDialog : MonoBehaviour
         SyncPanels();
         return OpenPanel(
             titlePanel,
-            titleExitConfirmTitleMessage,
-            titleExitConfirmBodyMessage,
-            applyConfiguredText: !useSceneAuthoredTitleText,
-            applyConfiguredButtonLabels: !useSceneAuthoredButtonLabels,
+            false,
             onConfirm,
             onCancel);
     }
@@ -184,10 +173,7 @@ public class QuitConfirmDialog : MonoBehaviour
 
     private bool OpenPanel(
         PanelRefs panel,
-        string title,
-        string body,
-        bool applyConfiguredText,
-        bool applyConfiguredButtonLabels,
+        bool isPauseQuit,
         Action onConfirm,
         Action onCancel)
     {
@@ -200,13 +186,21 @@ public class QuitConfirmDialog : MonoBehaviour
         HideAllPanelsImmediate();
         BringToFront(panel);
         BindButtons(panel);
-        ApplyVisualConfig(panel, title, body, applyConfiguredText, applyConfiguredButtonLabels);
+        ApplyVisualConfig(panel, isPauseQuit);
 
         confirmAction = onConfirm;
         cancelAction = onCancel;
         activePanel = panel;
         SetPanelVisible(panel, true);
         return true;
+    }
+
+    private void HandleLocaleChanged()
+    {
+        if (activePanel == null || activePanel.root == null || !activePanel.root.activeSelf)
+            return;
+
+        ApplyLocalizedCopy(activePanel, activePanel == pausePanel);
     }
 
     private void BindButtons(PanelRefs panel)
@@ -235,12 +229,7 @@ public class QuitConfirmDialog : MonoBehaviour
         cancelAction?.Invoke();
     }
 
-    private void ApplyVisualConfig(
-        PanelRefs panel,
-        string title,
-        string body,
-        bool applyConfiguredText,
-        bool applyConfiguredButtonLabels)
+    private void ApplyVisualConfig(PanelRefs panel, bool isPauseQuit)
     {
         Image backdrop = panel.root.GetComponent<Image>();
         if (backdrop != null)
@@ -249,8 +238,7 @@ public class QuitConfirmDialog : MonoBehaviour
             backdrop.raycastTarget = true;
         }
 
-        ApplyTextVisual(panel.titleText, titleColor, titleFontSize, title, applyConfiguredText);
-        ApplyTextVisual(panel.bodyText, bodyColor, bodyFontSize, body, applyConfiguredText);
+        ApplyLocalizedCopy(panel, isPauseQuit);
 
         Image panelImage = FindChildComponent<Image>(panel.root.transform, "Panel");
         if (panelImage != null)
@@ -258,25 +246,52 @@ public class QuitConfirmDialog : MonoBehaviour
             panelImage.color = panelColor;
             panelImage.raycastTarget = true;
         }
-
-        ApplyButtonVisual(panel.confirmButton, confirmButtonColor, confirmButtonLabel, applyConfiguredButtonLabels);
-        ApplyButtonVisual(panel.cancelButton, cancelButtonColor, cancelButtonLabel, applyConfiguredButtonLabels);
     }
 
-    private static void ApplyTextVisual(TMP_Text text, Color color, float size, string value, bool overwriteText)
+    private void ApplyLocalizedCopy(PanelRefs panel, bool isPauseQuit)
+    {
+        if (isPauseQuit)
+        {
+            ApplyTextVisual(panel.titleText, titleColor, titleFontSize,
+                GetLocalized("quit.pause.title", "Leave the arena?", "要离开竞技场吗？"));
+            ApplyTextVisual(panel.bodyText, bodyColor, bodyFontSize,
+                GetLocalized("quit.pause.body", "Debt is waiting for you.", "债务正等着你。"));
+            ApplyButtonVisual(panel.confirmButton, confirmButtonColor,
+                GetLocalized("quit.pause.confirm", "Yes", "确认"));
+            ApplyButtonVisual(panel.cancelButton, cancelButtonColor,
+                GetLocalized("quit.pause.cancel", "No!", "不！"));
+            return;
+        }
+
+        ApplyTextVisual(panel.titleText, titleColor, titleFontSize,
+            GetLocalized("quit.title.title", "Exit game?", "确定要退出游戏吗？"));
+        ApplyTextVisual(panel.bodyText, bodyColor, bodyFontSize,
+            GetLocalized("quit.title.body", "Any unsaved progress will be lost.", "未保存的进度将会丢失。"));
+        ApplyButtonVisual(panel.confirmButton, confirmButtonColor,
+            GetLocalized("quit.title.confirm", "Quit", "退出"));
+        ApplyButtonVisual(panel.cancelButton, cancelButtonColor,
+            GetLocalized("quit.title.cancel", "Cancel", "取消"));
+    }
+
+    private static string GetLocalized(string key, string englishFallback, string chineseFallback)
+    {
+        string fallback = LocalizationTable.CurrentLocale == "en" ? englishFallback : chineseFallback;
+        return LocalizationTable.Get(key, fallback);
+    }
+
+    private static void ApplyTextVisual(TMP_Text text, Color color, float size, string value)
     {
         if (text == null)
             return;
 
-        if (overwriteText)
-            text.text = value;
+        text.text = value;
 
         text.color = color;
         text.fontSize = size;
         text.raycastTarget = false;
     }
 
-    private void ApplyButtonVisual(Button button, Color fillColor, string label, bool overwriteLabel)
+    private void ApplyButtonVisual(Button button, Color fillColor, string label)
     {
         if (button == null)
             return;
@@ -295,8 +310,7 @@ public class QuitConfirmDialog : MonoBehaviour
         TMP_Text labelText = button.GetComponentInChildren<TMP_Text>(true);
         if (labelText != null)
         {
-            if (overwriteLabel)
-                labelText.text = label;
+            labelText.text = label;
 
             labelText.color = buttonTextColor;
             labelText.fontSize = buttonFontSize;

@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 1
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Fast Hands
-  description: Throw cards faster and keep the pressure on.
+  localizationKey: upgrade.definition.fast_hands
+  upgradeTitle: 疾速出手
+  description: 更快地投掷卡牌，持续压制敌人。
   icon: {fileID: -8918892806109341172, guid: c91b992a496632b4e926bc3ae4039956, type: 3}
   rarity: 0
   weightPercent: 7

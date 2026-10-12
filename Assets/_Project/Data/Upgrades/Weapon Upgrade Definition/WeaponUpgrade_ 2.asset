@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 2
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Double Entry
-  description: Turn each filing into a wider front of fire.
+  localizationKey: upgrade.definition.double_entry
+  upgradeTitle: 双重入账
+  description: 每次投掷都扩展成更宽的弹幕。
   icon: {fileID: 4005692007224591920, guid: 5d1e761a58e73c442a22a45963e3efca, type: 3}
   rarity: 0
   weightPercent: 6

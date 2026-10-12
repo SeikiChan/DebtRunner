@@ -12,7 +12,7 @@ public static class QuitConfirmPanelTemplate
     {
         CreatePanel(
             "Panel_QuitConfirm_Pause",
-            "QUIT RUN?",
+            "退出本局？",
             "Return to the title screen?\nYour current run progress will be lost.",
             bindPausePanel: true);
     }
@@ -22,8 +22,8 @@ public static class QuitConfirmPanelTemplate
     {
         CreatePanel(
             "Panel_QuitConfirm_TitleExit",
-            "EXIT GAME?",
-            "Close the game now?",
+            "退出游戏？",
+            "现在关闭游戏吗？",
             bindPausePanel: false);
     }
 
@@ -97,7 +97,7 @@ public static class QuitConfirmPanelTemplate
             panelRect,
             new Vector2(-120f, -96f),
             new Vector2(220f, 68f),
-            "QUIT",
+            "退出",
             new Color(0.73f, 0.22f, 0.18f, 1f));
 
         Button cancelButton = CreateButton(
@@ -105,7 +105,7 @@ public static class QuitConfirmPanelTemplate
             panelRect,
             new Vector2(120f, -96f),
             new Vector2(220f, 68f),
-            "CANCEL",
+            "取消",
             new Color(0.23f, 0.27f, 0.32f, 1f));
 
         QuitConfirmDialog dialog = Object.FindObjectOfType<QuitConfirmDialog>();

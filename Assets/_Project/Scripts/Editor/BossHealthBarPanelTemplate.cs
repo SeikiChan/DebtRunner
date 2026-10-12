@@ -57,7 +57,7 @@ public static class BossHealthBarPanelTemplate
             panelRect,
             new Vector2(0f, -18f),
             new Vector2(840f, 28f),
-            "BOSS",
+            "催债头目",
             28f,
             FontStyles.Bold,
             new Color(0.98f, 0.95f, 0.90f, 1f));

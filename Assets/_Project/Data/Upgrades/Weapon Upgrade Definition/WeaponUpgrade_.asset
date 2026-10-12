@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Stamped Ledger
-  description: Make each card land like a stamped warning.
+  localizationKey: upgrade.definition.stamped_ledger
+  upgradeTitle: 盖章账簿
+  description: 每张卡牌都像盖章警告一样重击敌人。
   icon: {fileID: -7598968592132770667, guid: f97f6f702c4fc6d4c9270e92183f3d57, type: 3}
   rarity: 0
   weightPercent: 7

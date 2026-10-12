@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_8
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Skiptrace Burst
-  description: 'ACTIVE: Space to dash.
+  localizationKey: shop.item.skiptrace_burst
+  itemTitle: 追债突袭
+  description: '主动：按空格键冲刺。
 
-    Brief i-frames.'
+    冲刺时短暂无敌。'
   icon: {fileID: -5224043133321505665, guid: b0b16b3e19f0d8e44ab7843665d94080, type: 3}
   price: 145
   rarity: 1

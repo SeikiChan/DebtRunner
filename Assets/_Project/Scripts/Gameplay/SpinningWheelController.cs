@@ -91,11 +91,11 @@ public class SpinningWheelController : MonoBehaviour
     [SerializeField] private bool cashOutcomeRefundsDrawCost = false;
 
     [Header("Outcome Labels / 结果标签")]
-    [SerializeField] private string labelThankYou = "THANKS";
-    [SerializeField] private string labelDebtUp = "DEBT+";
-    [SerializeField] private string labelFreeItem = "FREE";
-    [SerializeField] private string labelCash = "CASH";
-    [SerializeField] private string labelEnemyStronger = "RISK!";
+    [SerializeField] private string labelThankYou = "谢谢";
+    [SerializeField] private string labelDebtUp = "债务+";
+    [SerializeField] private string labelFreeItem = "免费";
+    [SerializeField] private string labelCash = "现金";
+    [SerializeField] private string labelEnemyStronger = "敌人增强";
 
     private readonly List<PrizeOutcomeType> recentOutcomes = new List<PrizeOutcomeType>(2);
 
@@ -229,13 +229,26 @@ public class SpinningWheelController : MonoBehaviour
 
     private void OnEnable()
     {
+        LocalizationTable.LocaleChanged += RefreshLocalizedText;
         EnsureRuntimeSetup();
+        RefreshLocalizedText();
     }
 
     private void OnDisable()
     {
+        LocalizationTable.LocaleChanged -= RefreshLocalizedText;
         CancelAndReset(false);
     }
+
+    private void RefreshLocalizedText()
+    {
+        RefreshSegmentVisuals();
+        RefreshDrawLabel();
+    }
+
+    private static string L(string key, string fallback) => LocalizationTable.Get(key, fallback);
+    private static string F(string key, string fallback, params object[] args) =>
+        string.Format(L(key, fallback), args);
 
     private void OnDestroy()
     {
@@ -313,7 +326,9 @@ public class SpinningWheelController : MonoBehaviour
     private void RefreshDrawLabel()
     {
         if (textDrawLabel != null)
-            textDrawLabel.text = IsFreeDrawAvailable() ? "SPIN\nFREE" : $"SPIN\n${drawCost}";
+            textDrawLabel.text = IsFreeDrawAvailable()
+                ? L("wheel.draw.free", "抽奖\n免费")
+                : F("wheel.draw.cost", "抽奖\n${0}", drawCost);
     }
 
     private void OnDrawClicked()
@@ -338,7 +353,7 @@ public class SpinningWheelController : MonoBehaviour
         {
             if (!shopSystem.TryCommitWheelDraw(isFreeDraw, out int chargedCost))
             {
-                PushInfo("Not enough cash to roll.");
+                PushInfo(L("wheel.info.insufficient_cash", "现金不足，无法抽奖。"));
                 return;
             }
 
@@ -346,7 +361,7 @@ public class SpinningWheelController : MonoBehaviour
         }
         else if (!isFreeDraw && !gameFlow.TrySpendCash(drawCost))
         {
-            PushInfo("Not enough cash to roll.");
+            PushInfo(L("wheel.info.insufficient_cash", "现金不足，无法抽奖。"));
             return;
         }
         else if (!isFreeDraw)
@@ -529,32 +544,32 @@ public class SpinningWheelController : MonoBehaviour
                     : UnityEngine.Random.Range(cashRewardRange.x, cashRewardRange.y + 1);
                 gameFlow?.AddCash(reward);
                 if (cashOutcomeRefundsDrawCost)
-                    PushInfo($"JACKPOT! CASH +${reward} (refund).");
+                    PushInfo(F("wheel.info.refund", "手气爆棚！返还抽奖费用 ${0}！", reward));
                 else
-                    PushInfo($"JACKPOT! CASH +${reward}!");
+                    PushInfo(F("wheel.info.cash", "手气爆棚！获得现金 ${0}！", reward));
                 break;
             }
             case PrizeOutcomeType.FreeItem:
             {
                 int total = shopSystem != null ? shopSystem.AddFreeItemCharges(1) : 1;
-                PushInfo($"FREE ITEM! Next purchase is on the house. Charges: {total}.");
+                PushInfo(F("wheel.info.free_item", "免费商品！下一件商品可免费领取。剩余次数：{0}。", total));
                 break;
             }
             case PrizeOutcomeType.DebtUp:
             {
                 int penalty = UnityEngine.Random.Range(debtPenaltyRange.x, debtPenaltyRange.y + 1);
                 gameFlow?.AddDebtPenaltyToNextRound(penalty);
-                PushInfo($"Bad luck... Debt +${penalty} next round.");
+                PushInfo(F("wheel.info.debt_up", "运气不佳……下回合债务增加 ${0}。", penalty));
                 break;
             }
             case PrizeOutcomeType.EnemyStronger:
                 gameFlow?.AddEnemyBuffToNextRound(enemyHpBuffMultiplier, enemySpeedBuffMultiplier);
                 gameFlow?.AddRewardBuffToNextRound(enemyRewardBuffMultiplier);
                 int rewardPercent = Mathf.RoundToInt((enemyRewardBuffMultiplier - 1f) * 100f);
-                PushInfo($"RISK & REWARD! Enemies stronger next round, but drops +{rewardPercent}% cash & XP!");
+                PushInfo(F("wheel.info.enemy_stronger", "风险与回报并存！下回合敌人更强，但现金和经验掉落增加 {0}%！", rewardPercent));
                 break;
             default:
-                PushInfo("Better luck next time!");
+                PushInfo(L("wheel.info.thank_you", "下次运气会更好！"));
                 break;
         }
 
@@ -581,11 +596,11 @@ public class SpinningWheelController : MonoBehaviour
     {
         switch (outcome)
         {
-            case PrizeOutcomeType.Cash: return labelCash;
-            case PrizeOutcomeType.FreeItem: return labelFreeItem;
-            case PrizeOutcomeType.DebtUp: return labelDebtUp;
-            case PrizeOutcomeType.EnemyStronger: return labelEnemyStronger;
-            default: return labelThankYou;
+            case PrizeOutcomeType.Cash: return L("wheel.label.cash", labelCash);
+            case PrizeOutcomeType.FreeItem: return L("wheel.label.free_item", labelFreeItem);
+            case PrizeOutcomeType.DebtUp: return L("wheel.label.debt_up", labelDebtUp);
+            case PrizeOutcomeType.EnemyStronger: return L("wheel.label.enemy_stronger", labelEnemyStronger);
+            default: return L("wheel.label.thank_you", labelThankYou);
         }
     }
 

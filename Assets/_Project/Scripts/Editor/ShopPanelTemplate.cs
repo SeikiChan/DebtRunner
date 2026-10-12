@@ -38,8 +38,8 @@ public class ShopPanelTemplate
 
     private static readonly string[] DefaultSegmentLabels =
     {
-        "CASH", "THANKS", "FREE", "DEBT+",
-        "CASH", "THANKS", "FREE", "ENEMY+",
+        "现金", "谢谢参与", "免费", "债务+",
+        "现金", "谢谢参与", "免费", "敌人+",
     };
 
     [MenuItem("GameObject/DebtRunner/Create Shop Panel Template")]
@@ -93,13 +93,13 @@ public class ShopPanelTemplate
         // ── 顶部：轮次 & 债务信息 ──
         TMP_Text textRoundInfo = CreateText("Text_RoundInfo", contentRect,
             new Vector2(0f, 385f), new Vector2(1100f, 40f),
-            "Round 1/10    Next Debt: $100", 28, FontStyles.Bold,
+            "第 1/10 回合    下回合债务：$100", 28, FontStyles.Bold,
             new Color(1f, 0.85f, 0.35f, 1f));
 
         // ── 顶部：现金信息 ──
         TMP_Text textCash = CreateText("Text_Cash", contentRect,
             new Vector2(0f, 350f), new Vector2(1100f, 40f),
-            "Cash: $0", 24, FontStyles.Bold, Color.white);
+            "现金：$0", 24, FontStyles.Bold, Color.white);
 
         // ── 左侧：商品卡片区域 ──
         RectTransform itemsContainer = CreateRect("ShopItems", contentRect,
@@ -170,25 +170,25 @@ public class ShopPanelTemplate
         // ── 抽奖按钮 ──
         Button btnDraw = CreateButtonWithLabel("Btn_Draw", contentRect,
             new Vector2(310f, -210f), new Vector2(200f, 55f),
-            "DRAW $120", new Color(0.96f, 0.82f, 0.26f, 1f), new Color(0.16f, 0.16f, 0.16f, 1f),
+            "抽奖 $120", new Color(0.96f, 0.82f, 0.26f, 1f), new Color(0.16f, 0.16f, 0.16f, 1f),
             out TMP_Text textDrawLabel);
 
         // ── 刷新按钮 ──
         Button btnRefresh = CreateButtonWithLabel("Btn_Refresh", contentRect,
             new Vector2(-350f, -330f), new Vector2(220f, 50f),
-            "Refresh $80", new Color(0.85f, 0.85f, 0.85f, 0.92f), new Color(0.16f, 0.16f, 0.16f, 1f),
+            "刷新 $80", new Color(0.85f, 0.85f, 0.85f, 0.92f), new Color(0.16f, 0.16f, 0.16f, 1f),
             out TMP_Text textRefreshLabel);
 
         // ── 下一轮按钮 ──
         Button btnNextRound = CreateButtonWithLabel("Btn_NextRound", contentRect,
             new Vector2(350f, -330f), new Vector2(220f, 50f),
-            "Next Round", new Color(0.3f, 0.75f, 0.3f, 1f), Color.white,
+            "进入下一回合", new Color(0.3f, 0.75f, 0.3f, 1f), Color.white,
             out _);
 
         // ── 信息文本 ──
         TMP_Text textInfo = CreateText("Text_Info", contentRect,
             new Vector2(0f, -380f), new Vector2(1100f, 60f),
-            "Spend cash to upgrade. Draw can help or hurt the next round.",
+            "花费现金购买升级。抽奖可能助你一臂之力，也可能让下回合更难。",
             22, FontStyles.Normal, new Color(0.95f, 0.9f, 0.65f, 1f));
         textInfo.enableWordWrapping = true;
 
@@ -382,12 +382,12 @@ public class ShopPanelTemplate
         // 标题
         TMP_Text titleText = CreateText($"Title", cardRect,
             new Vector2(30f, 50f), new Vector2(300f, 40f),
-            $"Item {index + 1}", 28, FontStyles.Bold, new Color(0.98f, 0.83f, 0.22f, 1f));
+            $"商品 {index + 1}", 28, FontStyles.Bold, new Color(0.98f, 0.83f, 0.22f, 1f));
 
         // 描述
         TMP_Text descText = CreateText($"Description", cardRect,
             new Vector2(30f, 10f), new Vector2(300f, 50f),
-            "Item description", 20, FontStyles.Normal, Color.white);
+            "商品说明", 20, FontStyles.Normal, Color.white);
         descText.enableWordWrapping = true;
 
         // 价格
@@ -398,7 +398,7 @@ public class ShopPanelTemplate
         // 购买按钮
         Button buyButton = CreateButtonWithLabel($"Btn_Buy", cardRect,
             new Vector2(80f, -55f), new Vector2(140f, 40f),
-            "BUY", new Color(0.95f, 0.95f, 0.95f, 0.92f), new Color(0.16f, 0.16f, 0.16f, 1f),
+            "购买", new Color(0.95f, 0.95f, 0.95f, 0.92f), new Color(0.16f, 0.16f, 0.16f, 1f),
             out TMP_Text buyButtonLabel);
 
         return new ShopSystem.ShopItemUIRefs

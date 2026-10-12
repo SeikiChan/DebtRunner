@@ -11,7 +11,7 @@ public class BossHealthBarController : MonoBehaviour
     [SerializeField] private TMP_Text bossNameText;
     [SerializeField] private Image bossHealthFillImage;
     [SerializeField] private TMP_Text bossHealthValueText;
-    [SerializeField] private string defaultBossName = "BOSS";
+    [SerializeField] private string defaultBossName = "催债头目";
     [SerializeField] private bool showBossHealthValueText = true;
 
     [Header("Fallback UI / 自动生成")]
@@ -128,9 +128,9 @@ public class BossHealthBarController : MonoBehaviour
     private string ResolveBossName(EnemyController boss)
     {
         if (!string.IsNullOrWhiteSpace(defaultBossName))
-            return defaultBossName;
+            return LocalizationTable.Get("boss.name", defaultBossName);
 
-        string bossName = boss != null ? boss.gameObject.name : "BOSS";
+        string bossName = boss != null ? boss.gameObject.name : "催债头目";
         return bossName.Replace("(Clone)", string.Empty).Replace('_', ' ').Trim();
     }
 

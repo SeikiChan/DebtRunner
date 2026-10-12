@@ -108,8 +108,8 @@ public class ShopSystem : MonoBehaviour
     [SerializeField, Min(1)] private int preBossInvestmentMinPrice = 3500;
     [SerializeField, Min(1)] private int preBossInvestmentMaxPrice = 9800;
     [SerializeField] private bool usePreBossInvestmentShop = true;
-    [SerializeField] private string preBossShopInfoMessage = "INVEST IN YOURSELF. BURN THE CASH BEFORE THE BOSS.";
-    [SerializeField] private string preBossRoundLabel = "BOSS PREP";
+    [SerializeField] private string preBossShopInfoMessage = "趁头目战开始前，用现金强化装备，做好准备！";
+    [SerializeField] private string preBossRoundLabel = "头目战准备";
     [SerializeField] private List<ShopRarityStyle> rarityStyles = new List<ShopRarityStyle>
     {
         new ShopRarityStyle
@@ -193,6 +193,28 @@ public class ShopSystem : MonoBehaviour
     private Color[] defaultPriceColors;
     private RectTransform cashIconRect;
     private RectTransform roundInfoIconRect;
+    private TextMeshProUGUI nextRoundDebtText;
+
+    private static string L(string key, string fallback) => LocalizationTable.Get(key, fallback);
+    private static string F(string key, string fallback, params object[] args) =>
+        string.Format(L(key, fallback), args);
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += OnLocaleChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= OnLocaleChanged;
+    }
+
+    private void OnLocaleChanged()
+    {
+        RefreshShopUI();
+        if (gameObject.activeInHierarchy)
+            SetInfo(L("shop.info.browse", "花费现金购买强化。"));
+    }
 
     public void Bind(GameFlowController flow)
     {
@@ -224,11 +246,11 @@ public class ShopSystem : MonoBehaviour
         }
         RunLogger.Event($"Shop opened. round={gameFlow?.GetCurrentRound() ?? -1}, bossPrep={isPreBossShop}, pool={(activePool != null ? activePool.name : "<null>")}");
         if (isPreBossShop)
-            SetInfo(preBossShopInfoMessage);
+            SetInfo(L("shop.info.pre_boss", preBossShopInfoMessage));
         else if (gameFlow != null && gameFlow.GetCurrentRound() == 1)
-            SetInfo("Spend cash to upgrade. Your first roll this shop is FREE.");
+            SetInfo(L("shop.info.first_draw", "花费现金购买强化。本次商店的首次抽奖免费。"));
         else
-            SetInfo($"Spend cash to upgrade. Roll starts at ${ResolveRuntimeGambleCost()} and gets pricier each spin.");
+            SetInfo(F("shop.info.draw_cost", "花费现金购买强化。抽奖需 ${0}，每次抽奖后价格都会上涨。", ResolveRuntimeGambleCost()));
         RefreshShopUI();
     }
 
@@ -310,17 +332,21 @@ public class ShopSystem : MonoBehaviour
     {
         if (!uiReady || gameFlow == null) return;
 
+        Transform nextRoundButton = transform.Find("Content/Btn_NextRound");
+        if (nextRoundButton != null)
+            LocalizationTable.SetText(nextRoundButton.GetComponentInChildren<TMP_Text>(true), "shop.next_round", "下一回合");
+
         ApplyCashTextLayout();
 
         if (textRoundInfo != null)
         {
             string nextDebt = gameFlow.GetNextRoundDebtDisplay();
             string leftSegment = IsPreBossInvestmentShopActive()
-                ? preBossRoundLabel
-                : $"Round {gameFlow.GetCurrentRound()}/{gameFlow.GetTotalRounds()}";
+                ? L("shop.round.pre_boss", preBossRoundLabel)
+                : F("shop.round.normal", "第 {0}/{1} 回合", gameFlow.GetCurrentRound(), gameFlow.GetTotalRounds());
             string rightSegment = IsPreBossInvestmentShopActive()
-                ? "Next: BOSS ROUND"
-                : $"Next Debt: {nextDebt}";
+                ? L("shop.next.boss", "下一战：头目战")
+                : F("shop.next.debt", "下回合债务：{0}", nextDebt);
             ApplyRoundInfoTextLayout(leftSegment, rightSegment);
         }
 
@@ -328,9 +354,9 @@ public class ShopSystem : MonoBehaviour
         {
             List<string> extras = new List<string>(2);
             if (pendingFreeItemCharges > 0)
-                extras.Add($"Free Item x{pendingFreeItemCharges}");
+                extras.Add(F("shop.free_items", "免费商品 ×{0}", pendingFreeItemCharges));
             if (pendingFreeRefreshCharges > 0)
-                extras.Add($"Free Refresh x{pendingFreeRefreshCharges}");
+                extras.Add(F("shop.free_refreshes", "免费刷新 ×{0}", pendingFreeRefreshCharges));
 
             textCash.text = extras.Count > 0
                 ? $"${gameFlow.GetCashAmount()}    {string.Join("    ", extras)}"
@@ -338,7 +364,7 @@ public class ShopSystem : MonoBehaviour
         }
 
         if (textRefreshLabel != null)
-            textRefreshLabel.text = pendingFreeRefreshCharges > 0 ? "FREE" : $" ${GetCurrentRefreshCost()}";
+            textRefreshLabel.text = pendingFreeRefreshCharges > 0 ? L("shop.free", "免费") : $" ${GetCurrentRefreshCost()}";
 
         runtimeGambleCost = ResolveRuntimeGambleCost();
 
@@ -362,25 +388,25 @@ public class ShopSystem : MonoBehaviour
             {
                 ResetOfferColors(i, ui);
                 if (ui.titleText != null) ui.titleText.text = "-";
-                if (ui.descText != null) ui.descText.text = "No item";
+                if (ui.descText != null) ui.descText.text = L("shop.empty", "暂无商品");
                 ApplyOfferTextLayout(ui);
                 if (ui.priceText != null) ui.priceText.text = "";
-                if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = "N/A";
+                if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = L("shop.unavailable", "不可用");
                 if (ui.buyButton != null) ui.buyButton.interactable = false;
                 ApplyOfferIcon(ui, null);
                 continue;
             }
 
             ApplyOfferColors(i, ui, offer.definition.Rarity, offer.purchased);
-            if (ui.titleText != null) ui.titleText.text = offer.definition.ItemTitle;
-            if (ui.descText != null) ui.descText.text = offer.definition.Description;
+            if (ui.titleText != null) ui.titleText.text = offer.definition.LocalizedTitle;
+            if (ui.descText != null) ui.descText.text = offer.definition.LocalizedDescription;
             ApplyOfferTextLayout(ui);
             ApplyOfferIcon(ui, offer.definition.Icon);
 
             if (offer.purchased)
             {
-                if (ui.priceText != null) ui.priceText.text = "Purchased";
-                if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = "OWNED";
+                if (ui.priceText != null) ui.priceText.text = L("shop.purchased", "已购买");
+                if (ui.buyButtonLabel != null) ui.buyButtonLabel.text = L("shop.bought", "已购");
                 if (ui.buyButton != null) ui.buyButton.interactable = false;
                 continue;
             }
@@ -390,9 +416,9 @@ public class ShopSystem : MonoBehaviour
             if (freeByCharge) price = 0;
 
             if (ui.priceText != null)
-                ui.priceText.text = price == 0 ? "FREE" : $"${price}";
+                ui.priceText.text = price == 0 ? L("shop.free", "免费") : $"${price}";
             if (ui.buyButtonLabel != null)
-                ui.buyButtonLabel.text = price == 0 ? "CLAIM" : "BUY";
+                ui.buyButtonLabel.text = price == 0 ? L("shop.claim", "领取") : L("shop.buy", "购买");
             if (ui.buyButton != null)
                 ui.buyButton.interactable = true;
         }
@@ -522,7 +548,7 @@ public class ShopSystem : MonoBehaviour
         int cost = pendingFreeRefreshCharges > 0 ? 0 : GetCurrentRefreshCost();
         if (!gameFlow.TrySpendCash(cost))
         {
-            SetInfo("Not enough cash to refresh.");
+            SetInfo(L("shop.info.insufficient_refresh", "现金不足，无法刷新。"));
             return;
         }
 
@@ -533,8 +559,8 @@ public class ShopSystem : MonoBehaviour
         refreshTimesThisVisit++;
         GenerateOffers();
         SetInfo(consumedFreeRefresh
-            ? $"Free refresh used. Next refresh: ${GetCurrentRefreshCost()}."
-            : $"Shop refreshed. Next refresh: ${GetCurrentRefreshCost()}");
+            ? F("shop.info.free_refresh_used", "已使用免费刷新次数。下次刷新需 ${0}。", GetCurrentRefreshCost())
+            : F("shop.info.refreshed", "商店已刷新。下次刷新需 ${0}。", GetCurrentRefreshCost()));
     }
 
     private void BuyOffer(int index)
@@ -551,7 +577,7 @@ public class ShopSystem : MonoBehaviour
         int finalCost = consumeFreeCharge ? 0 : cost;
         if (!gameFlow.TrySpendCash(finalCost))
         {
-            SetInfo("Not enough cash.");
+            SetInfo(L("shop.info.insufficient_cash", "现金不足。"));
             if (sfxCantBuy != null && SFXManager.Instance != null)
                 SFXManager.Instance.Play(sfxCantBuy);
             return;
@@ -565,11 +591,11 @@ public class ShopSystem : MonoBehaviour
         if (consumeFreeCharge)
         {
             pendingFreeItemCharges = Mathf.Max(0, pendingFreeItemCharges - 1);
-            SetInfo($"{offer.definition.ItemTitle} claimed for FREE. Remaining free charges: {pendingFreeItemCharges}.");
+            SetInfo(F("shop.info.claimed", "已免费领取「{0}」。剩余免费领取次数：{1}。", offer.definition.LocalizedTitle, pendingFreeItemCharges));
         }
         else
         {
-            SetInfo($"{offer.definition.ItemTitle} acquired.");
+            SetInfo(F("shop.info.purchased", "已购买「{0}」。", offer.definition.LocalizedTitle));
         }
 
         if (consumeFreeCharge)
@@ -584,7 +610,7 @@ public class ShopSystem : MonoBehaviour
         ShopItemPoolAsset activePool = GetActiveShopPool();
         if (activePool == null || activePool.Entries == null || activePool.Entries.Count == 0)
         {
-            SetInfo("Shop item pool asset is empty.");
+            SetInfo(L("shop.info.empty_pool", "商店商品池为空。"));
             for (int i = 0; i < currentOffers.Length; i++)
                 currentOffers[i] = null;
             RefreshShopUI();
@@ -923,27 +949,34 @@ public class ShopSystem : MonoBehaviour
         if (textRoundInfo == null)
             return;
 
+        textRoundInfo.enableAutoSizing = false;
+        textRoundInfo.fontSize = IsPreBossInvestmentShopActive() && LocalizationTable.CurrentLocale == "en"
+            ? 28f
+            : 38f;
+        textRoundInfo.alignment = TextAlignmentOptions.MidlineLeft;
+        textRoundInfo.textWrappingMode = TextWrappingModes.NoWrap;
+        textRoundInfo.overflowMode = TextOverflowModes.Overflow;
+
         ResolveRoundInfoIconRect();
         if (roundInfoIconRect == null)
         {
+            if (nextRoundDebtText != null)
+                nextRoundDebtText.gameObject.SetActive(false);
             textRoundInfo.text = $"{leftSegment}    {rightSegment}";
             return;
         }
 
-        float iconWidth = roundInfoIconRect.rect.width * roundInfoIconRect.localScale.x;
-        float sectionGap = Mathf.Max(0f, roundInfoIconSectionGap);
-        float textGap = Mathf.Max(0f, roundInfoIconTextGap);
-        float spacerWidth = sectionGap + iconWidth + textGap;
-        int spacerPixels = Mathf.Max(0, Mathf.RoundToInt(spacerWidth));
-
-        textRoundInfo.text = $"{leftSegment}<space={spacerPixels}px>{rightSegment}";
-
-        float leftWidth = textRoundInfo.GetPreferredValues(leftSegment).x;
-        float rightWidth = textRoundInfo.GetPreferredValues(rightSegment).x;
-        float totalWidth = leftWidth + spacerWidth + rightWidth;
-        float startX = -0.5f * totalWidth;
-        float iconHalfWidth = iconWidth * 0.5f;
-        float desiredIconCenterX = startX + leftWidth + sectionGap + iconHalfWidth;
+        // Fixed slots keep the icon and both labels stable when the font changes.
+        // Measuring the left TMP string here included its margin, so every locale
+        // change pushed the icon into the debt label.
+        textRoundInfo.text = leftSegment;
+        float startX = -textRoundInfo.rectTransform.rect.width * textRoundInfo.rectTransform.pivot.x
+            + textRoundInfo.margin.x;
+        const float roundLabelSlotWidth = 294f;
+        float iconCenterOffset = roundLabelSlotWidth + Mathf.Max(0f, roundInfoIconSectionGap);
+        float iconHalfWidth = roundInfoIconRect.rect.width * roundInfoIconRect.localScale.x * 0.5f;
+        float rightTextOffset = iconCenterOffset + iconHalfWidth + Mathf.Max(0f, roundInfoIconTextGap);
+        float desiredIconCenterX = startX + iconCenterOffset;
 
         Vector2 anchoredPosition = roundInfoIconRect.anchoredPosition;
         if (!Mathf.Approximately(anchoredPosition.x, desiredIconCenterX))
@@ -951,6 +984,38 @@ public class ShopSystem : MonoBehaviour
             anchoredPosition.x = desiredIconCenterX;
             roundInfoIconRect.anchoredPosition = anchoredPosition;
         }
+
+        if (nextRoundDebtText == null)
+        {
+            Transform existing = textRoundInfo.transform.Find("Text_NextRoundDebt");
+            if (existing != null)
+                nextRoundDebtText = existing.GetComponent<TextMeshProUGUI>();
+            if (nextRoundDebtText == null)
+            {
+                GameObject label = new GameObject("Text_NextRoundDebt", typeof(RectTransform), typeof(TextMeshProUGUI));
+                label.transform.SetParent(textRoundInfo.transform, false);
+                nextRoundDebtText = label.GetComponent<TextMeshProUGUI>();
+                nextRoundDebtText.raycastTarget = false;
+            }
+        }
+
+        RectTransform rightRect = nextRoundDebtText.rectTransform;
+        rightRect.anchorMin = rightRect.anchorMax = new Vector2(0.5f, 0.5f);
+        rightRect.pivot = new Vector2(0f, 0.5f);
+        rightRect.anchoredPosition = new Vector2(startX + rightTextOffset, 0f);
+        rightRect.sizeDelta = new Vector2(
+            Mathf.Max(100f, textRoundInfo.rectTransform.rect.width - textRoundInfo.margin.x - rightTextOffset),
+            textRoundInfo.rectTransform.rect.height);
+        nextRoundDebtText.gameObject.SetActive(true);
+        nextRoundDebtText.font = textRoundInfo.font;
+        nextRoundDebtText.fontSharedMaterial = textRoundInfo.fontSharedMaterial;
+        nextRoundDebtText.color = textRoundInfo.color;
+        nextRoundDebtText.fontSize = 38f;
+        nextRoundDebtText.enableAutoSizing = false;
+        nextRoundDebtText.alignment = TextAlignmentOptions.MidlineLeft;
+        nextRoundDebtText.textWrappingMode = TextWrappingModes.NoWrap;
+        nextRoundDebtText.overflowMode = TextOverflowModes.Overflow;
+        nextRoundDebtText.text = rightSegment;
     }
 
     private int GetOfferPrice(ShopOffer offer)
@@ -1016,7 +1081,7 @@ public class ShopSystem : MonoBehaviour
             return;
 
         pendingFreeRefreshCharges = 1;
-        SetInfo("Deadlock protection: shop sold out after a FREE ITEM, so you get 1 FREE refresh.");
+        SetInfo(L("shop.info.free_refresh_granted", "商品售罄且已获得免费商品，系统赠送 1 次免费刷新。"));
     }
 
     private bool AreAllOffersPurchased()

@@ -55,7 +55,7 @@ public static class StoryIntroPanelTemplate
             panelRect,
             new Vector2(0f, -492f),
             new Vector2(1400f, 120f),
-            "Click to continue",
+            "点击继续",
             34f);
         hint.fontStyle = FontStyles.Normal;
         hint.enableWordWrapping = true;
@@ -78,10 +78,13 @@ public static class StoryIntroPanelTemplate
             "Text",
             skipRect,
             Vector2.zero,
-            new Vector2(220f, 66f),
-            "Skip Story",
+            new Vector2(248f, 58f),
+            "跳过剧情",
             30f);
         skipText.fontStyle = FontStyles.Normal;
+        skipText.enableAutoSizing = false;
+        skipText.enableWordWrapping = false;
+        skipText.overflowMode = TextOverflowModes.Overflow;
 
         BindToGameFlow(group, bg, page, hint, skipBtn, skipText);
 

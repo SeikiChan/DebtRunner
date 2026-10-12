@@ -11,7 +11,7 @@ public class PlayerActiveItemController : MonoBehaviour
     private class ActiveItemProfile
     {
         public ActiveItemId itemId = ActiveItemId.None;
-        public string displayName = "Active Item";
+        public string displayName = "主动道具";
         [Min(0f)] public float cooldownSeconds = 10f;
         [Min(0f)] public float activeDurationSeconds = 0f;
 
@@ -61,9 +61,9 @@ public class PlayerActiveItemController : MonoBehaviour
     [SerializeField, Min(0.01f)] private float readyGlowPulseSpeed = 3.8f;
     [SerializeField, Range(0f, 1f)] private float readyGlowPulseMinAlpha = 0.18f;
     [SerializeField, Range(0f, 1f)] private float readyGlowPulseMaxAlpha = 0.78f;
-    [SerializeField] private string readyStatus = "[SPACE] READY";
-    [SerializeField] private string cooldownStatus = "COOLDOWN";
-    [SerializeField] private string activeStatus = "ACTIVE";
+    [SerializeField] private string readyStatus = "[空格] 可用";
+    [SerializeField] private string cooldownStatus = "冷却中";
+    [SerializeField] private string activeStatus = "生效中";
 
     [Header("Starter Item")]
     [SerializeField] private bool equipStarterItemOnRunReset = true;
@@ -75,7 +75,7 @@ public class PlayerActiveItemController : MonoBehaviour
         new ActiveItemProfile
         {
             itemId = ActiveItemId.SkiptraceBurst,
-            displayName = "Skiptrace Burst",
+            displayName = "冲刺",
             cooldownSeconds = 1f,
             dashImpulse = 18f,
             dashInvulnerabilitySeconds = 0.28f,
@@ -83,7 +83,7 @@ public class PlayerActiveItemController : MonoBehaviour
         new ActiveItemProfile
         {
             itemId = ActiveItemId.RedlineOvertime,
-            displayName = "Redline Overtime",
+            displayName = "红线超载",
             cooldownSeconds = 18f,
             activeDurationSeconds = 6f,
             damagePercent = 35f,
@@ -93,7 +93,7 @@ public class PlayerActiveItemController : MonoBehaviour
         new ActiveItemProfile
         {
             itemId = ActiveItemId.GraceWindow,
-            displayName = "Grace Window",
+            displayName = "宽限时刻",
             cooldownSeconds = 16f,
             activeDurationSeconds = 4f,
             moveSpeedPercent = 25f,
@@ -111,6 +111,21 @@ public class PlayerActiveItemController : MonoBehaviour
     private int totalUses;
     private bool suppressUseUntilRelease;
     private float activeItemInputLockUntilUnscaledTime;
+    private TMP_Text configuredNameText;
+    private TMP_Text styledNameText;
+    private TMP_Text styledStatusText;
+    private TMP_FontAsset originalNameFont;
+    private TMP_FontAsset originalStatusFont;
+    private Material originalNameMaterial;
+    private Material originalStatusMaterial;
+    private FontStyles originalNameStyle;
+    private FontStyles originalStatusStyle;
+    private bool originalNameAutoSizing;
+    private float originalNameSpacing;
+    private float originalStatusSpacing;
+    private Color originalNameColor;
+    private Color originalStatusColor;
+    private string styledLocale;
 
     public ActiveItemId EquippedItem => equippedItem;
     public bool HasEquippedItem => equippedProfile != null && equippedItem != ActiveItemId.None;
@@ -375,21 +390,33 @@ public class PlayerActiveItemController : MonoBehaviour
         if (!shouldShow || equippedProfile == null)
             return;
 
+        ApplyReadableHudTypography();
+
         bool isActive = activeDurationRemaining > 0.001f;
         bool isCooling = !isActive && cooldownRemaining > 0.001f;
         bool isReady = !isActive && !isCooling;
 
+        // The ready/active frame is bright yellow/orange, so the scene's pale
+        // labels lose contrast. Restore their original colors on the dark frame.
+        Color labelColor = new Color(0.12f, 0.10f, 0.07f, 1f);
         if (activeItemNameText != null)
-            activeItemNameText.text = equippedProfile.displayName;
+            activeItemNameText.color = isCooling ? originalNameColor : labelColor;
+        if (activeItemStatusText != null)
+            activeItemStatusText.color = isCooling ? originalStatusColor : labelColor;
+
+        if (activeItemNameText != null)
+            activeItemNameText.text = LocalizationTable.Get(
+                GetActiveItemNameKey(equippedProfile.itemId),
+                equippedProfile.displayName);
 
         if (activeItemStatusText != null)
         {
             if (isActive)
-                activeItemStatusText.text = activeStatus;
+                activeItemStatusText.text = LocalizationTable.Get("active_item.status.active", activeStatus);
             else if (isCooling)
-                activeItemStatusText.text = cooldownStatus;
+                activeItemStatusText.text = LocalizationTable.Get("active_item.status.cooldown", cooldownStatus);
             else
-                activeItemStatusText.text = readyStatus;
+                activeItemStatusText.text = LocalizationTable.Get("active_item.status.ready", readyStatus);
         }
 
         if (activeItemCooldownValueText != null)
@@ -449,6 +476,17 @@ public class PlayerActiveItemController : MonoBehaviour
         }
     }
 
+    private static string GetActiveItemNameKey(ActiveItemId itemId)
+    {
+        switch (itemId)
+        {
+            case ActiveItemId.SkiptraceBurst: return "active_item.skiptrace_burst.name";
+            case ActiveItemId.RedlineOvertime: return "active_item.redline_overtime.name";
+            case ActiveItemId.GraceWindow: return "active_item.grace_window.name";
+            default: return "active_item.none.name";
+        }
+    }
+
     private bool EnsureOverlay()
     {
         ResolveScenePanelBindings();
@@ -497,7 +535,7 @@ public class PlayerActiveItemController : MonoBehaviour
             frameRect,
             new Vector2(16f, -14f),
             new Vector2(190f, 30f),
-            "ACTIVE ITEM",
+            "主动道具",
             24f,
             FontStyles.Bold,
             fallbackNameColor,
@@ -585,6 +623,7 @@ public class PlayerActiveItemController : MonoBehaviour
             activeItemFrameImage = FindChildComponent<Image>(root, "Image_Frame");
         if (activeItemNameText == null)
             activeItemNameText = FindChildComponent<TMP_Text>(root, "Text_ItemName");
+        ConfigureItemNameText();
         if (activeItemStatusText == null)
             activeItemStatusText = FindChildComponent<TMP_Text>(root, "Text_Status");
         if (activeItemCooldownValueText == null)
@@ -607,6 +646,75 @@ public class PlayerActiveItemController : MonoBehaviour
             activeItemReadyGlowImage.raycastTarget = false;
         if (activeItemFrameImage != null)
             activeItemFrameImage.raycastTarget = false;
+    }
+
+    private void ApplyReadableHudTypography()
+    {
+        if (activeItemNameText != styledNameText)
+        {
+            styledNameText = activeItemNameText;
+            if (styledNameText != null)
+            {
+                originalNameStyle = styledNameText.fontStyle;
+                originalNameSpacing = styledNameText.characterSpacing;
+                originalNameColor = styledNameText.color;
+                originalNameFont = styledNameText.font;
+                originalNameMaterial = styledNameText.fontSharedMaterial;
+                originalNameAutoSizing = styledNameText.enableAutoSizing;
+            }
+            styledLocale = null;
+        }
+        if (activeItemStatusText != styledStatusText)
+        {
+            styledStatusText = activeItemStatusText;
+            if (styledStatusText != null)
+            {
+                originalStatusStyle = styledStatusText.fontStyle;
+                originalStatusSpacing = styledStatusText.characterSpacing;
+                originalStatusColor = styledStatusText.color;
+                originalStatusFont = styledStatusText.font;
+                originalStatusMaterial = styledStatusText.fontSharedMaterial;
+            }
+            styledLocale = null;
+        }
+
+        string locale = LocalizationTable.CurrentLocale;
+        if (styledLocale == locale)
+            return;
+
+        bool chinese = locale == "zh-CN";
+        TMP_FontAsset chineseFont = chinese
+            ? Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF")
+            : null;
+        if (styledNameText != null)
+        {
+            styledNameText.font = chinese && chineseFont != null ? chineseFont : originalNameFont;
+            styledNameText.fontSharedMaterial = chinese && chineseFont != null ? chineseFont.material : originalNameMaterial;
+            styledNameText.fontStyle = chinese ? FontStyles.Normal : originalNameStyle;
+            styledNameText.characterSpacing = chinese ? 2f : originalNameSpacing;
+            styledNameText.enableAutoSizing = chinese ? false : originalNameAutoSizing;
+        }
+        if (styledStatusText != null)
+        {
+            styledStatusText.font = chinese && chineseFont != null ? chineseFont : originalStatusFont;
+            styledStatusText.fontSharedMaterial = chinese && chineseFont != null ? chineseFont.material : originalStatusMaterial;
+            styledStatusText.fontStyle = chinese ? FontStyles.Normal : originalStatusStyle;
+            styledStatusText.characterSpacing = chinese ? 2f : originalStatusSpacing;
+        }
+        styledLocale = locale;
+    }
+
+    private void ConfigureItemNameText()
+    {
+        if (activeItemNameText == null || activeItemNameText == configuredNameText)
+            return;
+
+        activeItemNameText.enableWordWrapping = false;
+        activeItemNameText.enableAutoSizing = true;
+        activeItemNameText.fontSizeMin = 14f;
+        activeItemNameText.fontSizeMax = 24f;
+        activeItemNameText.overflowMode = TextOverflowModes.Truncate;
+        configuredNameText = activeItemNameText;
     }
 
     private static TMP_Text CreateText(

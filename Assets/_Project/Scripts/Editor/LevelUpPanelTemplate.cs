@@ -74,7 +74,7 @@ public static class LevelUpPanelTemplate
             panelRect,
             new Vector2(0f, 300f),
             new Vector2(900f, 90f),
-            "LEVEL UP!",
+            "等级提升！",
             68f,
             FontStyles.Bold,
             Color.white);
@@ -86,7 +86,7 @@ public static class LevelUpPanelTemplate
             panelRect,
             new Vector2(0f, 245f),
             new Vector2(900f, 40f),
-            "Choose 1 card",
+            "选择 1 项升级",
             26f,
             FontStyles.Normal,
             new Color(0.85f, 0.85f, 0.85f, 1f));
@@ -204,9 +204,9 @@ public static class LevelUpPanelTemplate
         TMP_Text title = CreateText(
             "CardTitle",
             cardRect,
-            new Vector2(0f, 165f),
+            new Vector2(0f, 177f),
             new Vector2(250f, 46f),
-            "CARD NAME",
+            "升级名称",
             33f,
             FontStyles.Bold,
             new Color(0.14f, 0.14f, 0.14f, 1f));
@@ -226,7 +226,7 @@ public static class LevelUpPanelTemplate
             cardRect,
             new Vector2(0f, -160f),
             new Vector2(250f, 110f),
-            "Upgrade description goes here.",
+            "升级效果说明。",
             21f,
             FontStyles.Normal,
             new Color(0.16f, 0.16f, 0.16f, 0.95f));

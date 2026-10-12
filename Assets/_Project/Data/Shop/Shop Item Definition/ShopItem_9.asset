@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_9
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Redline Overtime
-  description: 'ACTIVE: Space to overclock.
+  localizationKey: shop.item.redline_overtime
+  itemTitle: 红线超载
+  description: '主动：按空格键启动超频。
 
-    6s harder, faster fire.'
+    持续 6 秒，提升伤害和攻击速度。'
   icon: {fileID: 1887350927205460035, guid: 8c3b5b4bbd2e24749aebb34a73b8e12c, type: 3}
   price: 185
   rarity: 2

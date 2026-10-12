@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -46,7 +47,45 @@ public class LevelUpPanel : MonoBehaviour
 
     private void Start()
     {
+        LocalizePanelLabels();
         ForceHideImmediate();
+    }
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += OnLocaleChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= OnLocaleChanged;
+    }
+
+    private void OnLocaleChanged()
+    {
+        LocalizePanelLabels();
+    }
+
+    private void LocalizePanelLabels()
+    {
+        Transform root = panel != null ? panel.transform : transform;
+        TMP_Text[] labels = root.GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            TMP_Text label = labels[i];
+            if (label == null)
+                continue;
+
+            switch (label.gameObject.name)
+            {
+                case "Title_LevelUp":
+                    LocalizationTable.SetText(label, "levelup.title", "LEVEL UP!");
+                    break;
+                case "Hint_SelectOne":
+                    LocalizationTable.SetText(label, "levelup.hint", "CHOOSE 1 UPGRADE");
+                    break;
+            }
+        }
     }
 
     public void ForceHideImmediate()

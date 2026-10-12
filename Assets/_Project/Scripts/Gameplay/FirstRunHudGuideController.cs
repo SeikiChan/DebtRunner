@@ -23,8 +23,8 @@ public class FirstRunHudGuideController : MonoBehaviour
     private class HudGuideStep
     {
         public HudGuideTargetType targetType = HudGuideTargetType.Health;
-        public string title = "HEALTH";
-        [TextArea(2, 4)] public string description = "Lose all hearts and the run is over.";
+        public string title = "生命值";
+        [TextArea(2, 4)] public string description = "生命值归零，本局就会结束。";
         public Vector2 calloutOffset = new Vector2(0f, -150f);
         public Vector2 calloutSize = new Vector2(460f, 150f);
         public Vector2 highlightPadding = new Vector2(24f, 18f);
@@ -35,35 +35,35 @@ public class FirstRunHudGuideController : MonoBehaviour
 
     [Header("First-Run HUD Guide")]
     [SerializeField] private bool enableFirstRunHudGuide = true;
-    [SerializeField] private string continueHint = "CLICK TO CONTINUE";
+    [SerializeField] private string continueHint = "点击继续";
     [SerializeField] private List<HudGuideStep> steps = new List<HudGuideStep>
     {
         new HudGuideStep
         {
             targetType = HudGuideTargetType.Health,
-            title = "HEALTH",
-            description = "This is your survivability. If it drops to zero, the run ends.",
+            title = "生命值",
+            description = "生命值归零，本局就会结束。",
             calloutOffset = new Vector2(0f, -150f),
         },
         new HudGuideStep
         {
             targetType = HudGuideTargetType.Timer,
-            title = "TIME",
-            description = "When the timer ends, the round settles immediately.",
+            title = "倒计时",
+            description = "倒计时结束后，本回合会立即结算。",
             calloutOffset = new Vector2(0f, -150f),
         },
         new HudGuideStep
         {
             targetType = HudGuideTargetType.Cash,
-            title = "CASH",
-            description = "Kills drop cash. Cash pays debt and buys upgrades.",
+            title = "现金",
+            description = "击败敌人可获得现金，用来还债或购买强化。",
             calloutOffset = new Vector2(0f, -140f),
         },
         new HudGuideStep
         {
             targetType = HudGuideTargetType.Debt,
-            title = "DEBT",
-            description = "You must cover this payment each round or the run is lost.",
+            title = "债务",
+            description = "每回合都要还清当期债务，否则本局结束。",
             calloutOffset = new Vector2(0f, -150f),
         },
     };
@@ -99,6 +99,7 @@ public class FirstRunHudGuideController : MonoBehaviour
     [SerializeField] private RectTransform sceneCalloutAnchorsRoot;
     [SerializeField] private RectTransform sceneHighlightAnchorsRoot;
     private bool overlayAutoCreated;
+    private HudGuideStep currentGuideStep;
 
     public bool IsShowing { get; private set; }
 
@@ -207,8 +208,8 @@ public class FirstRunHudGuideController : MonoBehaviour
             Rect previewHighlightRect = ResolveHighlightRectForStep(previewStep);
             LayoutHighlight(previewHighlightRect);
             LayoutCallout(Vector2.zero, previewStep);
-            calloutTitleText.text = string.IsNullOrWhiteSpace(previewStep.title) ? "TITLE" : previewStep.title;
-            calloutDescriptionText.text = string.IsNullOrWhiteSpace(previewStep.description) ? "Description preview" : previewStep.description;
+            calloutTitleText.text = GetLocalizedTitle(previewStep);
+            calloutDescriptionText.text = GetLocalizedDescription(previewStep);
         }
         else
         {
@@ -216,11 +217,11 @@ public class FirstRunHudGuideController : MonoBehaviour
             calloutRoot.sizeDelta = new Vector2(460f, 150f);
             highlightRoot.anchoredPosition = Vector2.zero;
             highlightRoot.sizeDelta = new Vector2(220f, 72f);
-            calloutTitleText.text = "TITLE";
-            calloutDescriptionText.text = "Description preview";
+            calloutTitleText.text = "提示";
+            calloutDescriptionText.text = "说明预览";
         }
 
-        continueHintText.text = continueHint;
+        continueHintText.text = LocalizationTable.Get("guide.continue", continueHint);
         MarkAuthoringObjectsDirty();
     }
 
@@ -233,12 +234,19 @@ public class FirstRunHudGuideController : MonoBehaviour
 
     private void OnDisable()
     {
+        LocalizationTable.LocaleChanged -= OnLocaleChanged;
         HideGuideImmediate();
+    }
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += OnLocaleChanged;
     }
 
     private void HideGuideImmediate()
     {
         IsShowing = false;
+        currentGuideStep = null;
         if (overlayCanvasGroup == null)
             return;
 
@@ -382,7 +390,7 @@ public class FirstRunHudGuideController : MonoBehaviour
         text.alignment = alignment;
         text.enableWordWrapping = wordWrap;
         text.outlineColor = new Color(0f, 0f, 0f, 0.95f);
-        text.outlineWidth = 0.2f;
+        text.outlineWidth = 0.06f;
         text.raycastTarget = false;
     }
 
@@ -479,6 +487,7 @@ public class FirstRunHudGuideController : MonoBehaviour
 
     private void ApplyStep(HudGuideStep step)
     {
+        currentGuideStep = step;
         RectTransform target = ResolveTarget(step.targetType);
         if (target == null)
             return;
@@ -488,9 +497,51 @@ public class FirstRunHudGuideController : MonoBehaviour
         LayoutHighlight(ResolveHighlightRectForStep(step, targetRect));
         LayoutCallout(targetRect.center, step);
 
-        calloutTitleText.text = string.IsNullOrWhiteSpace(step.title) ? step.targetType.ToString().ToUpperInvariant() : step.title;
-        calloutDescriptionText.text = step.description ?? string.Empty;
-        continueHintText.text = continueHint;
+        calloutTitleText.text = GetLocalizedTitle(step);
+        calloutDescriptionText.text = GetLocalizedDescription(step);
+        continueHintText.text = LocalizationTable.Get("guide.continue", continueHint);
+    }
+
+    private void OnLocaleChanged()
+    {
+        if (IsShowing && currentGuideStep != null)
+            ApplyStep(currentGuideStep);
+    }
+
+    private static string GetLocalizedTitle(HudGuideStep step)
+    {
+        string fallback = string.IsNullOrWhiteSpace(step.title) ? GetTargetTitle(step.targetType) : step.title;
+        return LocalizationTable.Get(GetLocalizationKey(step.targetType, true), fallback);
+    }
+
+    private static string GetLocalizedDescription(HudGuideStep step)
+    {
+        return LocalizationTable.Get(GetLocalizationKey(step.targetType, false), step.description ?? string.Empty);
+    }
+
+    private static string GetLocalizationKey(HudGuideTargetType targetType, bool title)
+    {
+        string field = title ? "title" : "description";
+        switch (targetType)
+        {
+            case HudGuideTargetType.Health: return $"guide.health.{field}";
+            case HudGuideTargetType.Timer: return $"guide.timer.{field}";
+            case HudGuideTargetType.Cash: return $"guide.cash.{field}";
+            case HudGuideTargetType.Debt: return $"guide.debt.{field}";
+            default: return $"guide.unknown.{field}";
+        }
+    }
+
+    private static string GetTargetTitle(HudGuideTargetType targetType)
+    {
+        switch (targetType)
+        {
+            case HudGuideTargetType.Health: return "生命值";
+            case HudGuideTargetType.Timer: return "倒计时";
+            case HudGuideTargetType.Cash: return "现金";
+            case HudGuideTargetType.Debt: return "债务";
+            default: return "提示";
+        }
     }
 
     private RectTransform ResolveTarget(HudGuideTargetType targetType)

@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_4
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Air Corridor
-  description: +0.01% projectile speed.
+  localizationKey: shop.item.air_lane
+  itemTitle: 空中通道
+  description: 投射速度 +0.01%。
   icon: {fileID: 0}
   price: 3500
   rarity: 1

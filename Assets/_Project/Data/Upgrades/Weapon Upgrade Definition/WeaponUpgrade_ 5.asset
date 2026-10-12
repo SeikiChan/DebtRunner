@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 5
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Collection Ring
-  description: Set collector cards sweeping wider arcs around you.
+  localizationKey: upgrade.definition.collection_ring
+  upgradeTitle: 催收之环
+  description: 让催收卡牌以更大的弧线环绕自身。
   icon: {fileID: -1744947764177000098, guid: df089f72a7697eb44979a12885faa32f, type: 3}
   rarity: 2
   weightPercent: 7

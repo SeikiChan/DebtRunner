@@ -12,7 +12,7 @@ public static class RoundPresentationPanelTemplate
     {
         CreateOverlay(
             "Panel_TimesUp",
-            "TIME'S UP",
+            "时间到",
             subMessage: null,
             bindMode: BindMode.TimesUp);
     }
@@ -22,8 +22,8 @@ public static class RoundPresentationPanelTemplate
     {
         CreateOverlay(
             "Panel_GameOverTransition",
-            "YOU LOSS",
-            "Run Failed",
+            "你输了",
+            "本局失败",
             bindMode: BindMode.GameOver);
     }
 

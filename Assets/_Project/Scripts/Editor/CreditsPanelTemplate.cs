@@ -25,11 +25,11 @@ public static class CreditsPanelTemplate
 
     private static readonly CreditEntry[] Entries =
     {
-        new CreditEntry("Art Director / Game Designer / Programmer / SFX Designer", "Yilun Huang"),
-        new CreditEntry("UI Designer", "Yipu Yuan"),
-        new CreditEntry("Character Designer / Prop Designer", "Ziqi Wang"),
-        new CreditEntry("Environment Designer", "Lilit Baghdasaryan"),
-        new CreditEntry("Mentor Support", "Todd Gorang"),
+        new CreditEntry("美术指导 / 游戏设计 / 程序 / 音效设计", "Yilun Huang"),
+        new CreditEntry("UI 设计", "Yipu Yuan"),
+        new CreditEntry("角色设计 / 道具设计", "Ziqi Wang"),
+        new CreditEntry("场景设计", "Lilit Baghdasaryan"),
+        new CreditEntry("导师支持", "Todd Gorang"),
     };
 
     [MenuItem("GameObject/DebtRunner/Create Credits Panel Template")]
@@ -50,7 +50,7 @@ public static class CreditsPanelTemplate
             EditorUtility.DisplayDialog(
                 "Hint",
                 updated
-                    ? $"{panelName} already exists.\nTexts were updated to English."
+                    ? $"{panelName} 已存在。\n面板文本已更新为简体中文。"
                     : $"{panelName} already exists.",
                 "OK");
             Selection.activeGameObject = existing.gameObject;
@@ -83,7 +83,7 @@ public static class CreditsPanelTemplate
             frameRect,
             new Vector2(0f, 268f),
             new Vector2(980f, 88f),
-            "CREDITS",
+            "制作人员",
             76f,
             FontStyles.Bold,
             new Color(0.95f, 0.85f, 0.58f, 1f),
@@ -96,7 +96,7 @@ public static class CreditsPanelTemplate
             frameRect,
             new Vector2(0f, 214f),
             new Vector2(980f, 44f),
-            "Debt Runner Team",
+            "Debt Runner 制作团队",
             34f,
             FontStyles.Normal,
             new Color(0.86f, 0.86f, 0.90f, 1f),
@@ -122,7 +122,7 @@ public static class CreditsPanelTemplate
             frameRect,
             new Vector2(0f, -280f),
             new Vector2(300f, 74f),
-            "BACK",
+            "返回",
             new Color(0.94f, 0.66f, 0.24f, 1f),
             new Color(0.14f, 0.09f, 0.03f, 1f));
 

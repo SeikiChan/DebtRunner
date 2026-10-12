@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_5
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Grace Period
-  description: +0.01s hit i-frames.
+  localizationKey: shop.item.grace_clause
+  itemTitle: 宽限期条款
+  description: 受击无敌时间 +0.01 秒。
   icon: {fileID: 0}
   price: 7600
   rarity: 3

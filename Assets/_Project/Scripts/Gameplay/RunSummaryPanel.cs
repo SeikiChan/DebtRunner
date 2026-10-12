@@ -19,18 +19,18 @@ public class RunSummaryPanel : MonoBehaviour
     [SerializeField] private Button mainMenuButton;
 
     [Header("Victory / 胜利")]
-    [SerializeField] private string victoryTitle = "VICTORY";
-    [SerializeField] private string victorySubtitle = "You cleared all debts and conquered the arena!";
+    [SerializeField] private string victoryTitle = "胜利";
+    [SerializeField] private string victorySubtitle = "你已还清所有债务，征服了竞技场！";
     [SerializeField] private Color victoryTitleColor = new Color(1f, 0.85f, 0.2f, 1f);
 
     [Header("Killed By Monster / 被怪物击杀")]
-    [SerializeField] private string monsterDeathTitle = "DEFEATED";
-    [SerializeField] private string monsterDeathSubtitle = "You were overwhelmed by the horde...";
+    [SerializeField] private string monsterDeathTitle = "战败";
+    [SerializeField] private string monsterDeathSubtitle = "你最终被怪物大军淹没了……";
     [SerializeField] private Color monsterDeathTitleColor = new Color(1f, 0.3f, 0.3f, 1f);
 
     [Header("Failed Debt / 还不起债务")]
-    [SerializeField] private string debtFailTitle = "BANKRUPT";
-    [SerializeField] private string debtFailSubtitle = "You couldn't pay off your debts...";
+    [SerializeField] private string debtFailTitle = "破产";
+    [SerializeField] private string debtFailSubtitle = "你没能偿还债务……";
     [SerializeField] private Color debtFailTitleColor = new Color(0.6f, 0.25f, 0.7f, 1f);
 
     [Header("Button Highlight / 按钮高亮")]
@@ -38,6 +38,26 @@ public class RunSummaryPanel : MonoBehaviour
     [SerializeField] private Color menuHighlightColor = new Color(0.7f, 0.7f, 0.75f, 1f);
 
     private CanvasGroup canvasGroup;
+
+    private bool hasSummary;
+    private EndingType lastEnding;
+    private int lastKills, lastCashEarned, lastXpEarned, lastRoundReached, lastFinalLevel;
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += RefreshLocalizedSummary;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= RefreshLocalizedSummary;
+    }
+
+    private void RefreshLocalizedSummary()
+    {
+        if (hasSummary)
+            SetSummaryText(lastEnding, lastKills, lastCashEarned, lastXpEarned, lastRoundReached, lastFinalLevel);
+    }
 
     private void Awake()
     {
@@ -114,6 +134,33 @@ public class RunSummaryPanel : MonoBehaviour
 
     public void ShowPanel(EndingType ending, int kills, int cashEarned, int xpEarned, int roundReached, int finalLevel)
     {
+        lastEnding = ending;
+        lastKills = kills;
+        lastCashEarned = cashEarned;
+        lastXpEarned = xpEarned;
+        lastRoundReached = roundReached;
+        lastFinalLevel = finalLevel;
+        hasSummary = true;
+        SetSummaryText(ending, kills, cashEarned, xpEarned, roundReached, finalLevel);
+
+        gameObject.SetActive(true);
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        transform.SetAsLastSibling();
+        if (restartButton != null && EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+            EventSystem.current.SetSelectedGameObject(restartButton.gameObject);
+        }
+    }
+
+    private void SetSummaryText(EndingType ending, int kills, int cashEarned, int xpEarned, int roundReached, int finalLevel)
+    {
         string title;
         string subtitle;
         Color titleColor;
@@ -121,18 +168,18 @@ public class RunSummaryPanel : MonoBehaviour
         switch (ending)
         {
             case EndingType.Victory:
-                title = victoryTitle;
-                subtitle = victorySubtitle;
+                title = LocalizationTable.Get("summary.victory.title", victoryTitle);
+                subtitle = LocalizationTable.Get("summary.victory.subtitle", victorySubtitle);
                 titleColor = victoryTitleColor;
                 break;
             case EndingType.FailedDebt:
-                title = debtFailTitle;
-                subtitle = debtFailSubtitle;
+                title = LocalizationTable.Get("summary.debt.title", debtFailTitle);
+                subtitle = LocalizationTable.Get("summary.debt.subtitle", debtFailSubtitle);
                 titleColor = debtFailTitleColor;
                 break;
             default: // KilledByMonster
-                title = monsterDeathTitle;
-                subtitle = monsterDeathSubtitle;
+                title = LocalizationTable.Get("summary.monster.title", monsterDeathTitle);
+                subtitle = LocalizationTable.Get("summary.monster.subtitle", monsterDeathSubtitle);
                 titleColor = monsterDeathTitleColor;
                 break;
         }
@@ -148,36 +195,15 @@ public class RunSummaryPanel : MonoBehaviour
 
         if (statsText != null)
         {
-            statsText.text =
-                $"Enemies Killed:    {kills}\n" +
-                $"Cash Earned:       ${cashEarned}\n" +
-                $"XP Earned:         {xpEarned}\n" +
-                $"Rounds Survived:   {roundReached}\n" +
-                $"Final Level:       {finalLevel}";
+            statsText.text = string.Format(
+                LocalizationTable.Get("summary.stats", "击败敌人：{0}\n获得现金：${1}\n获得经验：{2}\n存活回合：{3}\n最终等级：{4}"),
+                kills, cashEarned, xpEarned, roundReached, finalLevel);
         }
 
-        gameObject.SetActive(true);
-        if (canvasGroup != null)
-        {
-            canvasGroup.alpha = 1f;
-            canvasGroup.interactable = true;
-            canvasGroup.blocksRaycasts = true;
-        }
-
-        Transform rt = transform;
-        if (rt != null)
-            rt.SetAsLastSibling();
-
-        // Select first button for keyboard/gamepad navigation
         if (restartButton != null)
-        {
-            EventSystem es = EventSystem.current;
-            if (es != null)
-            {
-                es.SetSelectedGameObject(null);
-                es.SetSelectedGameObject(restartButton.gameObject);
-            }
-        }
+            LocalizationTable.SetText(restartButton.GetComponentInChildren<TMP_Text>(true), "summary.restart", "重新开始");
+        if (mainMenuButton != null)
+            LocalizationTable.SetText(mainMenuButton.GetComponentInChildren<TMP_Text>(true), "summary.menu", "返回主菜单");
     }
 
     public void HidePanel()

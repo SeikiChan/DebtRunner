@@ -20,6 +20,19 @@ public class XPUI : MonoBehaviour
     private int lastLevel = 1;
     private Coroutine animationCo;
     private Coroutine levelUpFlashCo;
+    private FontStyles originalLevelStyle;
+    private float originalLevelSpacing;
+    private bool levelStyleCaptured;
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += UpdateXPDisplay;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= UpdateXPDisplay;
+    }
 
     private void Start()
     {
@@ -57,7 +70,19 @@ public class XPUI : MonoBehaviour
         }
 
         if (levelText != null)
-            levelText.text = $"Lv.{level}";
+        {
+            if (!levelStyleCaptured)
+            {
+                originalLevelStyle = levelText.fontStyle;
+                originalLevelSpacing = levelText.characterSpacing;
+                levelStyleCaptured = true;
+            }
+            bool chinese = LocalizationTable.CurrentLocale == "zh-CN";
+            levelText.fontStyle = chinese ? FontStyles.Normal : originalLevelStyle;
+            levelText.characterSpacing = chinese ? 1.5f : originalLevelSpacing;
+            levelText.text = string.Format(LocalizationTable.Get("hud.level", "等级 {0}"), level);
+            KeepLevelLabelInsideItsSlot();
+        }
 
         if (xpText != null)
             xpText.text = $"{currentXP}/{xpToNext}";
@@ -79,6 +104,36 @@ public class XPUI : MonoBehaviour
         }
 
         lastFillAmount = fillAmount;
+    }
+
+    private void KeepLevelLabelInsideItsSlot()
+    {
+        levelText.textWrappingMode = TextWrappingModes.NoWrap;
+        levelText.overflowMode = TextOverflowModes.Ellipsis;
+        levelText.fontSize = 23f;
+        levelText.fontSizeMin = 16f;
+        levelText.fontSizeMax = 23f;
+        levelText.enableAutoSizing = true;
+
+        if (xpBarFill == null)
+            return;
+
+        RectTransform fillRect = xpBarFill.rectTransform;
+        RectTransform levelRect = levelText.rectTransform;
+        RectTransform container = fillRect.parent as RectTransform;
+        if (container == null || levelRect.parent != container)
+            return;
+
+        float containerLeft = -container.rect.width * container.pivot.x;
+        float labelRight = levelRect.anchoredPosition.x
+            + levelRect.rect.width * (1f - levelRect.pivot.x) - levelText.margin.z;
+        float minimumFillInset = labelRight - containerLeft + 12f;
+        Vector2 offsetMin = fillRect.offsetMin;
+        if (offsetMin.x < minimumFillInset)
+        {
+            offsetMin.x = minimumFillInset;
+            fillRect.offsetMin = offsetMin;
+        }
     }
 
     private void OnLevelUp()

@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 6
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Final Notice
-  description: Every so often, blast the whole area with a warning wave.
+  localizationKey: upgrade.definition.final_notice
+  upgradeTitle: 最后通牒
+  description: 周期性释放警示波，冲击周围整片区域。
   icon: {fileID: -512666333378821914, guid: 984bfaebb2ce3b440b9bfbbbac4e293b, type: 3}
   rarity: 2
   weightPercent: 7

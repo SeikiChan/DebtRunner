@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 8
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Double Entry II
-  description: The lane ahead fills with duplicate filings.
+  localizationKey: upgrade.definition.double_entry_2
+  upgradeTitle: 双重入账 II
+  description: 前方路线将被重复投出的卡牌填满。
   icon: {fileID: 4005692007224591920, guid: 5d1e761a58e73c442a22a45963e3efca, type: 3}
   rarity: 1
   weightPercent: 7

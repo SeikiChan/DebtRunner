@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: WeaponUpgrade_ 15
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Encircling Debt
-  description: Your collector ring reaches farther out and punishes anything trying to close in.
+  localizationKey: upgrade.definition.encircling_debt
+  upgradeTitle: 追债光环
+  description: 追债光环覆盖范围更大，会惩罚试图靠近的敌人。
   icon: {fileID: 0}
   rarity: 3
   weightPercent: 4

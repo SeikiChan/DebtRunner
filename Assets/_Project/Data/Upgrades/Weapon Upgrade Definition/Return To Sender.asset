@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 466bcf19c3e0d0b4c9edaa3e5d4c919f, type: 3}
   m_Name: Return To Sender
   m_EditorClassIdentifier: Assembly-CSharp::WeaponUpgradeDefinition
-  upgradeTitle: Return To Sender
-  description: Cards loop back for a second pass.
+  localizationKey: upgrade.definition.return_to_sender
+  upgradeTitle: 原路退回
+  description: 卡牌飞出后会折返，再次攻击。
   icon: {fileID: 5490950706529262894, guid: 7b8e5b2b1cc062047af17f3cb6993902, type: 3}
   rarity: 1
   weightPercent: 6

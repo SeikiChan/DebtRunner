@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 4
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Skiptrace Soles
-  description: +10% move speed.
+  localizationKey: shop.item.collector_boots
+  itemTitle: 追债之靴
+  description: 移动速度提高 10%。
   icon: {fileID: -6613299857926580617, guid: ea7180d6abfef8d4db93d0c4c74f7892, type: 3}
   price: 110
   rarity: 0

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -43,6 +44,10 @@ public class SettingsMenuController : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private Button backButton;
     [SerializeField, Min(0.001f)] private float keyboardSliderStep = 0.05f;
+
+    private Button languageButton;
+    private TMP_Text languageLabelText;
+    private TMP_Text languageValueText;
 
     private readonly List<Vector2Int> availableResolutions = new List<Vector2Int>();
 
@@ -92,9 +97,15 @@ public class SettingsMenuController : MonoBehaviour
 
     private void OnEnable()
     {
+        LocalizationTable.LocaleChanged += OnLocaleChanged;
         EnsureInitialized();
         RefreshUIFromCurrent();
         QueueRestoreSelection();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= OnLocaleChanged;
     }
 
     private void EnsureInitialized()
@@ -104,6 +115,7 @@ public class SettingsMenuController : MonoBehaviour
 
         BuildResolutionList();
         EnsureFullscreenToggleExists();
+        EnsureLanguageRowExists();
         BindEvents();
         ConfigureKeyboardNavigation();
         initialized = true;
@@ -131,6 +143,9 @@ public class SettingsMenuController : MonoBehaviour
 
         if (fullscreenToggle != null)
             fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
+
+        if (languageButton != null)
+            languageButton.onClick.AddListener(CycleLocaleForward);
 
         if (backButton != null)
             backButton.onClick.AddListener(OnBackClicked);
@@ -195,6 +210,8 @@ public class SettingsMenuController : MonoBehaviour
             fullscreenToggle.SetIsOnWithoutNotify(Screen.fullScreen);
 
         UpdateResolutionText(currentIndex, applied: false);
+        LocalizeStaticLabels();
+        RefreshLanguageControl();
         ConfigureKeyboardNavigation();
 
         suppressCallbacks = false;
@@ -248,6 +265,13 @@ public class SettingsMenuController : MonoBehaviour
             return true;
         }
 
+        if (languageButton != null && selected == languageButton.gameObject)
+        {
+            CycleLocale();
+            RestoreSelection(languageButton);
+            return true;
+        }
+
         return false;
     }
 
@@ -289,6 +313,13 @@ public class SettingsMenuController : MonoBehaviour
         {
             fullscreenToggle.isOn = !fullscreenToggle.isOn;
             RestoreSelection(fullscreenToggle);
+            return true;
+        }
+
+        if (languageButton != null && selected == languageButton.gameObject)
+        {
+            CycleLocaleForward();
+            RestoreSelection(languageButton);
             return true;
         }
 
@@ -613,12 +644,16 @@ public class SettingsMenuController : MonoBehaviour
         int safeIndex = Mathf.Clamp(index, 0, availableResolutions.Count - 1);
         Vector2Int res = availableResolutions[safeIndex];
 
+        string mode = LocalizationTable.Get(Screen.fullScreen ? "settings.mode.fullscreen" : "settings.mode.window",
+            Screen.fullScreen ? "Fullscreen" : "Windowed");
 #if UNITY_EDITOR
-        resolutionHintText.text = "Selected: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed") + " (Editor may not resize Game view)";
+        string template = LocalizationTable.Get("settings.resolution.selected", "Selected: {0} × {1} | {2}");
+        resolutionHintText.text = string.Format(template, res.x, res.y, mode) +
+            LocalizationTable.Get("settings.resolution.editor_suffix", " (Game view size cannot be changed in the Editor)");
 #else
-        resolutionHintText.text = applied
-            ? "Applied: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed")
-            : "Current: " + res.x + " x " + res.y + " | " + (Screen.fullScreen ? "Fullscreen" : "Windowed");
+        string key = applied ? "settings.resolution.applied" : "settings.resolution.current";
+        string fallback = applied ? "Applied: {0} × {1} | {2}" : "Current: {0} × {1} | {2}";
+        resolutionHintText.text = string.Format(LocalizationTable.Get(key, fallback), res.x, res.y, mode);
 #endif
     }
 
@@ -644,7 +679,7 @@ public class SettingsMenuController : MonoBehaviour
         labelRect.anchoredPosition = new Vector2(-130f, -120f);
 
         TextMeshProUGUI labelText = labelObject.GetComponent<TextMeshProUGUI>();
-        labelText.text = "Fullscreen";
+        LocalizationTable.SetText(labelText, "settings.fullscreen.label", "Fullscreen");
         labelText.fontSize = 22f;
         labelText.alignment = TextAlignmentOptions.Center;
         labelText.color = new Color(0.9f, 0.9f, 0.9f);
@@ -681,7 +716,7 @@ public class SettingsMenuController : MonoBehaviour
         toggleLabelRect.offsetMax = new Vector2(-8f, 0f);
 
         TextMeshProUGUI toggleLabel = toggleLabelObject.GetComponent<TextMeshProUGUI>();
-        toggleLabel.text = "Use Fullscreen";
+        LocalizationTable.SetText(toggleLabel, "settings.fullscreen.enabled", "Use fullscreen mode");
         toggleLabel.fontSize = 20f;
         toggleLabel.alignment = TextAlignmentOptions.Left;
         toggleLabel.color = Color.white;
@@ -694,7 +729,187 @@ public class SettingsMenuController : MonoBehaviour
 
         RepositionOptionalChild(content, "ResolutionHint", new Vector2(0f, -155f));
         if (backButton != null)
-            ((RectTransform)backButton.transform).anchoredPosition = new Vector2(0f, -220f);
+            ((RectTransform)backButton.transform).anchoredPosition = new Vector2(0f, -288f);
+    }
+
+    private void EnsureLanguageRowExists()
+    {
+        if (languageButton != null)
+            return;
+
+        Transform content = transform.Find("Content");
+        if (content == null)
+            return;
+
+        RectTransform contentRect = content as RectTransform;
+        if (contentRect != null)
+            contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, Mathf.Max(contentRect.sizeDelta.y, 620f));
+
+        GameObject labelObject = new GameObject("Label_Language", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(content, false);
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.sizeDelta = new Vector2(200f, 30f);
+        labelRect.anchoredPosition = new Vector2(-332.9f, -195f);
+
+        languageLabelText = labelObject.GetComponent<TextMeshProUGUI>();
+        LocalizationTable.SetText(languageLabelText, "settings.language.label", "Language");
+        languageLabelText.fontSize = 22f;
+        languageLabelText.alignment = TextAlignmentOptions.Center;
+        languageLabelText.color = new Color(0.9f, 0.9f, 0.9f);
+        languageLabelText.raycastTarget = false;
+
+        GameObject buttonObject = new GameObject("Button_Language", typeof(RectTransform), typeof(Image), typeof(Button));
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.SetParent(content, false);
+        buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
+        buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
+        buttonRect.sizeDelta = new Vector2(220f, 36f);
+        buttonRect.anchoredPosition = new Vector2(-21.3f, -195f);
+
+        Image buttonBackground = buttonObject.GetComponent<Image>();
+        buttonBackground.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+
+        GameObject valueObject = new GameObject("Value", typeof(RectTransform), typeof(TextMeshProUGUI));
+        RectTransform valueRect = valueObject.GetComponent<RectTransform>();
+        valueRect.SetParent(buttonRect, false);
+        valueRect.anchorMin = Vector2.zero;
+        valueRect.anchorMax = Vector2.one;
+        valueRect.offsetMin = new Vector2(8f, 0f);
+        valueRect.offsetMax = new Vector2(-8f, 0f);
+
+        languageValueText = valueObject.GetComponent<TextMeshProUGUI>();
+        languageValueText.fontSize = 20f;
+        languageValueText.alignment = TextAlignmentOptions.Center;
+        languageValueText.color = Color.white;
+        languageValueText.raycastTarget = false;
+
+        languageButton = buttonObject.GetComponent<Button>();
+        languageButton.targetGraphic = buttonBackground;
+        RefreshLanguageControl();
+    }
+
+    private void LocalizeStaticLabels()
+    {
+        TMP_Text[] labels = GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            TMP_Text label = labels[i];
+            if (label == null)
+                continue;
+
+            string key = null;
+            switch (label.gameObject.name)
+            {
+                case "Title": key = "settings.title"; break;
+                case "Label_MasterVolume": key = "settings.master.label"; break;
+                case "Label_BGMVolume": key = "settings.bgm.label"; break;
+                case "Label_SFXVolume": key = "settings.sfx.label"; break;
+                case "Label_Resolution": key = "settings.resolution.label"; break;
+                case "Label_Fullscreen": key = "settings.fullscreen.label"; break;
+                case "Label_Language": key = "settings.language.label"; break;
+            }
+
+            if (!string.IsNullOrEmpty(key))
+            {
+                LocalizationTable.SetText(label, key);
+                if (label.gameObject.name.StartsWith("Label_", StringComparison.Ordinal))
+                {
+                    if (label.gameObject.name == "Label_MasterVolume")
+                        ExpandLabelTowardsSlider(label, volumeSlider);
+                    else if (label.gameObject.name == "Label_BGMVolume")
+                        ExpandLabelTowardsSlider(label, bgmVolumeSlider);
+                    else if (label.gameObject.name == "Label_SFXVolume")
+                        ExpandLabelTowardsSlider(label, sfxVolumeSlider);
+                    ConfigureSingleLineSettingText(label, 22f);
+                }
+            }
+        }
+
+        if (backButton != null)
+        {
+            TMP_Text backText = backButton.GetComponentInChildren<TMP_Text>(true);
+            LocalizationTable.SetText(backText, "settings.back", "Back");
+        }
+
+        if (fullscreenToggle != null)
+        {
+            TMP_Text toggleText = fullscreenToggle.GetComponentInChildren<TMP_Text>(true);
+            LocalizationTable.SetText(toggleText, "settings.fullscreen.enabled", "Use fullscreen mode");
+            ConfigureSingleLineSettingText(toggleText, 20f);
+        }
+    }
+
+    private static void ConfigureSingleLineSettingText(TMP_Text text, float maxFontSize)
+    {
+        if (text == null)
+            return;
+
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.enableAutoSizing = false;
+        text.fontSize = maxFontSize;
+        float availableWidth = text.rectTransform.rect.width - text.margin.x - text.margin.z - 4f;
+        if (availableWidth <= 0f)
+            return;
+
+        float preferredWidth = text.GetPreferredValues(text.text).x;
+        if (preferredWidth > availableWidth)
+            text.fontSize = Mathf.Max(10f, maxFontSize * availableWidth / preferredWidth);
+    }
+
+    private static void ExpandLabelTowardsSlider(TMP_Text label, Slider slider)
+    {
+        if (label == null || slider == null)
+            return;
+
+        RectTransform labelRect = label.rectTransform;
+        RectTransform sliderRect = slider.GetComponent<RectTransform>();
+        if (labelRect == null || sliderRect == null || labelRect.parent != sliderRect.parent)
+            return;
+
+        float left = labelRect.anchoredPosition.x - labelRect.rect.width * labelRect.pivot.x;
+        float sliderLeft = sliderRect.anchoredPosition.x - sliderRect.rect.width * sliderRect.pivot.x;
+        float availableWidth = sliderLeft - left - 12f;
+        if (availableWidth <= labelRect.rect.width)
+            return;
+
+        labelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, availableWidth);
+        Vector2 position = labelRect.anchoredPosition;
+        position.x = left + availableWidth * labelRect.pivot.x;
+        labelRect.anchoredPosition = position;
+    }
+
+    private void RefreshLanguageControl()
+    {
+        if (languageLabelText != null)
+            LocalizationTable.SetText(languageLabelText, "settings.language.label", "Language");
+
+        if (languageValueText != null)
+        {
+            languageValueText.text = LocalizationTable.GetLocaleDisplayName(LocalizationTable.CurrentLocale);
+        }
+    }
+
+    private void OnLocaleChanged()
+    {
+        LocalizeStaticLabels();
+        RefreshLanguageControl();
+
+        int currentIndex = FindClosestResolutionIndex(Screen.width, Screen.height);
+        UpdateResolutionText(currentIndex, applied: false);
+    }
+
+    private void CycleLocaleForward()
+    {
+        CycleLocale();
+    }
+
+    private void CycleLocale()
+    {
+        string nextLocale = LocalizationTable.CurrentLocale == "zh-CN" ? "en" : "zh-CN";
+        LocalizationTable.SetLocale(nextLocale);
     }
 
     private static void RepositionOptionalChild(Transform parent, string childName, Vector2 anchoredPosition)
@@ -800,6 +1015,7 @@ public class SettingsMenuController : MonoBehaviour
         AddSelectable(chain, resolutionTMPDropdown);
         AddSelectable(chain, resolutionLegacyDropdown);
         AddSelectable(chain, fullscreenToggle);
+        AddSelectable(chain, languageButton);
         AddSelectable(chain, backButton);
 
         for (int i = 0; i < chain.Count; i++)

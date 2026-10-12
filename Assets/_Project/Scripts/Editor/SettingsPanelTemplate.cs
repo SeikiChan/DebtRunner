@@ -61,12 +61,12 @@ public class SettingsPanelTemplate
 
         // ── 标题 ──
         CreateLabel("Title", contentRect, new Vector2(0, 220), new Vector2(400, 50),
-            "SETTINGS", 36, FontStyles.Bold, Color.white);
+            "设置", 36, FontStyles.Bold, Color.white);
 
         // ── Master Volume 行 ──
         float rowY = 140f;
         CreateLabel("Label_MasterVolume", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
-            "Master Volume", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+            "主音量", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         Slider masterSlider = CreateSlider("Slider_MasterVolume", contentRect,
             new Vector2(60, rowY), new Vector2(220, 25), 0.8f);
         TextMeshProUGUI masterValueText = CreateLabel("Value_MasterVolume", contentRect,
@@ -76,7 +76,7 @@ public class SettingsPanelTemplate
         // ── BGM Volume 行 ──
         rowY = 80f;
         CreateLabel("Label_BGMVolume", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
-            "BGM Volume", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+            "背景音乐音量", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         Slider bgmSlider = CreateSlider("Slider_BGMVolume", contentRect,
             new Vector2(60, rowY), new Vector2(220, 25), 0.8f);
         TextMeshProUGUI bgmValueText = CreateLabel("Value_BGMVolume", contentRect,
@@ -86,7 +86,7 @@ public class SettingsPanelTemplate
         // ── SFX Volume 行 ──
         rowY = 20f;
         CreateLabel("Label_SFXVolume", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
-            "SFX Volume", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+            "音效音量", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         Slider sfxSlider = CreateSlider("Slider_SFXVolume", contentRect,
             new Vector2(60, rowY), new Vector2(220, 25), 1.0f);
         TextMeshProUGUI sfxValueText = CreateLabel("Value_SFXVolume", contentRect,
@@ -96,14 +96,14 @@ public class SettingsPanelTemplate
         // ── Resolution 行 ──
         rowY = -50f;
         CreateLabel("Label_Resolution", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
-            "Resolution", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+            "分辨率", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         TMP_Dropdown resDropdown = CreateDropdown("Dropdown_Resolution", contentRect,
             new Vector2(80, rowY), new Vector2(260, 35));
         rowY = -120f;
         CreateLabel("Label_Fullscreen", contentRect, new Vector2(-130, rowY), new Vector2(200, 30),
-            "Fullscreen", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
+            "全屏", 22, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f));
         Toggle fullscreenToggle = CreateToggle("Toggle_Fullscreen", contentRect,
-            new Vector2(80, rowY), new Vector2(220, 36), "Use Fullscreen", true);
+            new Vector2(80, rowY), new Vector2(220, 36), "启用全屏", true);
 
         // ── Resolution Hint ──
         rowY = -155f;
@@ -114,7 +114,7 @@ public class SettingsPanelTemplate
         // ── Back 按钮 ──
         rowY = -220f;
         Button backBtn = CreateButton("Btn_Back", contentRect,
-            new Vector2(0, rowY), "BACK", new Color(0.25f, 0.55f, 0.9f, 1f));
+            new Vector2(0, rowY), "返回", new Color(0.25f, 0.55f, 0.9f, 1f));
 
         // ── 添加 SettingsMenuController 并绑定引用 ──
         SettingsMenuController settings = panelRoot.AddComponent<SettingsMenuController>();
@@ -394,7 +394,7 @@ public class SettingsPanelTemplate
         itemLabelRect.offsetMax = new Vector2(0, 0);
 
         TextMeshProUGUI itemLabelTMP = itemLabel.AddComponent<TextMeshProUGUI>();
-        itemLabelTMP.text = "Option";
+        itemLabelTMP.text = "选项";
         itemLabelTMP.fontSize = 18;
         itemLabelTMP.alignment = TextAlignmentOptions.Left;
         itemLabelTMP.color = Color.white;

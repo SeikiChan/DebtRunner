@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: ShopItem_ 3
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Collections Training
-  description: +5% XP gained.
+  localizationKey: shop.item.collections_training
+  itemTitle: 催收训练
+  description: 获得的经验值提高 5%。
   icon: {fileID: 6308577348484473773, guid: bc242bde632ccb841969e7d620e74380, type: 3}
   price: 100
   rarity: 0

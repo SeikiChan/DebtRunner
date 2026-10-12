@@ -92,7 +92,7 @@ public class VictoryPanelTemplate
         titleRect.sizeDelta = new Vector2(900, 150);
         titleRect.anchoredPosition = new Vector2(0, 200);
 
-        titleText.text = "DEBT CLEAR";
+        titleText.text = "债务清偿";
         titleText.fontSize = 100;
         titleText.alignment = TextAlignmentOptions.Center;
         titleText.fontStyle = FontStyles.Bold;
@@ -112,7 +112,7 @@ public class VictoryPanelTemplate
         subtitleRect.sizeDelta = new Vector2(800, 100);
         subtitleRect.anchoredPosition = new Vector2(0, 100);
 
-        subtitleText.text = "YOU'RE FREE";
+        subtitleText.text = "重获自由";
         subtitleText.fontSize = 60;
         subtitleText.alignment = TextAlignmentOptions.Center;
         subtitleText.fontStyle = FontStyles.Bold;
@@ -132,7 +132,7 @@ public class VictoryPanelTemplate
         statsRect.sizeDelta = new Vector2(800, 120);
         statsRect.anchoredPosition = new Vector2(0, -20);
 
-        statsText.text = "Total Rounds Survived: 11\nTotal Cash Earned: 5000\nFinal Level: 25";
+        statsText.text = "存活回合：11\n累计获得现金：5000\n最终等级：25";
         statsText.fontSize = 24;
         statsText.alignment = TextAlignmentOptions.Center;
         statsText.color = new Color(0.9f, 0.9f, 0.9f, 1f);
@@ -171,7 +171,7 @@ public class VictoryPanelTemplate
         endGameLabelRect.offsetMin = Vector2.zero;
         endGameLabelRect.offsetMax = Vector2.zero;
         TextMeshProUGUI endGameTMP = endGameLabel.GetComponent<TextMeshProUGUI>();
-        endGameTMP.text = "End Game";
+        endGameTMP.text = "结束游戏";
         endGameTMP.alignment = TextAlignmentOptions.Center;
         endGameTMP.fontSize = 28;
         endGameTMP.fontStyle = FontStyles.Bold;
@@ -199,7 +199,7 @@ public class VictoryPanelTemplate
         menuLabelRect.offsetMin = Vector2.zero;
         menuLabelRect.offsetMax = Vector2.zero;
         TextMeshProUGUI menuTMP = menuLabel.GetComponent<TextMeshProUGUI>();
-        menuTMP.text = "Main Menu";
+        menuTMP.text = "主菜单";
         menuTMP.alignment = TextAlignmentOptions.Center;
         menuTMP.fontSize = 28;
         menuTMP.fontStyle = FontStyles.Bold;

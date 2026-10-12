@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db691347921e241428844dfd483c3612, type: 3}
   m_Name: BossInvestment_2
   m_EditorClassIdentifier: Assembly-CSharp::ShopItemDefinition
-  itemTitle: Loaded Chamber
-  description: +0.01% card damage.
+  localizationKey: shop.item.loaded_deck
+  itemTitle: 满膛弹药
+  description: 卡牌伤害 +0.01%。
   icon: {fileID: 0}
   price: 5600
   rarity: 2

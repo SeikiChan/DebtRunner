@@ -1,0 +1,318 @@
+key,context,en,zh-CN
+guide.continue,Continue prompt shown below the tutorial card,CLICK TO CONTINUE,点击继续
+guide.health.title,First-run tutorial title for the heart meter,HEALTH,生命值
+guide.health.description,First-run tutorial explanation for the heart meter,"This is your survivability. If it drops to zero, the run ends.",生命值代表你的生存。归零时，本局结束。
+guide.timer.title,First-run tutorial title for the round timer,TIME,倒计时
+guide.timer.description,First-run tutorial explanation for the round timer,"When the timer ends, the round settles immediately.",倒计时结束后，本回合会立即结算。
+guide.cash.title,First-run tutorial title for cash,CASH,现金
+guide.cash.description,First-run tutorial explanation for cash,Kills drop cash. Cash pays debt and buys upgrades.,击败敌人可获得现金，用来偿还债务或购买强化。
+guide.debt.title,First-run tutorial title for the due payment,DEBT,债务
+guide.debt.description,First-run tutorial explanation for the due payment,You must cover this payment each round or the run is lost.,每回合都要还清当期债务，否则本局结束。
+active_item.skiptrace_burst.name,Name of the starter dash item,SKIPTRACE BURST,冲刺
+active_item.redline_overtime.name,Name of the combat buff item,REDLINE OVERTIME,红线超载
+active_item.grace_window.name,Name of the defensive buff item,GRACE WINDOW,宽限时刻
+active_item.status.ready,Prompt shown when the active item is ready,[SPACE] READY,[空格] 可用
+active_item.status.cooldown,Status shown while the active item recharges,COOLDOWN,冷却中
+active_item.status.active,Status shown while an active item effect is running,ACTIVE,生效中
+menu.settings,Main menu settings button,Settings,设置
+menu.start,Main menu start button,START,开始
+menu.credits,Main menu credits button,Credit,制作人员
+menu.exit,Main menu exit button,Exit,退出
+splash.presented_by,Studio splash presented by label,Presented by,出品
+settings.title,Settings screen title,Settings,设置
+settings.master.label,Master volume setting label,Master Volume,主音量
+settings.bgm.label,Background music volume setting label,Music Volume,背景音乐音量
+settings.sfx.label,Sound effects volume setting label,Sound Effects Volume,音效音量
+settings.resolution.label,Resolution setting label,Resolution,分辨率
+settings.fullscreen.label,Fullscreen setting label,Fullscreen,全屏
+settings.fullscreen.enabled,Fullscreen toggle value,Use fullscreen mode,启用全屏
+settings.language.label,Language setting label,Language,界面文字
+settings.language.value.zh-CN,Display name for Simplified Chinese,简体中文,简体中文
+settings.language.value.en,Display name for English,English,English
+settings.back,Settings back button,Back,返回
+settings.mode.fullscreen,Window mode name,Fullscreen,全屏
+settings.mode.window,Window mode name,Windowed,窗口
+settings.resolution.selected,Resolution selected hint,Selected: {0} × {1} | {2},已选择：{0} × {1} | {2}
+settings.resolution.applied,Applied resolution hint,Applied: {0} × {1} | {2},已应用：{0} × {1} | {2}
+settings.resolution.current,Current resolution hint,Current: {0} × {1} | {2},当前设置：{0} × {1} | {2}
+settings.resolution.editor_suffix,Resolution hint suffix used in the Unity Editor, (Game view size cannot be changed in the Editor),（编辑器中无法调整游戏视图大小）
+hud.round.normal,Current gameplay round indicator,ROUND {0:00}/{1:00},第 {0:00}/{1:00} 回合
+hud.round.boss,Boss round indicator,BOSS ROUND,头目回合
+hud.debt,Current round debt amount,DEBT: {0},债务：{0}
+hud.countdown.boss,Boss round timer label,BOSS,头目
+pause.resume,Pause menu resume button,Resume,返回游戏
+pause.quit,Pause menu quit button,Quit,退出
+quit.pause.title,Pause quit confirmation title,Leave the arena?,要离开竞技场吗？
+quit.pause.body,Pause quit confirmation message,Debt is waiting for you.,债务正等着你。
+quit.pause.confirm,Leave arena confirmation button,Yes,确认
+quit.pause.cancel,Stay in arena button,No!,不！
+quit.title.title,Title screen exit confirmation title,Exit game?,确定要退出游戏吗？
+quit.title.body,Title screen exit confirmation message,Any unsaved progress will be lost.,未保存的进度将会丢失。
+quit.title.confirm,Exit game confirmation button,Quit,退出
+quit.title.cancel,Cancel exit button,Cancel,取消
+levelup.title,Level up panel title,LEVEL UP!,等级提升！
+levelup.hint,Level up panel selection hint,CHOOSE 1 UPGRADE,选择 1 项升级
+settlement.debt_payment,Debt payment summary,Debt payment: -{0},偿还债务：-{0}
+settlement.cash_earned,Cash earned summary,Cash earned: +{0},获得现金：+{0}
+settlement.next_debt,Next round debt summary,Next round debt: {0},下回合债务：{0}
+upgrade.mode.orbit.title,Orbiting card mode upgrade title,Collection Ring,催收之环
+upgrade.mode.nova.title,Nova pulse mode upgrade title,Final Notice,最后通牒
+upgrade.mode.scatter.title,On-hit scatter mode upgrade title,Fine Print,小字条款
+upgrade.mode.fan.title,Fan spread mode upgrade title,Double Entry,双重入账
+upgrade.mode.pierce.title,Piercing mode upgrade title,Hard Copy,纸面重击
+upgrade.mode.return.title,Returning card mode upgrade title,Return To Sender,原路退回
+upgrade.mode.shift.title,Generic weapon mode upgrade title,Mode Shift,模式切换
+upgrade.mode.orbit.description.first,First orbit mode upgrade description,Collector cards orbit you.,催收卡牌环绕在你身边。
+upgrade.mode.orbit.description.cap,Orbit mode description at projectile cap,Orbit ↑ Cap reached. Hits harder. Spins faster.,环绕弹幕 ↑ 数量已达上限，伤害更高，旋转更快。
+upgrade.mode.orbit.description.more,Orbit mode description with additional projectiles,Orbit ↑ More cards. Wider ring. Faster spin.,环绕弹幕 ↑ 卡牌更多，范围更广，旋转更快。
+upgrade.mode.nova.description.first,First nova mode upgrade description,A warning pulse bursts out.,释放一圈警示冲击波。
+upgrade.mode.nova.description.higher,Higher-rank nova mode upgrade description,Pulse ↑ Sooner. Wider. More paper.,冲击波 ↑ 释放更频繁，范围更广，卡牌更多。
+upgrade.mode.scatter.description.first,First scatter mode upgrade description,Hits burst into chasing slips.,命中时散出追踪债单。
+upgrade.mode.scatter.description.higher,Higher-rank scatter mode upgrade description,Slips ↑ More slips. Wider scatter. Better chase.,债单 ↑ 数量更多，散射更广，追踪更快。
+upgrade.mode.fan.description.first,First fan mode upgrade description,One throw becomes a fan.,一次投掷化作扇形攻击。
+upgrade.mode.fan.description.cap,Fan mode description at projectile cap,Fan ↑ Cap reached. Wider fan. Faster throw. Harder hits.,扇形弹幕 ↑ 数量已达上限，范围更广，投掷更快，伤害更高。
+upgrade.mode.fan.description.more,Fan mode description with additional projectiles,Fan ↑ More cards. Wider fan.,扇形弹幕 ↑ 卡牌更多，攻击范围更广。
+upgrade.mode.pierce.description.first,First pierce mode upgrade description,Cards push through the line.,卡牌贯穿敌人阵线。
+upgrade.mode.pierce.description.higher,Higher-rank pierce mode upgrade description,Pierce ↑ Deeper carry.,穿透 ↑ 卡牌可贯穿更多敌人。
+upgrade.mode.return.description.first,First return mode upgrade description,Cards loop back for a second pass.,卡牌飞出后会折返，再次攻击。
+upgrade.mode.return.description.higher,Higher-rank return mode upgrade description,Return ↑ Faster return. Harder on the way back.,回旋 ↑ 折返更快，回程伤害更高。
+upgrade.base.quick_stamp.title,Quick Stamp base upgrade title,Quick Stamp,快速盖章
+upgrade.base.stamped_ledger.title,Stamped Ledger base upgrade title,Stamped Ledger,盖章账簿
+upgrade.base.air_mail.title,Air Mail base upgrade title,Air Mail,空中投递
+upgrade.base.fast_hands.title,Fast Hands base upgrade title,Fast Hands,疾速出手
+upgrade.base.quick_stamp.description.first,First Quick Stamp upgrade description,Cards leave your hand with more snap.,卡牌出手更快，飞行速度更高。
+upgrade.base.quick_stamp.description.higher,Higher-rank Quick Stamp upgrade description,Projectile Speed ↑ Faster travel.,投射速度 ↑ 卡牌飞得更快。
+upgrade.base.stamped_ledger.description.first,First Stamped Ledger upgrade description,Heavier hits on every card.,每张卡牌的打击都更重。
+upgrade.base.stamped_ledger.description.higher,Higher-rank Stamped Ledger upgrade description,Damage ↑ Boosts both locked modes.,伤害 ↑ 同时强化已选的两种攻击模式。
+upgrade.base.air_mail.description.first,First Air Mail upgrade description,Cards fly faster and farther.,卡牌飞得更快、更远。
+upgrade.base.air_mail.description.higher,Higher-rank Air Mail upgrade description,Flight ↑ Faster travel. Longer reach.,飞行 ↑ 速度更快，射程更远。
+upgrade.base.fast_hands.description.first,First Fast Hands upgrade description,Attack Speed ↑ Throw cards more often.,攻击速度 ↑ 更频繁地投出卡牌。
+upgrade.base.fast_hands.description.higher,Higher-rank Fast Hands upgrade description,Attack Speed ↑ Higher firing frequency.,攻击速度 ↑ 投掷频率进一步提高。
+upgrade.definition.stamped_ledger.title,Stamped Ledger upgrade title,Stamped Ledger,盖章账簿
+upgrade.definition.stamped_ledger.description,Stamped Ledger upgrade description,Make each card land like a stamped warning.,每张卡牌都像盖章警告一样重击敌人。
+upgrade.definition.fast_hands.title,Fast Hands upgrade title,Fast Hands,疾速出手
+upgrade.definition.fast_hands.description,Fast Hands upgrade description,Throw cards faster and keep the pressure on.,更快地投掷卡牌，持续压制敌人。
+upgrade.definition.double_entry.title,Double Entry upgrade title,Double Entry,双重入账
+upgrade.definition.double_entry.description,Double Entry upgrade description,Turn each filing into a wider front of fire.,每次投掷都扩展成更宽的弹幕。
+upgrade.definition.fine_print.title,Fine Print upgrade title,Fine Print,小字条款
+upgrade.definition.fine_print.description,Fine Print upgrade description,Hits shed smaller slips that chase work into the crowd.,命中后散出小纸片，追击敌群中的目标。
+upgrade.definition.hard_copy.title,Hard Copy upgrade title,Hard Copy,纸面重击
+upgrade.definition.hard_copy.description,Hard Copy upgrade description,Give your paperwork enough bite to punch through the front line.,让卡牌更具冲击力，贯穿敌人前线。
+upgrade.definition.collection_ring.title,Collection Ring upgrade title,Collection Ring,催收之环
+upgrade.definition.collection_ring.description,Collection Ring upgrade description,Set collector cards sweeping wider arcs around you.,让催收卡牌以更大的弧线环绕自身。
+upgrade.definition.final_notice.title,Final Notice upgrade title,Final Notice,最后通牒
+upgrade.definition.final_notice.description,Final Notice upgrade description,"Every so often, blast the whole area with a warning wave.",周期性释放警示波，冲击周围整片区域。
+upgrade.definition.fast_hands_2.title,Fast Hands II upgrade title,Fast Hands II,疾速出手 II
+upgrade.definition.fast_hands_2.description,Fast Hands II upgrade description,Throw even faster and leave enemies no room to breathe.,投掷速度进一步提升，让敌人无处喘息。
+upgrade.definition.double_entry_2.title,Double Entry II upgrade title,Double Entry II,双重入账 II
+upgrade.definition.double_entry_2.description,Double Entry II upgrade description,The lane ahead fills with duplicate filings.,前方路线将被重复投出的卡牌填满。
+upgrade.definition.fine_print_2.title,Fine Print II upgrade title,Fine Print II,小字条款 II
+upgrade.definition.fine_print_2.description,Fine Print II upgrade description,Each impact scatters more paperwork into nearby debtors.,每次命中都会将更多债单散向附近的债务人。
+upgrade.definition.closing_loop.title,Closing Loop upgrade title,Closing Loop,回环加速
+upgrade.definition.closing_loop.description,Closing Loop upgrade description,The circling cards quicken and keep chewing through anyone nearby.,环绕卡牌转得更快，持续打击附近的敌人。
+upgrade.definition.clause_cascade.title,Clause Cascade upgrade title,Clause Cascade,条款连锁
+upgrade.definition.clause_cascade.description,Clause Cascade upgrade description,A clean hit opens into a fuller paper bloom.,命中后引发更大范围的纸片爆裂。
+upgrade.definition.encircling_debt.title,Encircling Debt upgrade title,Encircling Debt,追债光环
+upgrade.definition.encircling_debt.description,Encircling Debt upgrade description,Your collector ring reaches farther out and punishes anything trying to close in.,追债光环覆盖范围更大，会惩罚试图靠近的敌人。
+upgrade.definition.redline_ledger.title,Redline Ledger upgrade title,Redline Ledger,红线账簿
+upgrade.definition.redline_ledger.description,Redline Ledger upgrade description,Once the red ink shows up, every shot feels meaner.,红线显现后，每次攻击都更加致命。
+upgrade.definition.foreclosure_sweep.title,Foreclosure Sweep upgrade title,Foreclosure Sweep,止赎横扫
+upgrade.definition.foreclosure_sweep.description,Foreclosure Sweep upgrade description,Throw a harder warning wave when the pack starts to close in.,怪物逼近时，释放威力更强的警示波。
+upgrade.definition.audit_barrage.title,Audit Barrage upgrade title,Audit Barrage,审计弹幕
+upgrade.definition.audit_barrage.description,Audit Barrage upgrade description,Flood the front with enough paperwork to bury a lane.,向前方倾泻大量卡牌，封锁整条路线。
+upgrade.definition.collections_bloom.title,Collections Bloom upgrade title,Collections Bloom,催收绽放
+upgrade.definition.collections_bloom.description,Collections Bloom upgrade description,Piercing hits keep the bloom moving deeper into the crowd.,穿透攻击让爆裂效果深入敌群。
+upgrade.definition.lockdown_ring.title,Lockdown Ring upgrade title,Lockdown Ring,封锁之环
+upgrade.definition.lockdown_ring.description,Lockdown Ring upgrade description,The ring locks a wider perimeter and shreds anything left inside it.,环绕弹幕覆盖更大的范围，撕碎其中的敌人。
+upgrade.definition.debt_hurricane.title,Debt Hurricane upgrade title,Debt Hurricane,债务风暴
+upgrade.definition.debt_hurricane.description,Debt Hurricane upgrade description,Your whole collection routine starts running on its own.,催收流程全面自动化。
+upgrade.definition.air_mail.title,Air Mail upgrade title,Air Mail,空中投递
+upgrade.definition.air_mail.description,Air Mail upgrade description,Cards fly faster and farther.,卡牌飞得更快、更远。
+upgrade.definition.quick_stamp.title,Quick Stamp upgrade title,Quick Stamp,快速盖章
+upgrade.definition.quick_stamp.description,Quick Stamp upgrade description,Cards leave your hand with more snap.,卡牌出手更快，飞行速度更高。
+upgrade.definition.return_to_sender.title,Return To Sender upgrade title,Return To Sender,原路退回
+upgrade.definition.return_to_sender.description,Return To Sender upgrade description,Cards loop back for a second pass.,卡牌飞出后会折返，再次攻击。
+shop.item.collector_training.title,Shop item collector_training title,Collector Training,追债特训
+shop.item.collector_training.description,Shop item collector_training description,Movement speed +0.01%.,移动速度 +0.01%。
+shop.item.loaded_deck.title,Shop item loaded_deck title,Loaded Deck,满膛弹药
+shop.item.loaded_deck.description,Shop item loaded_deck description,Card damage +0.01%.,卡牌伤害 +0.01%。
+shop.item.fast_filing.title,Shop item fast_filing title,Fast Filing,快速立案
+shop.item.fast_filing.description,Shop item fast_filing description,Attack speed +0.01%.,攻击速度 +0.01%。
+shop.item.air_lane.title,Shop item air_lane title,Air Lane,空中通道
+shop.item.air_lane.description,Shop item air_lane description,Projectile speed +0.01%.,投射速度 +0.01%。
+shop.item.grace_clause.title,Shop item grace_clause title,Grace Clause,宽限期条款
+shop.item.grace_clause.description,Shop item grace_clause description,Damage invulnerability +0.01 seconds.,受击无敌时间 +0.01 秒。
+shop.item.rebirth_clause.title,Shop item rebirth_clause title,Rebirth Clause,重生条款
+shop.item.rebirth_clause.description,Shop item rebirth_clause description,Gain one revive.,获得 1 次复活机会。
+shop.item.sealed_relic.title,Shop item sealed_relic title,Sealed Relic,封存遗物
+shop.item.sealed_relic.description,Shop item sealed_relic description,"A collectible relic. Movement speed, damage, attack speed, and projectile speed each increase by 0.01%.",可收集的遗物。移动速度、伤害、攻击速度和投射速度各 +0.01%。
+shop.item.collector_coat.title,Shop item collector_coat title,Collector Coat,催收风衣
+shop.item.collector_coat.description,Shop item collector_coat description,Maximum health +1 and restore 1 health.,最大生命值 +1，并恢复 1 点生命。
+shop.item.insurance_clause.title,Shop item insurance_clause title,Insurance Clause,保险条款
+shop.item.insurance_clause.description,Shop item insurance_clause description,Shields regenerate over time. Gain 1 shield immediately.,护盾会随时间恢复，立即获得 1 层护盾。
+shop.item.collections_training.title,Shop item collections_training title,Collections Training,催收训练
+shop.item.collections_training.description,Shop item collections_training description,Gain 5% more experience.,获得的经验值提高 5%。
+shop.item.collector_boots.title,Shop item collector_boots title,Collector Boots,追债之靴
+shop.item.collector_boots.description,Shop item collector_boots description,Movement speed +10%.,移动速度提高 10%。
+shop.item.recovery_hook.title,Shop item recovery_hook title,Recovery Hook,追偿钩爪
+shop.item.recovery_hook.description,Shop item recovery_hook description,Pickup range +1.2.,拾取范围 +1.2。
+shop.item.cash_ledger.title,Shop item cash_ledger title,Cash Ledger,现金账簿
+shop.item.cash_ledger.description,Shop item cash_ledger description,Enemies drop 5% more cash.,敌人掉落的现金提高 5%。
+shop.item.redline_bounty.title,Shop item redline_bounty title,Redline Bounty,红线悬赏
+shop.item.redline_bounty.description,Shop item redline_bounty description,"Next round: enemy count +20%, movement speed +10%, drop rewards +15%.",下回合敌人数量 +20%、移动速度 +10%、掉落奖励 +15%。
+shop.item.skiptrace_burst.title,Shop item skiptrace_burst title,Skiptrace Burst,追债突袭
+shop.item.skiptrace_burst.description,Shop item skiptrace_burst description,"Active: press Space to dash.
+
+Briefly invulnerable while dashing.","主动：按空格键冲刺。
+
+冲刺时短暂无敌。"
+shop.item.redline_overtime.title,Shop item redline_overtime title,Redline Overtime,红线超载
+shop.item.redline_overtime.description,Shop item redline_overtime description,"Active: press Space to overclock.
+
+Increases damage and attack speed for 6 seconds.","主动：按空格键启动超频。
+
+持续 6 秒，提升伤害和攻击速度。"
+shop.item.grace_window.title,Shop item grace_window title,Grace Window,宽限时刻
+shop.item.grace_window.description,Shop item grace_window description,"Active: press Space for a grace period.
+
+Gain movement speed and invulnerability for 4 seconds.","主动：按空格键进入宽限状态。
+
+持续 4 秒，提升移动速度并获得无敌。"
+shop.info.browse,Shop default prompt,Spend cash on upgrades.,花费现金购买强化。
+shop.info.pre_boss,Pre-boss shop prompt,Prepare for the boss. Spend cash to upgrade your gear!,趁头目战开始前，用现金强化装备，做好准备！
+shop.info.first_draw,First-round shop prompt,Spend cash on upgrades. Your first draw in this shop is free.,花费现金购买强化。本次商店的首次抽奖免费。
+shop.info.draw_cost,Shop draw cost prompt,Spend cash on upgrades. A draw costs ${0}; each draw raises the price.,花费现金购买强化。抽奖需 ${0}，每次抽奖后价格都会上涨。
+shop.round.pre_boss,Pre-boss round label,Boss Preparation,头目战准备
+shop.round.normal,Shop round label,Round {0}/{1},第 {0}/{1} 回合
+shop.next.boss,Upcoming boss label,Next: Boss Battle,下一战：头目战
+shop.next.debt,Next round debt label,Next round debt: {0},下回合债务：{0}
+shop.free_items,Free item charges,Free items ×{0},免费商品 ×{0}
+shop.free_refreshes,Free refresh charges,Free refreshes ×{0},免费刷新 ×{0}
+shop.free,Free price,Free,免费
+shop.empty,Empty shop card,No items available,暂无商品
+shop.unavailable,Unavailable shop card,Unavailable,不可用
+shop.purchased,Purchased price,Purchased,已购买
+shop.bought,Purchased button,Bought,已购
+shop.claim,Free item button,Claim,领取
+shop.buy,Shop buy button,Buy,购买
+shop.info.insufficient_refresh,Cannot afford refresh,Not enough cash to refresh.,现金不足，无法刷新。
+shop.info.free_refresh_used,Free refresh used,Free refresh used. Next refresh costs ${0}.,已使用免费刷新次数。下次刷新需 ${0}。
+shop.info.refreshed,Shop refreshed,Shop refreshed. Next refresh costs ${0}.,商店已刷新。下次刷新需 ${0}。
+shop.info.insufficient_cash,Cannot afford purchase,Not enough cash.,现金不足。
+shop.info.claimed,Free item claimed,Claimed {0} for free. Free claims remaining: {1}.,已免费领取「{0}」。剩余免费领取次数：{1}。
+shop.info.purchased,Item purchased,Purchased {0}.,已购买「{0}」。
+shop.info.empty_pool,Empty item pool,Shop item pool is empty.,商店商品池为空。
+shop.info.free_refresh_granted,Free refresh rescue,All items sold out. You received one free refresh.,商品售罄且已获得免费商品，系统赠送 1 次免费刷新。
+wheel.draw.free,Free wheel draw button,"DRAW
+FREE","抽奖
+免费"
+wheel.draw.cost,Paid wheel draw button,"DRAW
+${0}","抽奖
+${0}"
+wheel.info.insufficient_cash,Cannot afford wheel draw,Not enough cash to draw.,现金不足，无法抽奖。
+wheel.info.refund,Wheel draw refund,Lucky draw! Your ${0} entry fee was refunded!,手气爆棚！返还抽奖费用 ${0}！
+wheel.info.cash,Wheel cash reward,Lucky draw! You won ${0}!,手气爆棚！获得现金 ${0}！
+wheel.info.free_item,Wheel free item reward,Free item! Claim your next item at no cost. Remaining: {0}.,免费商品！下一件商品可免费领取。剩余次数：{0}。
+wheel.info.debt_up,Wheel debt penalty,Bad luck... Next round debt increases by ${0}.,运气不佳……下回合债务增加 ${0}。
+wheel.info.enemy_stronger,Wheel enemy risk,"Risk and reward! Next round enemies are stronger, but cash and XP drops increase by {0}%!",风险与回报并存！下回合敌人更强，但现金和经验掉落增加 {0}%！
+wheel.info.thank_you,Wheel no reward,Better luck next time!,下次运气会更好！
+wheel.label.cash,Wheel cash segment,CASH,现金
+wheel.label.free_item,Wheel free item segment,FREE,免费
+wheel.label.debt_up,Wheel debt increase segment,DEBT+,债务+
+wheel.label.enemy_stronger,Wheel enemy buff segment,ENEMY BUFF,敌人增强
+wheel.label.thank_you,Wheel no reward segment,THANK YOU,谢谢
+round.intro.round,Round intro number,ROUND {0}/{1},第 {0}/{1} 回合
+round.intro.debt,Round intro debt,"DEBT DUE
+{0}","待偿债务
+{0}"
+round.intro.continue,Round intro continue prompt,Press any key to continue,按任意键继续
+round.times_up,Round timer expired,TIME UP,时间到
+round.clear.title,Round cleared title,ROUND COMPLETE!,本回合完成！
+round.clear.subtitle,Round cleared subtitle,"Arena cleared
+ROUND {0}/{1}","已成功清场
+第 {0}/{1} 回合"
+round.game_over.title,Game over transition title,RUN FAILED,本局失败
+round.game_over.subtitle,Game over transition subtitle,"Challenge over
+{0}","挑战结束
+{0}"
+round.game_over.debt,Game over debt cause,Debt unpaid,未能偿还债务
+round.game_over.monster,Game over monster cause,Defeated by monsters,被怪物击败
+hud.level,Level HUD label,LEVEL {0},等级 {0}
+summary.victory.title,Run summary victory title,VICTORY,胜利
+summary.victory.subtitle,Run summary victory message,You cleared every debt and conquered the arena!,你已还清所有债务，征服了竞技场！
+summary.monster.title,Run summary monster death title,DEFEAT,战败
+summary.monster.subtitle,Run summary monster death message,The monster horde overwhelmed you...,你最终被怪物大军淹没了……
+summary.debt.title,Run summary debt failure title,BANKRUPT,破产
+summary.debt.subtitle,Run summary debt failure message,You could not repay your debt...,你没能偿还债务……
+summary.stats,Run summary statistics,"Enemies defeated: {0}
+Cash earned: ${1}
+XP earned: {2}
+Rounds survived: {3}
+Final level: {4}","击败敌人：{0}
+获得现金：${1}
+获得经验：{2}
+存活回合：{3}
+最终等级：{4}"
+summary.restart,Run summary restart button,Restart,重新开始
+summary.menu,Run summary menu button,Main Menu,返回主菜单
+death.monster.title,Monster death title,YOU WERE DEFEATED!,你被击败了！
+death.monster.reason,Monster death reason,Killed by monsters,遭到怪物击杀
+death.monster.description,Monster death description,Enemies defeated you in battle.,你在战斗中被敌人击败。
+death.debt.title,Debt death title,DEBT DEFAULT!,债务违约！
+death.debt.reason,Debt death reason,Payment failed,偿债失败
+death.debt.description,Debt death description,You could not repay your debt. The collectors caught up.,你无力偿还债务，催债人已经追上来了。
+death.restart,Death panel restart button,Restart,重新开始
+death.menu,Death panel menu button,Main Menu,返回主菜单
+victory.title,Victory panel title,DEBT CLEARED,债务清零
+victory.subtitle,Victory panel subtitle,FREEDOM REGAINED,重获自由
+victory.stats,Victory panel statistics,"Rounds survived: {0}
+Total cash: {1}
+Final level: {2}","存活回合：{0}
+累计现金：{1}
+最终等级：{2}"
+victory.end,Victory panel end button,End Game,结束游戏
+victory.menu,Victory panel menu button,Main Menu,返回主菜单
+victory.thanks.title,Victory thanks title,THANKS FOR PLAYING,感谢游玩
+victory.thanks.subtitle,Victory thanks subtitle,"Your debt is paid off, for now.",债务暂时还清了。
+story.skip,Story intro skip button,Skip Story,跳过剧情
+story.continue,Story intro continue hint,Click to continue,点击继续
+upgrade.effect.damage,Upgrade effect damage,DMG+,攻击+
+upgrade.effect.fire_rate,Upgrade effect fire rate,ATK SPD↑,攻速↑
+upgrade.effect.projectile_speed,Upgrade effect projectile speed,SHOT SPD↑,弹速↑
+upgrade.effect.projectiles,Upgrade effect projectile count,SHOTS+,弹幕+
+upgrade.effect.spread,Upgrade effect spread,SPREAD↑,扩散↑
+upgrade.effect.pierce,Upgrade effect pierce,PIERCE+,穿透+
+upgrade.effect.knockback,Upgrade effect knockback,KNOCKBACK↑,击退↑
+upgrade.effect.scatter_count,Upgrade effect scatter count,BURST+,爆裂+
+upgrade.effect.scatter_angle,Upgrade effect scatter angle,BURST↑,爆裂↑
+upgrade.effect.orbit_count,Upgrade effect orbit count,ORBIT+,环绕+
+upgrade.effect.orbit_power,Upgrade effect orbit power,ORBIT↑,环绕↑
+upgrade.effect.nova,Upgrade effect nova,PULSE+,波动+
+upgrade.effect.return,Upgrade effect return,RETURN,回旋
+settlement.title,Settlement screen title,ROUND COMPLETE,回合完成
+settlement.subtitle,Settlement subtitle,Cash Out & Settle Debt,领取现金并偿还债务
+settlement.label.cash_earned,Settlement cash label,CASH EARNED,获得现金
+settlement.label.debt_payment,Settlement debt label,DEBT PAYMENT,偿还债务
+settlement.label.net_cash,Settlement net cash label,NET CASH,现金结余
+settlement.label.next_debt,Settlement next debt label,NEXT ROUND DEBT,下回合债务
+settlement.label.rounds_left,Settlement rounds left label,ROUNDS LEFT,剩余回合
+settlement.continue,Settlement continue button,Continue,继续
+credits.title,Credits screen title,CREDITS,制作人员
+credits.subtitle,Credits screen subtitle,Debt Runner Team,Debt Runner 制作团队
+credits.role.yilun,Yilun Huang credit,Art Direction / Game Design / Programming / Sound Design,美术指导 / 游戏设计 / 程序 / 音效设计
+credits.role.yipu,Yipu Yuan credit,UI Design,UI 设计
+credits.role.ziqi,Ziqi Wang credit,Character Design / Prop Design,角色设计 / 道具设计
+credits.role.lilit,Lilit Baghdasaryan credit,Environment Design,场景设计
+credits.role.todd,Todd Gorang credit,Faculty Advisor,导师支持
+credits.back,Credits back button,Back,返回
+boss.name,Boss health bar name,DEBT COLLECTOR,催债头目
+shop.next_round,Shop next round button,Next Round,下一回合
+wheel.info.spinning,Shop cannot close during a wheel spin,The wheel is still spinning. Please wait.,转盘还在旋转，请稍候。
+tutorial.move,Gameplay movement tutorial,Move with WASD,使用 WASD 移动
+tutorial.dash,Gameplay dash tutorial,Press Space to dash,按空格键冲刺
+tutorial.pickup,Gameplay pickup tutorial,"Pick up items dropped by defeated enemies.
+Gain XP to level up and cash to repay debt.","拾取击败敌人后掉落的物品
+获得经验可以升级，现金可以偿还债务。"
+tutorial.debt,Gameplay debt tutorial,"Keep fighting and repay your debt.
+Collectors never miss a payment.","努力战斗，偿还债务。
+催债人从不会错过任何一期还款。"

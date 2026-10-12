@@ -23,7 +23,7 @@ public class DeathPanel : MonoBehaviour
 
     [Header("文案配置 / Text Config")]
     [LocalizedLabel("标题 / Title")]
-    [SerializeField] private string title = "YOU DIED!";
+    [SerializeField] private string title = "你倒下了！";
 
     [LocalizedLabel("原因 / Reason")]
     [SerializeField] private string reason = "";
@@ -41,12 +41,22 @@ public class DeathPanel : MonoBehaviour
     [LocalizedLabel("Main Menu Button / 返回主菜单按钮")]
     public Button mainMenuButton;
     [LocalizedLabel("Restart Button Text / 重启按钮文本")]
-    [SerializeField] private string restartButtonText = "Restart";
+    [SerializeField] private string restartButtonText = "重新开始";
     [LocalizedLabel("Main Menu Button Text / 返回主菜单按钮文本")]
-    [SerializeField] private string mainMenuButtonText = "Main Menu";
+    [SerializeField] private string mainMenuButtonText = "返回主菜单";
 
     private CanvasGroup canvasGroup;
     private RectTransform rectTransform;
+
+    private void OnEnable()
+    {
+        LocalizationTable.LocaleChanged += UpdatePanelContent;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationTable.LocaleChanged -= UpdatePanelContent;
+    }
 
     private void Awake()
     {
@@ -111,14 +121,15 @@ public class DeathPanel : MonoBehaviour
 
     private void UpdatePanelContent()
     {
+        string cause = gameObject.name.Contains("Debt") ? "debt" : "monster";
         if (deathTitleText != null)
-            deathTitleText.text = title;
+            LocalizationTable.SetText(deathTitleText, "death." + cause + ".title", title);
 
         if (deathReasonText != null)
-            deathReasonText.text = reason;
+            LocalizationTable.SetText(deathReasonText, "death." + cause + ".reason", reason);
 
         if (deathDescriptionText != null)
-            deathDescriptionText.text = description;
+            LocalizationTable.SetText(deathDescriptionText, "death." + cause + ".description", description);
 
         if (deathBackgroundImage != null && backgroundSprite != null)
             deathBackgroundImage.sprite = backgroundSprite;
@@ -126,14 +137,14 @@ public class DeathPanel : MonoBehaviour
         if (restartButton != null)
         {
             TextMeshProUGUI t = restartButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (t != null) t.text = restartButtonText;
+            LocalizationTable.SetText(t, "death.restart", restartButtonText);
             restartButton.gameObject.SetActive(true);
         }
 
         if (mainMenuButton != null)
         {
             TextMeshProUGUI t = mainMenuButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (t != null) t.text = mainMenuButtonText;
+            LocalizationTable.SetText(t, "death.menu", mainMenuButtonText);
             mainMenuButton.gameObject.SetActive(true);
         }
 
