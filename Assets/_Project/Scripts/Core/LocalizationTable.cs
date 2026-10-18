@@ -11,8 +11,7 @@ using UnityEngine;
 public static class LocalizationTable
 {
     private const string ResourcePath = "Localization/Strings";
-    private const string DefaultLocale = "zh-CN";
-    private const string LocalePreferenceKey = "localization.locale";
+    private const string DefaultLocale = "en";
 
     private static readonly Dictionary<string, Dictionary<string, string>> Entries =
         new Dictionary<string, Dictionary<string, string>>();
@@ -33,13 +32,6 @@ public static class LocalizationTable
         LocaleChanged = null;
     }
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void LoadSavedLocale()
-    {
-        string savedLocale = PlayerPrefs.GetString(LocalePreferenceKey, DefaultLocale);
-        currentLocale = IsSupportedLocale(savedLocale) ? savedLocale : DefaultLocale;
-    }
-
     public static void SetLocale(string locale)
     {
         string nextLocale = string.IsNullOrWhiteSpace(locale) ? DefaultLocale : locale.Trim();
@@ -50,8 +42,7 @@ public static class LocalizationTable
             return;
 
         currentLocale = nextLocale;
-        PlayerPrefs.SetString(LocalePreferenceKey, currentLocale);
-        PlayerPrefs.Save();
+        // Language changes apply to this session; every launch starts in English.
         LocaleChanged?.Invoke();
     }
 
@@ -160,7 +151,7 @@ public static class LocalizationTable
 
         EnsureLoaded();
         if (Entries.Count == 0)
-            return locale == "en" || locale == DefaultLocale;
+            return locale == "en" || locale == "zh-CN";
 
         foreach (Dictionary<string, string> values in Entries.Values)
         {

@@ -5700,6 +5700,66 @@ private void SetPauseMenuVisible(bool visible)
             activeGameplayTutorialHint.SetContent(GetGameplayTutorialText(activeGameplayTutorialHintType, string.Empty));
     }
 
+    private sealed class CreditsTextStyle
+    {
+        public TMP_FontAsset Font;
+        public Material Material;
+        public FontStyles Style;
+        public float Size;
+        public float Spacing;
+    }
+
+    private readonly Dictionary<TMP_Text, CreditsTextStyle> creditsTextStyles =
+        new Dictionary<TMP_Text, CreditsTextStyle>();
+
+    private void ApplyCreditsTypography()
+    {
+        if (panelCredits == null)
+            return;
+
+        bool chinese = LocalizationTable.CurrentLocale == "zh-CN";
+        TMP_FontAsset font = chinese
+            ? Resources.Load<TMP_FontAsset>("Localization/ZixiaohunLiLiangCuHei SDF")
+            : null;
+
+        Transform backButton = panelCredits.transform.Find("Frame/Btn_CreditsBack");
+        Transform titleTransform = panelCredits.transform.Find("Frame/Title");
+        Transform subtitleTransform = panelCredits.transform.Find("Frame/Subtitle");
+        TMP_Text backLabel = backButton != null ? backButton.GetComponentInChildren<TMP_Text>(true) : null;
+        foreach (TMP_Text label in panelCredits.GetComponentsInChildren<TMP_Text>(true))
+        {
+            bool title = label.transform == titleTransform;
+            bool subtitle = label.transform == subtitleTransform;
+            bool role = label.name.StartsWith("Role_", System.StringComparison.Ordinal);
+            if (!title && !subtitle && !role && label != backLabel)
+                continue;
+
+            if (!creditsTextStyles.TryGetValue(label, out CreditsTextStyle original))
+            {
+                original = new CreditsTextStyle
+                {
+                    Font = label.font,
+                    Material = label.fontSharedMaterial,
+                    Style = label.fontStyle,
+                    Size = label.fontSize,
+                    Spacing = label.characterSpacing,
+                };
+                creditsTextStyles.Add(label, original);
+            }
+
+            bool useChineseFont = chinese && font != null;
+            label.font = useChineseFont ? font : original.Font;
+            label.fontSharedMaterial = useChineseFont ? font.material : original.Material;
+            // The supplied face is already heavy; do not apply English synthetic bold
+            // or its outline material to the Chinese glyphs.
+            label.fontStyle = useChineseFont ? FontStyles.Normal : original.Style;
+            label.characterSpacing = useChineseFont ? (title || label == backLabel ? 6f : 2f) : original.Spacing;
+            label.fontSize = useChineseFont
+                ? (title ? 64f : label == backLabel ? 40f : original.Size)
+                : original.Size;
+        }
+    }
+
     private void LocalizeStaticPanels()
     {
         SetPanelText(panelSettlement, "Frame/Title", "settlement.title", "回合完成");
@@ -5722,6 +5782,7 @@ private void SetPauseMenuVisible(bool visible)
         SetPanelText(panelCredits, "Frame/CreditsList/Role_LilitBaghdasaryan", "credits.role.lilit", "场景设计");
         SetPanelText(panelCredits, "Frame/CreditsList/Role_ToddGorang", "credits.role.todd", "导师支持");
         SetPanelButtonText(panelCredits, "Frame/Btn_CreditsBack", "credits.back", "返回");
+        ApplyCreditsTypography();
     }
 
     private static void SetPanelText(GameObject panel, string path, string key, string fallback)

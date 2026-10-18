@@ -48,6 +48,7 @@ public class StudioSplashScreen : MonoBehaviour
         finished = false;
         skipping = false;
         gameObject.SetActive(true);
+        LocalizePresentedBy();
 
         if (canvasGroup == null)
             canvasGroup = GetComponent<CanvasGroup>();
